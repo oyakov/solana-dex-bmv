@@ -7,4 +7,6 @@ Run full testing of the system, including:
 2) integration tests
 3) browser autoamtion testing
 
-Provide a report
+Provide a report, including execution report and gap analysis
+
+Save outputs into temp files
