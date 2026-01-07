@@ -45,9 +45,13 @@ async def run_once() -> None:
     database = Database(DatabaseConfig(path=settings.database.path))
     await database.connect()
 
-    wallet_manager = WalletManager(solana=solana)
+    wallet_manager = WalletManager(solana=solana, keypairs=[])
     pivot_engine = PivotEngine(target_allocation_usd=Decimal("1000"))
-    grid_builder = GridBuilder(spacing_bps=settings.strategy.grid_spacing_bps, levels=3)
+    grid_builder = GridBuilder(
+        orders_per_side=settings.strategy.orders_per_side,
+        buy_channel_width=settings.strategy.buy_channel_width,
+        sell_channel_width=settings.strategy.sell_channel_width,
+    )
     order_manager = OrderManager(open_orders={})
     risk_manager = RiskManager(limits=RiskLimits())
     fiat_manager = FiatManager(http=http)
@@ -67,10 +71,12 @@ async def run_once() -> None:
     )
     await rent_recovery.sweep(snapshot.owner)
     positions = [AssetPosition(symbol="SOL", quantity=Decimal("2"), notional_usd=Decimal("300"))]
-    pivot = await pivot_engine.compute_pivot(positions)
+    pivot = await pivot_engine.compute_pivot(
+        positions, market_data=[(Decimal("155"), Decimal("1000"))]
+    )
     await database.set_state("pivot", str(pivot))
 
-    grid = await grid_builder.build(mid_price=Decimal("150"), size=Decimal("0.1"))
+    grid = await grid_builder.build(mid_price=Decimal("150"), total_size=Decimal("0.1"))
     await order_manager.place_grid(grid)
 
     await rebalance_orchestrator.evaluate(positions, settings.strategy.rebalance_threshold_bps)

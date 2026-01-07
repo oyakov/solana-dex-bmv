@@ -17,7 +17,7 @@ class FiatManager:
     min_fiat_growth: Decimal = Decimal("0.15")     # 15%
     min_sol_reserve: Decimal = Decimal("0.70")      # 70%
 
-    async def get_usd_quote(self, pair: str) -> Decimal:
+    async def get_usd_quote(self, pair: str) -> FiatQuote:
         """
         Fetches current price for a pair (e.g., SOL/USD) from Jupiter/Raydium.
         """
@@ -27,10 +27,10 @@ class FiatManager:
             data = await self.http.get_json(url)
             price = Decimal(str(data["data"][pair]["price"]))
             logger.info("fiat_quote_fetch", pair=pair, price=price)
-            return price
+            return FiatQuote(provider="jupiter", pair=pair, price=price)
         except Exception as e:
             logger.error("fiat_quote_failed", pair=pair, error=str(e))
-            return Decimal("150") # Fallback
+            return FiatQuote(provider="fallback", pair=pair, price=Decimal("150"))
 
     async def check_injection_needed(
         self, 
