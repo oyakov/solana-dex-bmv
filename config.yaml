@@ -1,0 +1,59 @@
+token_mint: "CHANGE_ME"
+openbook_market_id: "CHANGE_ME"
+
+order_grid:
+  orders_per_side: 16
+
+pivot_vwap:
+  pivot_price: 0.0
+  vwap_price: 0.0
+  lookback_minutes: 0
+
+channel_bounds:
+  buy_percent: 0.15
+  sell_percent: 0.30
+
+jito_bundle:
+  enabled: false
+  tip_lamports: 0
+  max_bundle_txs: 5
+  bundler_url: "https://mainnet.block-engine.jito.wtf"
+
+rpc_endpoints:
+  primary_http: "https://api.mainnet-beta.solana.com"
+  secondary_http: []
+  primary_ws: "wss://api.mainnet-beta.solana.com"
+
+wallets:
+  multi_wallet:
+    enabled: true
+    keypairs: []
+  usdc_wallet_3: "CHANGE_ME"
+
+risk_limits:
+  max_position_usd: 0.0
+  max_order_usd: 0.0
+  max_daily_loss_usd: 0.0
+  max_open_orders: 0
+
+hotkeys_tui:
+  enabled: true
+  refresh_ms: 250
+  hotkeys:
+    cancel_all: "C"
+    pause_trading: "P"
+    resume_trading: "R"
+    quit: "Q"
+
+logging_metrics:
+  log_level: "info"
+  log_file: "logs/solana-dex.log"
+  metrics:
+    enabled: false
+    endpoint: "http://localhost:9091"
+    push_interval_seconds: 15
+
+dry_run:
+  enabled: true
+  use_live_rpc: false
+  simulate_fills: true
