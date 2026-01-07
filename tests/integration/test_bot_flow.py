@@ -14,9 +14,11 @@ async def test_bot_rebalance_integration():
     # Mock the internal method called by WalletManager.snapshot
     solana_mock.get_balance = AsyncMock(return_value=1000000)
     
-    wallet_manager = WalletManager(solana=solana_mock)
+    from solders.keypair import Keypair
+    dummy_keypair = Keypair()
+    wallet_manager = WalletManager(solana=solana_mock, keypairs=[dummy_keypair])
     pivot_engine = PivotEngine(target_allocation_usd=Decimal("1000"))
-    grid_builder = GridBuilder(spacing_bps=100, levels=2)
+    grid_builder = GridBuilder(orders_per_side=2)
     order_manager = OrderManager(open_orders={})
     
     # 2. Simulate workflow with patching to avoid read-only slot issues
@@ -30,11 +32,12 @@ async def test_bot_rebalance_integration():
         positions = [
             AssetPosition(symbol="SOL", quantity=Decimal("2"), notional_usd=Decimal("300"))
         ]
-        pivot = await pivot_engine.compute_pivot(positions)
-        assert pivot == Decimal("700")
+        market_data = [(Decimal("150"), Decimal("1000"))]
+        pivot = await pivot_engine.compute_pivot(positions, market_data)
+        assert pivot == Decimal("150")
         
         # Build and place grid
-        grid = await grid_builder.build(mid_price=Decimal("150"), size=Decimal("0.1"))
+        grid = await grid_builder.build(mid_price=Decimal("150"), total_size=Decimal("0.1"))
         await order_manager.place_grid(grid)
         
         # Verify
