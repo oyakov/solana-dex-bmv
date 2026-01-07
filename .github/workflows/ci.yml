@@ -1,0 +1,31 @@
+name: Solana DEX BMV CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run tests
+      env:
+        PYTHONPATH: "."
+      run: |
+        # Run all tests except devnet connectivity which might fail without real RPC or in limited env
+        python -m pytest -p no:anchorpy --verbose --ignore=tests/integration/test_devnet_connectivity.py
