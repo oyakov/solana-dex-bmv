@@ -27,10 +27,12 @@ class SolanaClient:
         return int(response.value)
 
     async def health(self) -> bool:
-        response = await self._client.is_blockhash_valid(
-            (await self._client.get_latest_blockhash()).value.blockhash
-        )
-        return bool(response.value)
+        try:
+            response = await self._client.get_version()
+            return response.value is not None
+        except Exception as e:
+            logger.error("health_check_failed", error=str(e))
+            return False
 
     async def send_bundle(self, transactions: list[str], jito_api_url: str) -> str:
         """
