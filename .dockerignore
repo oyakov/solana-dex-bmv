@@ -1,0 +1,16 @@
+.git
+.vscode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.sqlite
+.pytest_cache
+.benchmarks
+tests/
+docs/
+temp_test_results.txt
