@@ -57,13 +57,9 @@ Define configuration via environment variables or a `.env` file. Recommended fie
 - `TUI_REFRESH_MS`: Refresh cadence.
 
 ## Running the Asyncio Event Loop
-Use the main entrypoint to bootstrap the event loop and start all tasks.
-
-```bash
-python -m solana_dex_bmv
-```
-
-If you need to run programmatically, follow this pattern:
+This repository does not currently ship a runnable module entrypoint. If you need
+to bootstrap the event loop, create a small wrapper in your own codebase or
+scripts directory. A typical pattern looks like:
 
 ```python
 import asyncio
@@ -136,4 +132,3 @@ Run lint checks (if configured):
 ```bash
 ruff check .
 ```
-
