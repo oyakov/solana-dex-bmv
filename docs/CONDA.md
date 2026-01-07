@@ -44,6 +44,14 @@ conda run -n solana-dex-bmv python -m pytest
 
 ### Run Bot
 
+To start the bot in dry-run mode:
+
+```powershell
+conda run -n solana-dex-bmv python -m bot.main --dry-run
+```
+
+To start the production bot:
+
 ```powershell
 conda run -n solana-dex-bmv python -m bot.main
 ```
