@@ -14,7 +14,7 @@ class RiskManager:
     limits: RiskLimits
 
     def check_notional(self, total_notional: Decimal) -> bool:
-        within = total_notional <= self.limits.max_notional_usd
+        within = abs(total_notional) <= self.limits.max_notional_usd
         logger.info(
             "risk_check",
             total_notional=total_notional,
