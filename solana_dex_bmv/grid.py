@@ -20,6 +20,8 @@ def build_grid(center_price: float, spacing: float, levels: int = 16) -> List[Gr
         raise ValueError("spacing must be positive")
     if levels <= 0:
         raise ValueError("levels must be positive")
+    if center_price - spacing * levels <= 0:
+        raise ValueError("levels would create non-positive grid prices")
 
     orders: List[GridOrder] = []
     for level in range(1, levels + 1):

@@ -1,3 +1,5 @@
+import pytest
+
 from solana_dex_bmv.grid import build_grid
 
 
@@ -18,3 +20,8 @@ def test_grid_builder_count_and_spacing():
 
     assert all(spacing == 2 for spacing in buy_spacings)
     assert all(spacing == 2 for spacing in sell_spacings)
+
+
+def test_grid_builder_rejects_non_positive_prices():
+    with pytest.raises(ValueError, match="non-positive grid prices"):
+        build_grid(center_price=10, spacing=2, levels=6)
