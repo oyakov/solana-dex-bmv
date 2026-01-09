@@ -182,8 +182,9 @@ For advanced testing (Integration, Devnet, Jito), see [TESTING.md](docs/TESTING.
 
 ## Project Documentation
 
-- [Trading Strategy Design](docs/Алгоритм динамического построения торговой сетки ордеров.md)
-- [Requirements](docs/requirements/DEX Trading Bot — Требования.md)
+- [**Memory Bank**](docs/MEMORY_BANK.md): Core references, architecture, and project status.
+- [Trading Strategy Design](docs/requirements/old/Алгоритм%20динамического%20построения%20торговой%20сетки%20ордеров.md)
+- [Requirements](docs/requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования.md)
 - [Conda Setup](docs/CONDA.md)
 - [Docker Guide](docs/DOCKER.md)
 - [Testing Guide](docs/TESTING.md)
