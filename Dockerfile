@@ -1,5 +1,5 @@
 # Builder stage
-FROM rust:1.83-slim-bookworm AS builder
+FROM rustlang/rust:nightly-bookworm-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
