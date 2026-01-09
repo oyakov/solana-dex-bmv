@@ -18,26 +18,24 @@ Synchronizes locally completed work with Linear.
 
 ### 3. `/docker-testing`
 
-Automates the build and dry-run verification of the bot within a Docker container.
+Automates the build and verification of the bot within a Docker container.
 
 - Builds the Docker image.
-- Runs the container with a `--dry-run` flag.
+- Runs the container with a check flag.
 - Verifies logs for successful initialization.
 
 ### 4. `/run-comprehensive-testing`
 
-Executes a full suite of tests including unit, integration, and browser-based (TUI) verification.
+Executes a full suite of tests including unit and integration verification.
 
-- Runs `pytest`.
-- Performs operational audits of the TUI using browser automation.
+- Runs `cargo test`.
 - Generates a consolidated test report.
 
 ### 5. `/update-documentation`
 
-(This workflow)
 Ensures all documentation in the `/docs` folder and the root `README.md` is comprehensive, accurate, and synchronized with the latest codebase changes.
 
 ## How to Use
 
-These workflows are triggered using the `@` symbol followed by the workflow name in your interaction with the AI agent (Antigravity).
-Example: `@[/linear-project-report]`
+These workflows are triggered using the slash command in your interaction with the AI agent.
+Example: `/linear-project-report`

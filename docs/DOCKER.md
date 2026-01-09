@@ -11,21 +11,21 @@ This guide provides instructions for running the Solana Dex (BMV) bot using Dock
 
 1. **Prepare Environment**:
 
-   ```bash
-   cp .env.example .env
+   ```powershell
+   copy .env.example .env
    ```
 
    Edit `.env` and provide your Solana RPC URLs and keypair paths.
 
 2. **Build and Start**:
 
-   ```bash
+   ```powershell
    docker-compose up -d --build
    ```
 
 3. **Check Status**:
 
-   ```bash
+   ```powershell
    docker-compose ps
    docker-compose logs -f
    ```
@@ -42,12 +42,12 @@ By default, the `docker-compose.yml` maps:
 Ensure your `.env` refers to paths *inside* the container, e.g.:
 `WALLET_KEYPAIR_PATH=/app/keys/my-wallet.json`
 
-### Dry Run Mode
+### Commands
 
-To run the bot in dry-run mode within Docker, you can override the command in `docker-compose.yml` or use:
+To run the bot with custom arguments:
 
-```bash
-docker run --env-file .env solana-dex-bmv python -m bot.main --dry-run
+```powershell
+docker run --env-file .env solana-dex-bmv /app/solana-dex-bmv --config /app/config.yaml
 ```
 
 ## Troubleshooting
@@ -56,8 +56,8 @@ docker run --env-file .env solana-dex-bmv python -m bot.main --dry-run
 
 Check the logs for initialization errors:
 
-```bash
-docker logs <container_id>
+```powershell
+docker-compose logs bot
 ```
 
 ### Networking Issues

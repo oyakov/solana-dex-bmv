@@ -14,7 +14,6 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 
 ## Operational Guides
 - [README](../README.md): Quick start and execution guide.
-- [Conda Setup](CONDA.md): Environment management using Conda.
 - [Docker Guide](DOCKER.md): Running the bot in containerized environments.
 - [Testing Guide](TESTING.md): Testing strategy and execution instructions.
 - [Agent Workflows](WORKFLOWS.md): Available AI agent workflows.
@@ -37,7 +36,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 
 ## Core Practices
 1. **Jito-First**: Every transaction must be MEV-protected via Jito Bundles.
-2. **Asyncio Only**: No blocking calls in the main event loop. Use `run_in_executor` for CPU-heavy tasks.
-3. **Structured Logging**: Use `structlog` for all events to facilitate analytics.
+2. **Tokio-Async**: All I/O operations must be asynchronous using the `tokio` runtime. No blocking calls in the main event threads.
+3. **Structured Tracing**: Use the `tracing` crate for all application events and logs.
 4. **Safety First**: Every action must pass through the Circuit Breaker and Risk Manager.
 5. **Multi-Wallet Rotation**: Never use a single wallet for all orders to avoid detection and limits.

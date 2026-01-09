@@ -1,36 +1,35 @@
-# Use Python 3.10 slim as base
-FROM python:3.11-slim as builder
+# Builder stage
+FROM rust:1.75-slim as builder
 
-# Set work directory
 WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
+    pkg-config \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install dependencies
-# Note: Using requirements_utf8.txt as it's the confirmed UTF-8 version
-COPY requirements_utf8.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements_utf8.txt
-
-# Final stage
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy installed dependencies from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy project files
 COPY . .
 
-# Set environment variables
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+# Build the application
+RUN cargo build --release
+
+# Final stage
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary from builder
+COPY --from=builder /app/target/release/solana-dex-bmv /app/solana-dex-bmv
+COPY --from=builder /app/config.yaml /app/config.yaml
 
 # Run the bot
-CMD ["python", "bot/main.py"]
+ENTRYPOINT ["/app/solana-dex-bmv"]
+CMD ["--config", "/app/config.yaml"]

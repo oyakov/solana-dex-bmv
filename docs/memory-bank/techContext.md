@@ -1,17 +1,17 @@
 # Tech Context: BMV Eco System Market Making Bot
 
 ## Runtime Environment
-- **Python**: 3.11+
+- **Rust**: Latest stable (1.75+)
 - **Host**: Linux Server (e.g., Hetzner) or Docker.
-- **Concurrency**: `asyncio` for non-blocking I/O.
+- **Concurrency**: `tokio` for non-blocking I/O and async runtime.
 
 ## Core Libraries
-- **Solana SDK**: `solana-py`, `anchorpy` for blockchain interaction.
-- **Jito**: Jito Block Engine SDK for bundles.
-- **Database**: `sqlite3` (via `aiosqlite`) for persisting bot state, trades, and PnL.
-- **Configuration**: `PyYAML` and `python-dotenv`.
-- **Logging**: `structlog` for structured JSON logging.
-- **UI**: `Textual` or similar for the TUI (Terminal User Interface).
+- **Solana SDK**: `solana-sdk`, `solana-client` for blockchain interaction.
+- **Jito**: Jito Block Engine support (custom implementation or crate).
+- **Database**: `sqlx` with SQLite for persisting bot state, trades, and PnL.
+- **Configuration**: `serde_yaml` and `dotenvy`.
+- **Logging**: `tracing` and `tracing-subscriber` for structured logging.
+- **Error Handling**: `anyhow` and `thiserror`.
 
 ## Infrastructure & APIs
 - **Solana RPC**: High-performance HTTP/WS endpoints (e.g., Helius, Triton, QuickNode).
@@ -22,7 +22,7 @@
     - **Jupiter**: Taker orders and arbitrage.
 
 ## Development & Operations
-- **Environment Management**: Conda (see `docs/CONDA.md`).
-- **Containerization**: Docker & Docker Compose (see `docs/DOCKER.md`).
-- **Testing**: `pytest` for unit and integration tests.
-- **Metrics**: Prometheus & Grafana (optional).
+- **Build System**: Cargo.
+- **Containerization**: Docker & Docker Compose (see [DOCKER.md](../DOCKER.md)).
+- **Testing**: Native Rust test runner (`cargo test`).
+- **Metrics**: Prometheus integration (planned).

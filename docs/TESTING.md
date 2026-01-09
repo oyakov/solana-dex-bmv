@@ -1,79 +1,61 @@
 # Testing Guide
 
-This document outlines the testing strategy and instructions for the Solana Dex (BMV) project.
+This document outlines the testing strategy and instructions for the Solana Dex (BMV) project (Rust implementation).
 
 ## Test Structure
 
-The tests are organized into three main categories:
+The tests are organized into the following categories:
 
-- **Unit Tests (`tests/unit/`)**: Verify individual components in isolation (e.g., Grid Builder logic, Pivot Engine calculations).
-- **Integration Tests (`tests/integration/`)**: Verify the interaction between multiple modules (e.g., Bot flow, persistence).
-- **Smoke/Legacy Tests (`tests/*.py`)**: Basic functionality checks.
+- **Unit Tests**: Defined within the module files in `src/`.
+- **Integration Tests**: Verification of the interaction between multiple modules.
+- **Doc Tests**: Verified examples in documentation comments.
 
 ## Running Tests
 
-### Basic Unit Tests
+### All Tests
 
-Run all unit tests:
+Run all tests including unit, integration, and doc tests:
 
-```bash
-pytest tests/unit
+```powershell
+cargo test
+```
+
+### Specific Module Tests
+
+To run tests for a specific module:
+
+```powershell
+cargo test <module_name>
 ```
 
 ### Integration Tests
 
-Run integration tests (requires SQLite and environment setup):
+If you have dedicated integration tests in the `tests/` directory (Rust style, e.g., `tests/*.rs`):
 
-```bash
-pytest tests/integration
+```powershell
+cargo test --test <test_name>
 ```
 
-### Devnet Connectivity Test
+## Running with Logging
 
-To verify the bot can connect to Solana Devnet and Jito:
+To see logs during test execution:
 
-```bash
-pytest tests/integration/test_devnet_connectivity.py
+```powershell
+$env:RUST_LOG="info"; cargo test -- --nocapture
 ```
 
-## Advanced Testing Scenarios
+## Code Quality
 
-### 1. Persistence & Recovery
+We use `cargo fmt` and `cargo clippy`:
 
-Verifies that the bot correctly saves its state to SQLite and can recover after a restart.
-
-```bash
-pytest tests/integration/test_persistence_recovery.py
-```
-
-### 2. Stress & Limits
-
-Tests the `GridBuilder` and `RiskManager` against extreme market conditions and edge cases.
-
-```bash
-pytest tests/unit/test_stress_limits.py
-```
-
-### 3. Jito Logic
-
-Verifies the assembly and signing of Jito bundles without actually submitting them (using mocks).
-
-```bash
-pytest tests/unit/test_jito_logic.py
+```powershell
+cargo fmt --all -- --check
+cargo clippy -- -D warnings
 ```
 
 ## Environment Requirements
 
-Some integration tests require valid RPC URLs in your `.env` file or exported as environment variables:
+Some integration tests may require valid RPC URLs in your `.env` file or exported as environment variables:
 
 - `SOLANA_RPC_HTTP_URL`
 - `SOLANA_RPC_WS_URL`
-
-## Code Quality
-
-We use `ruff` for linting and formatting:
-
-```bash
-ruff check .
-ruff format .
-```
