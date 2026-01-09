@@ -3910,6 +3910,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.21.7",
+ "bincode",
  "clap 4.5.54",
  "dotenvy",
  "mockall",
@@ -3919,6 +3921,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "solana-account-decoder",
  "solana-client",
  "solana-sdk",
  "sqlx",

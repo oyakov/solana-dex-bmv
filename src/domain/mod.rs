@@ -101,4 +101,13 @@ impl Orderbook {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionResult {
+    pub transaction_id: String,
+    pub status: String, // "success", "failed", "pending"
+    pub error: Option<String>,
+    pub timestamp: i64,
+}
+
+
 

@@ -4,7 +4,8 @@ mod services;
 mod utils;
 
 use crate::infra::{Database, SolanaClient, WalletManager};
-use crate::services::{GridBuilder, PivotEngine, TradingService};
+use crate::services::{PivotEngine, TradingService};
+
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
@@ -30,28 +31,23 @@ async fn main() -> Result<()> {
     // Initialize infrastructure
     let commitment = CommitmentConfig::from_str(&settings.solana.commitment)
         .unwrap_or(CommitmentConfig::confirmed());
-    let solana = SolanaClient::new(&settings.solana.rpc_url, commitment);
-
-    let database = Database::connect(&settings.database.path).await?;
-    let wallet_manager = WalletManager::new(&settings.solana.wallets)?;
+    let solana = std::sync::Arc::new(SolanaClient::new(&settings.solana.rpc_url, commitment));
+    let database = std::sync::Arc::new(Database::connect(&settings.database.path).await?);
+    let wallet_manager = std::sync::Arc::new(WalletManager::new(&settings.solana.wallets)?);
 
     // Initialize logic services
     let pivot_engine = PivotEngine::new(Decimal::from(1000));
-    let grid_builder = GridBuilder {
-        orders_per_side: settings.strategy.orders_per_side,
-        buy_channel_width: settings.strategy.buy_channel_width,
-        sell_channel_width: settings.strategy.sell_channel_width,
-    };
 
     // Initialize orchestrator
     let orchestrator = TradingService::new(
-        settings.clone(),
+        settings,
         solana,
         database,
         wallet_manager,
         pivot_engine,
-        grid_builder,
     );
+
+
 
     // Run the trading loop
     // Note: This will run forever until interrupted

@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use solana_sdk::signer::keypair::{Keypair, read_keypair_file};
 use solana_sdk::signer::Signer;
-use std::str::FromStr;
+
 use tracing::{info, warn};
 
 pub struct WalletManager {
@@ -54,7 +54,12 @@ impl WalletManager {
         self.wallets.get(index).ok_or_else(|| anyhow!("Wallet index out of bounds"))
     }
 
+    pub fn get_all_wallets(&self) -> Vec<&Keypair> {
+        self.wallets.iter().collect()
+    }
+
     pub fn count(&self) -> usize {
+
         self.wallets.len()
     }
 }
