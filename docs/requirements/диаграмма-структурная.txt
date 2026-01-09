@@ -1,0 +1,61 @@
+// Solana Market Making Bot Architecture
+
+title BMV Solana Market Making Bot Architecture
+
+BMV Bot [icon: python] {
+  Core Engine [icon: python]
+  Swarm Orchestrator [icon: settings]
+  Rebalancer [icon: refresh-cw]
+  Flash Volume Module [icon: repeat]
+  Market Noise Module [icon: shuffle]
+  Financial Manager [icon: dollar-sign]
+  Rent Recovery Service [icon: refresh-cw]
+  Key Manager [icon: key]
+  Kill Switch [icon: power]
+}
+
+Storage [icon: database] {
+  Redis [icon: redis]
+  PostgreSQL [icon: postgresql]
+}
+
+Infrastructure [icon: server] {
+  Solana RPC Node [icon: globe, label: "Solana RPC\n(Helius/QuickNode)"]
+  Jito Engine [icon: server, label: "Jito Block\nEngine"]
+}
+
+External [icon: globe] {
+  OpenBook DEX [icon: globe]
+  Jupiter DEX [icon: globe]
+  Price Oracle [icon: globe, label: "SOL/USD Price\nOracle"]
+}
+
+Observability [icon: eye] {
+  Prometheus [icon: prometheus]
+  Grafana [icon: grafana]
+}
+
+// Connections
+Core Engine > Price Oracle: fetch price [color: blue]
+
+
+Rebalancer > Solana RPC Node: L2 orderbook scan [color: purple]
+Rebalancer > Core Engine: rebuild trigger
+
+Flash Volume Module > Jito Engine: atomic wash trades [color: orange]
+Market Noise Module > Jito Engine: noise orders [color: orange]
+
+Financial Manager > Jupiter DEX: conversions [color: green]
+
+Rent Recovery Service > Jito Engine: close accounts
+
+Kill Switch > Redis: stop operations [color: red]
+
+Jito Engine > OpenBook DEX: trade execution
+Jito Engine > Jupiter DEX: trade execution
+
+Core Engine > Prometheus: expose metrics
+Prometheus <> Grafana
+Core Engine <> Storage
+Core Engine <> Infrastructure
+Swarm Orchestrator <> Storage
