@@ -38,6 +38,28 @@ async fn main() -> Result<()> {
     let database = std::sync::Arc::new(Database::connect(&settings.database.path).await?);
     let wallet_manager = std::sync::Arc::new(WalletManager::new(&settings.solana.wallets)?);
 
+    // Perform connectivity health checks
+    let health_checker = infra::HealthChecker::new(
+        solana.clone(),
+        database.clone(),
+        settings.clone(),
+    );
+    let health_reports = health_checker.run_all_checks().await;
+    infra::HealthChecker::display_reports(&health_reports);
+    health_checker.verify_critical_services(&health_reports).await?;
+
+    // Spawn periodic health check task
+    let health_checker_task = std::sync::Arc::new(health_checker);
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+        // Skip the first tick since we already ran it
+        interval.tick().await; 
+        loop {
+            interval.tick().await;
+            health_checker_task.run_all_checks().await;
+        }
+    });
+
     // Initialize logic services
     let pivot_engine = PivotEngine::new(Decimal::from(1000));
 
@@ -49,8 +71,6 @@ async fn main() -> Result<()> {
         wallet_manager,
         pivot_engine,
     );
-
-
 
     // Run the trading loop
     // Note: This will run forever until interrupted
