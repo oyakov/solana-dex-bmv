@@ -6,6 +6,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
 use tracing::{info, error};
+use metrics::{counter, gauge};
 
 pub struct TradingService {
     _settings: BotSettings,
@@ -57,7 +58,9 @@ impl TradingService {
         );
 
         loop {
+            counter!("bot_ticks_total", 1);
             if let Err(e) = self.tick().await {
+                counter!("bot_tick_errors_total", 1);
                 error!(error = ?e, "Error during trading tick");
             }
 
@@ -77,10 +80,12 @@ impl TradingService {
 
         // 3. Compute Pivot (Pass empty history and 31 days for now)
         let pivot = self.pivot_engine.compute_pivot(&[], &[], Some(&market_data), 31).await;
+        gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
         info!(?pivot, "New pivot calculated");
 
         // 4. Build Grid
         let grid = self.grid_builder.build(market_data.price, Decimal::from(100)).await;
+        gauge!("bot_grid_levels_count", grid.len() as f64);
         info!(levels = grid.len(), "Grid constructed");
 
         // 5. Execute Grid (Phase 2 core)

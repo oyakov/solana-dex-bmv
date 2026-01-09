@@ -4,6 +4,7 @@ use rust_decimal::Decimal;
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use std::str::FromStr;
+use metrics::counter;
 
 #[allow(dead_code)]
 pub struct Database {
@@ -81,6 +82,11 @@ impl Database {
     }
 
     pub async fn save_trade(&self, trade: &Trade) -> Result<()> {
+        let side_str = match trade.side {
+            OrderSide::Buy => "buy",
+            OrderSide::Sell => "sell",
+        };
+
         sqlx::query(
             "INSERT INTO trades (id, timestamp, price, volume, side, wallet)
             VALUES (?, ?, ?, ?, ?, ?)",
@@ -89,13 +95,12 @@ impl Database {
         .bind(trade.timestamp)
         .bind(trade.price.to_string())
         .bind(trade.volume.to_string())
-        .bind(match trade.side {
-            OrderSide::Buy => "buy",
-            OrderSide::Sell => "sell",
-        })
+        .bind(side_str)
         .bind(&trade.wallet)
         .execute(&self.pool)
         .await?;
+
+        counter!("bot_trades_saved_total", 1, "side" => side_str);
 
         Ok(())
     }

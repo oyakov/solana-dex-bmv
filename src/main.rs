@@ -23,6 +23,9 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)
         .context("setting default subscriber failed")?;
 
+    // Initialize metrics
+    infra::observability::init_metrics();
+
     info!("Solana DEX BMV bot (Rust) starting");
 
     // Load settings
