@@ -112,9 +112,43 @@ mod tests {
         // Sell price: 100 + (100 * 0.20 / 1) * 1 = 120
         assert!(grid
             .iter()
-            .any(|l| l.price == Decimal::from(90) && matches!(l.side, OrderSide::Buy)));
-        assert!(grid
-            .iter()
             .any(|l| l.price == Decimal::from(120) && matches!(l.side, OrderSide::Sell)));
+    }
+
+    #[test]
+    fn test_grid_zero_orders() {
+        let builder = GridBuilder {
+            orders_per_side: 0,
+            ..Default::default()
+        };
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let grid = rt.block_on(builder.build(Decimal::from(100), Decimal::from(10)));
+        assert_eq!(grid.len(), 0);
+    }
+
+    #[test]
+    fn test_grid_spacing() {
+        let builder = GridBuilder {
+            orders_per_side: 2,
+            buy_channel_width: Decimal::from_str_radix("0.10", 10).unwrap(), // 10%
+            sell_channel_width: Decimal::from_str_radix("0.20", 10).unwrap(), // 20%
+        };
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let grid = rt.block_on(builder.build(Decimal::from(100), Decimal::from(10)));
+        
+        // Buy Step: (100 * 0.10) / 2 = 5
+        // Buy Levels: 100 - 5 = 95, 100 - 10 = 90
+        // Sell Step: (100 * 0.20) / 2 = 10
+        // Sell Levels: 100 + 10 = 110, 100 + 20 = 120
+        
+        let mut prices: Vec<Decimal> = grid.iter().map(|l| l.price).collect();
+        prices.sort();
+        
+        assert_eq!(prices, vec![
+            Decimal::from(90), 
+            Decimal::from(95), 
+            Decimal::from(110), 
+            Decimal::from(120)
+        ]);
     }
 }

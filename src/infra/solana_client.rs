@@ -1,7 +1,10 @@
+use crate::domain::MarketUpdate;
+use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Result, anyhow};
 use tracing::{info, error};
 
@@ -20,6 +23,22 @@ impl SolanaClient {
         let pubkey = Pubkey::from_str(owner).map_err(|e| anyhow!("Invalid pubkey: {}", e))?;
         let balance = self.client.get_balance(&pubkey).await?;
         Ok(balance)
+    }
+
+    pub async fn get_market_data(&self, _market_id: &str) -> Result<MarketUpdate> {
+        // TODO: Implement real OpenBook/Raydium market data fetching.
+        // This will involve fetching the market accounts and parsing their state.
+        
+        // For Phase 1 progress, we simulate the fetch but use real timestamp.
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs() as i64;
+            
+        Ok(MarketUpdate {
+            timestamp: now,
+            price: Decimal::from(150), // Simulated real price
+            volume_24h: Decimal::from(5000),
+        })
     }
 
     pub async fn health(&self) -> bool {
@@ -60,3 +79,4 @@ impl SolanaClient {
         Ok(bundle_id)
     }
 }
+

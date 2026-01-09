@@ -9,6 +9,7 @@ pub struct SolanaSettings {
     pub rpc_url: String,
     pub commitment: String,
     pub default_fee_payer: Option<String>,
+    pub wallets: Vec<String>, // List of base58 private keys or paths
 }
 
 impl Default for SolanaSettings {
@@ -17,6 +18,7 @@ impl Default for SolanaSettings {
             rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
             commitment: "confirmed".to_string(),
             default_fee_payer: None,
+            wallets: Vec::new(),
         }
     }
 }
@@ -51,6 +53,7 @@ impl Default for HttpSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategySettings {
+    pub market_id: String,
     pub pivot_interval_seconds: f64,
     pub grid_spacing_bps: u32,
     pub rebalance_threshold_bps: u32,
@@ -64,6 +67,7 @@ pub struct StrategySettings {
 impl Default for StrategySettings {
     fn default() -> Self {
         Self {
+            market_id: "B9coHrCxYv7xmPfSU7Z5VfugDqdTdZqZTpBGBdazq8AC".to_string(), // BMV/SOL OpenBook
             pivot_interval_seconds: 30.0,
             grid_spacing_bps: 25,
             rebalance_threshold_bps: 50,
@@ -75,6 +79,7 @@ impl Default for StrategySettings {
         }
     }
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JitoSettings {
@@ -122,5 +127,31 @@ impl BotSettings {
         // Simplified loader for now, in a real case we would use config-rs
         // or manually check env vars.
         Ok(Self::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_settings() {
+        let settings = BotSettings::default();
+        assert_eq!(settings.run_mode, "paper");
+        assert_eq!(settings.solana.commitment, "confirmed");
+        assert_eq!(settings.strategy.orders_per_side, 16);
+        assert!(!settings.jito.enabled);
+    }
+
+    #[test]
+    fn test_serialization() {
+        let settings = BotSettings::default();
+        let yaml = serde_yaml::to_string(&settings).unwrap();
+        assert!(yaml.contains("run_mode: paper"));
+        assert!(yaml.contains("orders_per_side: 16"));
+        
+        let deserialized: BotSettings = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(deserialized.run_mode, settings.run_mode);
+        assert_eq!(deserialized.strategy.orders_per_side, settings.strategy.orders_per_side);
     }
 }

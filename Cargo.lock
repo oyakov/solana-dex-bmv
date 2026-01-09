@@ -3922,6 +3922,7 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "sqlx",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",

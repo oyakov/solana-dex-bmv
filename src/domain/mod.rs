@@ -61,3 +61,44 @@ pub struct WalletSnapshot {
     pub balance_lamports: u64,
     pub token_balances: HashMap<String, u64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Trade {
+    pub id: String,
+    pub timestamp: i64,
+    pub price: Decimal,
+    pub volume: Decimal,
+    pub side: OrderSide,
+    pub wallet: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketUpdate {
+    pub timestamp: i64,
+    pub price: Decimal,
+    pub volume_24h: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderbookLevel {
+    pub price: Decimal,
+    pub size: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Orderbook {
+    pub market_id: String,
+    pub timestamp: i64,
+    pub bids: Vec<OrderbookLevel>,
+    pub asks: Vec<OrderbookLevel>,
+}
+
+impl Orderbook {
+    pub fn get_mid_price(&self) -> Option<Decimal> {
+        let best_bid = self.bids.first()?.price;
+        let best_ask = self.asks.first()?.price;
+        Some((best_bid + best_ask) / Decimal::from(2))
+    }
+}
+
+

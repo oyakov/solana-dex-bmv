@@ -7,11 +7,13 @@ Developing the memory bank and ensuring documentation is up to date with the lat
 - **Project Structure**: Consolidated documentation into `/docs`.
 - **Memory Bank**: Initialized core references and practices.
 - **Requirements**: Refined the trading grid algorithm (VWAP Pivot, Asymmetric Channel).
+- **Trading Orchestrator**: Implemented `TradingService` to manage the main loop and decouple logic from `main.rs`.
 
 ## In Progress
 - [x] Consolidate technical specs.
 - [x] Initialize Memory Bank.
-- [ ] Reviewing core trading loop implementation (Planned).
+- [x] Implement core trading loop orchestrator.
+- [ ] Implement Market Data Service (WebSocket/RPC polling).
 - [ ] Integration testing with Jito (Planned).
 
 ## Known Issues / Tasks
