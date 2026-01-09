@@ -104,13 +104,21 @@ impl HealthChecker {
 
         let start = Instant::now();
         let client = reqwest::Client::new();
-        // Simple GET check or small request to Jito endpoint
-        let result = client.get(&self.settings.jito_bundle.bundler_url).send().await;
+        let payload = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTipAccounts",
+            "params": []
+        });
+        
+        let result = client.post(&self.settings.jito_bundle.bundler_url)
+            .json(&payload)
+            .send()
+            .await;
         let latency = start.elapsed().as_millis();
 
         match result {
-            Ok(resp) if resp.status().is_success() || resp.status().as_u16() == 405 => {
-                // 405 Method Not Allowed is fine because we did a GET on a POST endpoint
+            Ok(resp) if resp.status().is_success() => {
                 HealthReport {
                     service_name: "Jito Bundler".to_string(),
                     status: ServiceStatus::Healthy,

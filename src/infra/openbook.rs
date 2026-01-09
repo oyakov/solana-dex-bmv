@@ -31,42 +31,46 @@ impl MarketStateV3 {
             return Err(anyhow!("Market account data too short"));
         }
         
-        // Byte offsets for Serum V3 Market Account (Verified offsets)
-        // [5 bytes padding][8 bytes flags] = 13
-        // base_mint: 13..45
-        // quote_mint: 45..77
-        // base_vault: 77..109
-        // base_deposits_total: 109..117
-        // quote_vault: 117..149
-        // quote_deposits_total: 149..157
-        // ...
-        // request_queue: 173..205
-        // event_queue: 205..237
-        // bids: 237..269
-        // asks: 269..301
-        // base_lot_size: 301..309
-        // quote_lot_size: 309..317
-        
+        // Correct Byte offsets for Serum V3 / OpenBook V1 Market Account
+        // Header: [5 bytes padding][8 bytes flags] = 13
+        // own_address: 13..45
+        // vault_signer_nonce: 45..53
+        // base_mint: 53..85
+        // quote_mint: 85..117
+        // base_vault: 117..149
+        // base_deposits_total: 149..157
+        // base_fees_accrued: 157..165
+        // quote_vault: 165..197
+        // quote_deposits_total: 197..205
+        // quote_fees_accrued: 205..213
+        // quote_dust_threshold: 213..221
+        // request_queue: 221..253
+        // event_queue: 253..285
+        // bids: 285..317
+        // asks: 317..349
+        // base_lot_size: 349..357
+        // quote_lot_size: 357..365
+
         let mut base_vault = [0u8; 32];
-        base_vault.copy_from_slice(&data[77..109]);
+        base_vault.copy_from_slice(&data[117..149]);
 
         let mut quote_vault = [0u8; 32];
-        quote_vault.copy_from_slice(&data[117..149]);
+        quote_vault.copy_from_slice(&data[165..197]);
 
         let mut request_queue = [0u8; 32];
-        request_queue.copy_from_slice(&data[173..205]);
+        request_queue.copy_from_slice(&data[221..253]);
 
         let mut event_queue = [0u8; 32];
-        event_queue.copy_from_slice(&data[205..237]);
+        event_queue.copy_from_slice(&data[253..285]);
 
         let mut bids = [0u8; 32];
-        bids.copy_from_slice(&data[237..269]);
+        bids.copy_from_slice(&data[285..317]);
         
         let mut asks = [0u8; 32];
-        asks.copy_from_slice(&data[269..301]);
+        asks.copy_from_slice(&data[317..349]);
         
-        let base_lot_size = u64::from_le_bytes(data[301..309].try_into()?);
-        let quote_lot_size = u64::from_le_bytes(data[309..317].try_into()?);
+        let base_lot_size = u64::from_le_bytes(data[349..357].try_into()?);
+        let quote_lot_size = u64::from_le_bytes(data[357..365].try_into()?);
         
         Ok(Self {
             bids,
