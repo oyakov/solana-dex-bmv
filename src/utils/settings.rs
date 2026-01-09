@@ -2,8 +2,8 @@ use anyhow::Result;
 use dotenvy::dotenv;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderGridSettings {
@@ -12,7 +12,9 @@ pub struct OrderGridSettings {
 
 impl Default for OrderGridSettings {
     fn default() -> Self {
-        Self { orders_per_side: 16 }
+        Self {
+            orders_per_side: 16,
+        }
     }
 }
 
@@ -179,10 +181,22 @@ pub struct BotSettings {
     pub dry_run: DryRunSettings,
     #[serde(default = "default_run_mode")]
     pub run_mode: String,
+    #[serde(default = "default_trading_tick_interval")]
+    pub trading_tick_interval_seconds: u64,
+    #[serde(default = "default_health_check_interval")]
+    pub health_check_interval_seconds: u64,
 }
 
 fn default_run_mode() -> String {
     "paper".to_string()
+}
+
+fn default_trading_tick_interval() -> u64 {
+    10
+}
+
+fn default_health_check_interval() -> u64 {
+    60
 }
 
 impl Default for BotSettings {
@@ -200,6 +214,8 @@ impl Default for BotSettings {
             database: DatabaseSettings::default(),
             dry_run: DryRunSettings::default(),
             run_mode: default_run_mode(),
+            trading_tick_interval_seconds: default_trading_tick_interval(),
+            health_check_interval_seconds: default_health_check_interval(),
         }
     }
 }
@@ -207,15 +223,36 @@ impl Default for BotSettings {
 impl BotSettings {
     pub fn load() -> Result<Self> {
         dotenv().ok();
-        
-        let config_path = "config.yaml";
-        if Path::new(config_path).exists() {
-            let content = fs::read_to_string(config_path)?;
-            let settings: BotSettings = serde_yaml::from_str(&content)?;
-            return Ok(settings);
+
+        let config_path =
+            std::env::var("BOT_CONFIG_PATH").unwrap_or_else(|_| "config.yaml".to_string());
+        let mut settings = if Path::new(&config_path).exists() {
+            let content = fs::read_to_string(&config_path)?;
+            serde_yaml::from_str(&content)?
+        } else {
+            Self::default()
+        };
+
+        // Override with environment variables for secrets
+        if let Ok(keypairs_env) = std::env::var("WALLET_KEYPAIRS") {
+            let keypairs: Vec<String> = keypairs_env
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
+            if !keypairs.is_empty() {
+                settings.wallets.multi_wallet.keypairs = keypairs;
+            }
         }
-        
-        Ok(Self::default())
+
+        if let Ok(token_mint_env) = std::env::var("TOKEN_MINT") {
+            settings.token_mint = token_mint_env;
+        }
+
+        if let Ok(market_id_env) = std::env::var("OPENBOOK_MARKET_ID") {
+            settings.openbook_market_id = market_id_env;
+        }
+
+        Ok(settings)
     }
 }
 

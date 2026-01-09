@@ -2,11 +2,11 @@ use crate::infra::{Database, SolanaClient, WalletManager};
 use crate::services::{GridBuilder, PivotEngine, RebalanceService};
 use crate::utils::BotSettings;
 use anyhow::Result;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
-use tracing::{info, error};
 use metrics::{counter, gauge};
+use tracing::{error, info};
 
 pub struct TradingService {
     _settings: BotSettings,
@@ -34,11 +34,8 @@ impl TradingService {
             sell_channel_width: settings.channel_bounds.sell_percent,
         };
 
-        let rebalance_service = RebalanceService::new(
-            solana.clone(),
-            wallet_manager.clone(),
-            settings.clone(),
-        );
+        let rebalance_service =
+            RebalanceService::new(solana.clone(), wallet_manager.clone(), settings.clone());
 
         Self {
             _settings: settings,
@@ -64,7 +61,10 @@ impl TradingService {
                 error!(error = ?e, "Error during trading tick");
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(
+                self._settings.trading_tick_interval_seconds,
+            ))
+            .await;
         }
     }
 
@@ -79,12 +79,18 @@ impl TradingService {
         let market_data = self.solana.get_market_data(market_id).await?;
 
         // 3. Compute Pivot (Pass empty history and 31 days for now)
-        let pivot = self.pivot_engine.compute_pivot(&[], &[], Some(&market_data), 31).await;
+        let pivot = self
+            .pivot_engine
+            .compute_pivot(&[], &[], Some(&market_data), 31)
+            .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
         info!(?pivot, "New pivot calculated");
 
         // 4. Build Grid
-        let grid = self.grid_builder.build(market_data.price, Decimal::from(100)).await;
+        let grid = self
+            .grid_builder
+            .build(market_data.price, Decimal::from(100))
+            .await;
         gauge!("bot_grid_levels_count", grid.len() as f64);
         info!(levels = grid.len(), "Grid constructed");
 
@@ -94,13 +100,21 @@ impl TradingService {
                 crate::domain::OrderSide::Buy => 0u8,
                 crate::domain::OrderSide::Sell => 1u8,
             };
-            
-            if let Some(_wallet) = self.wallet_manager.get_keypair(0).ok() {
 
-                let price_u64 = (level.price * Decimal::from(1_000_000)).to_u64().unwrap_or(0);
-                let size_u64 = (level.size * Decimal::from(1_000_000_000)).to_u64().unwrap_or(0);
-                
-                info!(?side, ?price_u64, ?size_u64, "Placing grid order (Phase 2 execution)");
+            if let Some(_wallet) = self.wallet_manager.get_keypair(0).ok() {
+                let price_u64 = (level.price * Decimal::from(1_000_000))
+                    .to_u64()
+                    .unwrap_or(0);
+                let size_u64 = (level.size * Decimal::from(1_000_000_000))
+                    .to_u64()
+                    .unwrap_or(0);
+
+                info!(
+                    ?side,
+                    ?price_u64,
+                    ?size_u64,
+                    "Placing grid order (Phase 2 execution)"
+                );
                 // self.solana.place_order(market_id, *wallet, side, price_u64, size_u64, ...).await?;
             }
         }
@@ -108,4 +122,3 @@ impl TradingService {
         Ok(())
     }
 }
-

@@ -1,0 +1,30 @@
+token_mint: "So11111111111111111111111111111111111111112"
+openbook_market_id: "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
+
+order_grid:
+  orders_per_side: 5
+
+trading_tick_interval_seconds: 30
+health_check_interval_seconds: 300
+
+jito_bundle:
+  enabled: true
+  tip_lamports: 1000
+  max_bundle_txs: 5
+  bundler_url: "https://mainnet.block-engine.jito.wtf"
+
+rpc_endpoints:
+  primary_http: "https://api.mainnet-beta.solana.com"
+  secondary_http: []
+  primary_ws: "wss://api.mainnet-beta.solana.com"
+
+wallets:
+  multi_wallet:
+    enabled: true
+    keypairs: []
+  usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
+dry_run:
+  enabled: true
+  use_live_rpc: false
+  simulate_fills: true
