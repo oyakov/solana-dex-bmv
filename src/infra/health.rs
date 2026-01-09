@@ -93,7 +93,7 @@ impl HealthChecker {
     }
 
     pub async fn check_jito(&self) -> HealthReport {
-        if !self.settings.jito.enabled {
+        if !self.settings.jito_bundle.enabled {
             return HealthReport {
                 service_name: "Jito Bundler".to_string(),
                 status: ServiceStatus::Skipped,
@@ -105,7 +105,7 @@ impl HealthChecker {
         let start = Instant::now();
         let client = reqwest::Client::new();
         // Simple GET check or small request to Jito endpoint
-        let result = client.get(&self.settings.jito.api_url).send().await;
+        let result = client.get(&self.settings.jito_bundle.bundler_url).send().await;
         let latency = start.elapsed().as_millis();
 
         match result {
@@ -135,7 +135,7 @@ impl HealthChecker {
 
     pub async fn check_openbook(&self) -> HealthReport {
         let start = Instant::now();
-        let result = self.solana.get_orderbook(&self.settings.strategy.market_id).await;
+        let result = self.solana.get_orderbook(&self.settings.openbook_market_id).await;
         let latency = start.elapsed().as_millis();
 
         match result {
@@ -216,7 +216,7 @@ impl HealthChecker {
         println!("=========================\n");
     }
 
-    pub async fn verify_critical_services(reports: &[HealthReport]) -> Result<()> {
+    pub async fn verify_critical_services(&self, reports: &[HealthReport]) -> Result<()> {
         for report in reports {
             if (report.service_name == "Solana RPC" || report.service_name == "Database (SQLite)") 
                 && report.status == ServiceStatus::Failed {

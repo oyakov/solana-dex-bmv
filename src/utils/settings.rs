@@ -2,23 +2,150 @@ use anyhow::Result;
 use dotenvy::dotenv;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolanaSettings {
-    pub rpc_url: String,
-    pub commitment: String,
-    pub default_fee_payer: Option<String>,
-    pub wallets: Vec<String>, // List of base58 private keys or paths
+pub struct OrderGridSettings {
+    pub orders_per_side: u32,
 }
 
-impl Default for SolanaSettings {
+impl Default for OrderGridSettings {
+    fn default() -> Self {
+        Self { orders_per_side: 16 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PivotVwapSettings {
+    pub pivot_price: Decimal,
+    pub vwap_price: Decimal,
+    pub lookback_minutes: u32,
+}
+
+impl Default for PivotVwapSettings {
     fn default() -> Self {
         Self {
-            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
-            commitment: "confirmed".to_string(),
-            default_fee_payer: None,
-            wallets: Vec::new(),
+            pivot_price: Decimal::ZERO,
+            vwap_price: Decimal::ZERO,
+            lookback_minutes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelBoundsSettings {
+    pub buy_percent: Decimal,
+    pub sell_percent: Decimal,
+}
+
+impl Default for ChannelBoundsSettings {
+    fn default() -> Self {
+        Self {
+            buy_percent: Decimal::new(15, 2),
+            sell_percent: Decimal::new(30, 2),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JitoBundleSettings {
+    pub enabled: bool,
+    pub tip_lamports: u64,
+    pub max_bundle_txs: u32,
+    pub bundler_url: String,
+}
+
+impl Default for JitoBundleSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            tip_lamports: 0,
+            max_bundle_txs: 5,
+            bundler_url: "https://mainnet.block-engine.jito.wtf".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcSettings {
+    pub primary_http: String,
+    pub secondary_http: Vec<String>,
+    pub primary_ws: String,
+}
+
+impl Default for RpcSettings {
+    fn default() -> Self {
+        Self {
+            primary_http: "https://api.mainnet-beta.solana.com".to_string(),
+            secondary_http: Vec::new(),
+            primary_ws: "wss://api.mainnet-beta.solana.com".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiWalletSettings {
+    pub enabled: bool,
+    pub keypairs: Vec<String>,
+}
+
+impl Default for MultiWalletSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            keypairs: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletsSettings {
+    pub multi_wallet: MultiWalletSettings,
+    pub usdc_wallet_3: String,
+}
+
+impl Default for WalletsSettings {
+    fn default() -> Self {
+        Self {
+            multi_wallet: MultiWalletSettings::default(),
+            usdc_wallet_3: "CHANGE_ME".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskLimitsSettings {
+    pub max_position_usd: Decimal,
+    pub max_order_usd: Decimal,
+    pub max_daily_loss_usd: Decimal,
+    pub max_open_orders: u32,
+}
+
+impl Default for RiskLimitsSettings {
+    fn default() -> Self {
+        Self {
+            max_position_usd: Decimal::ZERO,
+            max_order_usd: Decimal::ZERO,
+            max_daily_loss_usd: Decimal::ZERO,
+            max_open_orders: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DryRunSettings {
+    pub enabled: bool,
+    pub use_live_rpc: bool,
+    pub simulate_fills: bool,
+}
+
+impl Default for DryRunSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            use_live_rpc: false,
+            simulate_fills: true,
         }
     }
 }
@@ -37,86 +164,42 @@ impl Default for DatabaseSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HttpSettings {
-    pub timeout_seconds: f64,
-    pub user_agent: String,
-}
-
-impl Default for HttpSettings {
-    fn default() -> Self {
-        Self {
-            timeout_seconds: 10.0,
-            user_agent: "solana-dex-bmv-bot/0.1".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StrategySettings {
-    pub market_id: String,
-    pub pivot_interval_seconds: f64,
-    pub grid_spacing_bps: u32,
-    pub rebalance_threshold_bps: u32,
-    pub orders_per_side: u32,
-    pub buy_channel_width: Decimal,
-    pub sell_channel_width: Decimal,
-    pub lookback_days: u32,
-    pub initial_fade_in_days: u32,
-}
-
-impl Default for StrategySettings {
-    fn default() -> Self {
-        Self {
-            market_id: "B9coHrCxYv7xmPfSU7Z5VfugDqdTdZqZTpBGBdazq8AC".to_string(), // BMV/SOL OpenBook
-            pivot_interval_seconds: 30.0,
-            grid_spacing_bps: 25,
-            rebalance_threshold_bps: 50,
-            orders_per_side: 16,
-            buy_channel_width: Decimal::from_str_radix("0.15", 10).unwrap(),
-            sell_channel_width: Decimal::from_str_radix("0.30", 10).unwrap(),
-            lookback_days: 365,
-            initial_fade_in_days: 30,
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JitoSettings {
-    pub enabled: bool,
-    pub api_url: String,
-    pub tip_lamports: u64,
-}
-
-impl Default for JitoSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            api_url: "https://mainnet.block-engine.jito.wtf/api/v1/bundles".to_string(),
-            tip_lamports: 5_000_000,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BotSettings {
-    pub solana: SolanaSettings,
+    pub token_mint: String,
+    pub openbook_market_id: String,
+    pub order_grid: OrderGridSettings,
+    pub pivot_vwap: PivotVwapSettings,
+    pub channel_bounds: ChannelBoundsSettings,
+    pub jito_bundle: JitoBundleSettings,
+    pub rpc_endpoints: RpcSettings,
+    pub wallets: WalletsSettings,
+    pub risk_limits: RiskLimitsSettings,
+    #[serde(default)]
     pub database: DatabaseSettings,
-    pub http: HttpSettings,
-    pub strategy: StrategySettings,
-    pub jito: JitoSettings,
-    pub run_mode: String, // "paper" or "live"
+    pub dry_run: DryRunSettings,
+    #[serde(default = "default_run_mode")]
+    pub run_mode: String,
+}
+
+fn default_run_mode() -> String {
+    "paper".to_string()
 }
 
 impl Default for BotSettings {
     fn default() -> Self {
         Self {
-            solana: SolanaSettings::default(),
+            token_mint: "CHANGE_ME".to_string(),
+            openbook_market_id: "B9coHrCxYv7xmPfSU7Z5VfugDqdTdZqZTpBGBdazq8AC".to_string(),
+            order_grid: OrderGridSettings::default(),
+            pivot_vwap: PivotVwapSettings::default(),
+            channel_bounds: ChannelBoundsSettings::default(),
+            jito_bundle: JitoBundleSettings::default(),
+            rpc_endpoints: RpcSettings::default(),
+            wallets: WalletsSettings::default(),
+            risk_limits: RiskLimitsSettings::default(),
             database: DatabaseSettings::default(),
-            http: HttpSettings::default(),
-            strategy: StrategySettings::default(),
-            jito: JitoSettings::default(),
-            run_mode: "paper".to_string(),
+            dry_run: DryRunSettings::default(),
+            run_mode: default_run_mode(),
         }
     }
 }
@@ -124,8 +207,14 @@ impl Default for BotSettings {
 impl BotSettings {
     pub fn load() -> Result<Self> {
         dotenv().ok();
-        // Simplified loader for now, in a real case we would use config-rs
-        // or manually check env vars.
+        
+        let config_path = "config.yaml";
+        if Path::new(config_path).exists() {
+            let content = fs::read_to_string(config_path)?;
+            let settings: BotSettings = serde_yaml::from_str(&content)?;
+            return Ok(settings);
+        }
+        
         Ok(Self::default())
     }
 }
@@ -135,23 +224,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_settings() {
-        let settings = BotSettings::default();
-        assert_eq!(settings.run_mode, "paper");
-        assert_eq!(settings.solana.commitment, "confirmed");
-        assert_eq!(settings.strategy.orders_per_side, 16);
-        assert!(!settings.jito.enabled);
-    }
-
-    #[test]
-    fn test_serialization() {
-        let settings = BotSettings::default();
-        let yaml = serde_yaml::to_string(&settings).unwrap();
-        assert!(yaml.contains("run_mode: paper"));
-        assert!(yaml.contains("orders_per_side: 16"));
-        
-        let deserialized: BotSettings = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(deserialized.run_mode, settings.run_mode);
-        assert_eq!(deserialized.strategy.orders_per_side, settings.strategy.orders_per_side);
+    fn test_load_settings() {
+        let yaml = r#"
+token_mint: "TEST_MINT"
+openbook_market_id: "TEST_MARKET"
+order_grid:
+  orders_per_side: 32
+pivot_vwap:
+  pivot_price: 100.0
+  vwap_price: 100.0
+  lookback_minutes: 60
+channel_bounds:
+  buy_percent: 0.1
+  sell_percent: 0.2
+jito_bundle:
+  enabled: true
+  tip_lamports: 1000
+  max_bundle_txs: 10
+  bundler_url: "http://test.jito"
+rpc_endpoints:
+  primary_http: "http://test.rpc"
+  secondary_http: []
+  primary_ws: "ws://test.rpc"
+wallets:
+  multi_wallet:
+    enabled: false
+    keypairs: ["key1"]
+  usdc_wallet_3: "WALLET3"
+risk_limits:
+  max_position_usd: 1000.0
+  max_order_usd: 100.0
+  max_daily_loss_usd: 50.0
+  max_open_orders: 5
+dry_run:
+  enabled: false
+  use_live_rpc: true
+  simulate_fills: false
+"#;
+        let settings: BotSettings = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(settings.token_mint, "TEST_MINT");
+        assert_eq!(settings.order_grid.orders_per_side, 32);
+        assert!(settings.jito_bundle.enabled);
+        assert_eq!(settings.rpc_endpoints.primary_http, "http://test.rpc");
+        assert!(!settings.wallets.multi_wallet.enabled);
+        assert_eq!(settings.wallets.multi_wallet.keypairs[0], "key1");
+        assert!(!settings.dry_run.enabled);
     }
 }

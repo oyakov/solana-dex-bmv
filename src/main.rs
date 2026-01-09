@@ -32,11 +32,10 @@ async fn main() -> Result<()> {
     let settings = BotSettings::load()?;
 
     // Initialize infrastructure
-    let commitment = CommitmentConfig::from_str(&settings.solana.commitment)
-        .unwrap_or(CommitmentConfig::confirmed());
-    let solana = std::sync::Arc::new(SolanaClient::new(&settings.solana.rpc_url, commitment));
+    let commitment = CommitmentConfig::confirmed();
+    let solana = std::sync::Arc::new(SolanaClient::new(&settings.rpc_endpoints.primary_http, commitment));
     let database = std::sync::Arc::new(Database::connect(&settings.database.path).await?);
-    let wallet_manager = std::sync::Arc::new(WalletManager::new(&settings.solana.wallets)?);
+    let wallet_manager = std::sync::Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
 
     // Perform connectivity health checks
     let health_checker = infra::HealthChecker::new(

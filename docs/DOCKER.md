@@ -42,6 +42,20 @@ By default, the `docker-compose.yml` maps:
 Ensure your `.env` refers to paths *inside* the container, e.g.:
 `WALLET_KEYPAIR_PATH=/app/keys/my-wallet.json`
 
+## Observability Stack
+
+The `docker-compose.yml` includes a full observability stack:
+
+- **Bot Metrics**: Exposed at `http://localhost:9000`.
+- **Prometheus**: Scrapes bot metrics and stores them. Accessible at `http://localhost:9090`.
+- **Grafana**: Visualizes metrics via dashboards. Accessible at `http://localhost:3000`.
+  - **Credentials**: `admin` / `admin`
+  - **Data Source**: Pre-configured to point to Prometheus.
+
+To import the health dashboard:
+1. Go to Grafana -> Dashboards -> Import.
+2. Upload `docs/grafana_health_dashboard.json`.
+
 ### Commands
 
 To run the bot with custom arguments:

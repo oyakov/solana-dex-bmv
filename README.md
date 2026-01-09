@@ -15,7 +15,8 @@ This project is a high-performance Solana trading system implemented in Rust, co
 - **Strategy Engine**: Processes normalized events and produces trading intents.
 - **Execution Layer**: Builds, signs, and submits transactions, with Jito MEV protection support.
 - **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
-- **Observability**: Structured logging using `tracing`.
+- **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
+- **Observability**: Structured logging using `tracing` and real-time metrics via Prometheus & Grafana.
 
 ## Quick Start (Docker)
 
@@ -39,6 +40,14 @@ The fastest way to get started is using Docker Compose.
    ```powershell
    docker-compose logs -f
    ```
+
+### Observability (Prometheus & Grafana)
+
+The bot exposes Prometheus metrics on port `9000`. The Docker Compose setup includes pre-configured Prometheus and Grafana services.
+
+1. **Access Grafana**: `http://localhost:3000` (Default login: `admin` / `admin`)
+2. **Access Prometheus**: `http://localhost:9090`
+3. **Metrics Endpoint**: `http://localhost:9000`
 
 For more details, see [DOCKER.md](docs/DOCKER.md).
 
@@ -70,10 +79,12 @@ Define configuration via `config.yaml` or environment variables.
 
 ### Core Fields
 
-- `SOLANA_RPC_HTTP_URL`: Solana RPC HTTP endpoint.
-- `SOLANA_RPC_WS_URL`: Solana RPC WebSocket endpoint.
-- `WALLET_KEY_PATH`: Path to the keypair JSON file.
-- `CLUSTER`: `mainnet-beta`, `devnet`, or `testnet`.
+- `token_mint`: Mint address of the token to trade.
+- `openbook_market_id`: OpenBook V2 market ID.
+- `rpc_endpoints.primary_http`: Solana RPC HTTP endpoint.
+- `rpc_endpoints.primary_ws`: Solana RPC WebSocket endpoint.
+- `wallets.multi_wallet.keypairs`: List of paths to keypair files for rotation.
+- `dry_run.enabled`: Set to `true` to simulate trades without real execution.
 
 ## Testing Instructions
 

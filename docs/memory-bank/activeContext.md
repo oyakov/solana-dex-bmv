@@ -8,13 +8,18 @@ Developing the memory bank and ensuring documentation is up to date with the lat
 - **Memory Bank**: Initialized core references and practices.
 - **Requirements**: Refined the trading grid algorithm (VWAP Pivot, Asymmetric Channel).
 - **Trading Orchestrator**: Implemented `TradingService` to manage the main loop and decouple logic from `main.rs`.
+- **Observability**: Implemented Prometheus metrics exporter and structured tracing.
+- **Health Checks**: Implemented `HealthChecker` for automated connectivity and system verification.
+- **Pure Rust Migration**: Successfully moved from Python to a 100% Rust implementation.
 
 ## In Progress
 - [x] Consolidate technical specs.
 - [x] Initialize Memory Bank.
-- [x] Implement core trading loop orchestrator.
-- [ ] Implement Market Data Service (WebSocket/RPC polling).
-- [ ] Integration testing with Jito (Planned).
+- [x] Implement core trading loop orchestrator (Rust).
+- [x] Implement Prometheus/Grafana observability stack.
+- [x] Implement basic Market Data polling.
+- [ ] Integration testing with Jito (In testing).
+- [ ] Detailed PnL calculation and reporting.
 
 ## Known Issues / Tasks
 - Need to verify the exact OpenBook V2 integration details vs legacy OpenBook.

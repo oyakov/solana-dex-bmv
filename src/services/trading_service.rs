@@ -29,9 +29,9 @@ impl TradingService {
         pivot_engine: PivotEngine,
     ) -> Self {
         let grid_builder = GridBuilder {
-            orders_per_side: settings.strategy.orders_per_side,
-            buy_channel_width: settings.strategy.buy_channel_width,
-            sell_channel_width: settings.strategy.sell_channel_width,
+            orders_per_side: settings.order_grid.orders_per_side,
+            buy_channel_width: settings.channel_bounds.buy_percent,
+            sell_channel_width: settings.channel_bounds.sell_percent,
         };
 
         let rebalance_service = RebalanceService::new(
@@ -75,7 +75,7 @@ impl TradingService {
         self.rebalance_service.rebalance().await?;
 
         // 2. Fetch live market data (now from L2 orderbook)
-        let market_id = &self._settings.strategy.market_id;
+        let market_id = &self._settings.openbook_market_id;
         let market_data = self.solana.get_market_data(market_id).await?;
 
         // 3. Compute Pivot (Pass empty history and 31 days for now)

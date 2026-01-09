@@ -1,5 +1,5 @@
-token_mint: "CHANGE_ME"
-openbook_market_id: "CHANGE_ME"
+token_mint: "So11111111111111111111111111111111111111112"
+openbook_market_id: "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
 
 order_grid:
   orders_per_side: 16
@@ -28,7 +28,7 @@ wallets:
   multi_wallet:
     enabled: true
     keypairs: []
-  usdc_wallet_3: "CHANGE_ME"
+  usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 risk_limits:
   max_position_usd: 0.0

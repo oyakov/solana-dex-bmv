@@ -3,14 +3,16 @@
 ## Phase 0: Preparation (COMPLETED)
 - [x] Market ID Validation.
 - [x] RPC Access Setup.
-- [x] Tech Stack Selection (Python/Asyncio).
+- [x] Tech Stack Selection (Rust/Tokio).
 
 ## Phase 1: Infrastructure (IN PROGRESS)
 - [x] Architecture Design.
 - [x] Documentation & Requirements.
-- [ ] Wallet Manager Implementation.
-- [ ] Jito Integration.
-- [ ] OpenBook API wrappers.
+- [/] Wallet Manager Implementation (Basic version implemented).
+- [/] Jito Integration (Basic support in place).
+- [x] OpenBook API wrappers.
+- [x] Prometheus/Grafana infrastructure.
+- [x] Automated Health Checks.
 
 ## Phase 2: MVP Logic (PLANNED)
 - [ ] VWAP Pivot Formula implementation.
@@ -31,5 +33,5 @@
 - [ ] Fiat Floor adjustment logic.
 - [ ] TUI Dashboard.
 
-## Total Completion: ~15%
-Current focus is establishing the structural foundation and documentation before heavy coding of the trading logic.
+## Total Completion: ~45%
+Current focus is refining the trading logic, verifying Jito integration, and implementing detailed PnL tracking.

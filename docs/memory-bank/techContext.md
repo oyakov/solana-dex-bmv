@@ -25,4 +25,4 @@
 - **Build System**: Cargo.
 - **Containerization**: Docker & Docker Compose (see [DOCKER.md](../DOCKER.md)).
 - **Testing**: Native Rust test runner (`cargo test`).
-- **Metrics**: Prometheus integration (planned).
+- **Metrics**: Prometheus integration (Implemented, port 9000).
