@@ -11,6 +11,7 @@ use solana_sdk::pubkey::Pubkey;
 pub const MARKET_STATE_LAYOUT_V3_LEN: usize = 388;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MarketStateV3 {
     pub bids: [u8; 32],
     pub asks: [u8; 32],
@@ -22,6 +23,7 @@ pub struct MarketStateV3 {
     pub quote_lot_size: u64,
     // Add other fields as needed for discovery
 }
+
 
 impl MarketStateV3 {
     pub fn unpack(data: &[u8]) -> Result<Self> {
@@ -140,7 +142,9 @@ pub fn parse_slab(data: &[u8], is_bids: bool, base_lots: u64, quote_lots: u64) -
     Ok(levels)
 }
 
+#[allow(dead_code)]
 pub fn create_new_order_v3_instruction(
+
     market: &Pubkey,
     open_orders: &Pubkey,
     request_queue: &Pubkey,
@@ -195,7 +199,9 @@ pub fn create_new_order_v3_instruction(
     }
 }
 
+#[allow(dead_code)]
 pub fn create_jito_tip_instruction(owner: &Pubkey, tip_lamports: u64) -> solana_sdk::instruction::Instruction {
+
     let tip_accounts = [
         "96g9sR9SGvpH91qSS388Ppx6q6bT42p4t7rJ4vQp3u6C",
         "HFqU5x63VTqvQss8hp1uE17D3Jp2N6rBqA5VvL9Fv95v",
@@ -206,7 +212,9 @@ pub fn create_jito_tip_instruction(owner: &Pubkey, tip_lamports: u64) -> solana_
     solana_sdk::system_instruction::transfer(owner, &tip_pubkey, tip_lamports)
 }
 
+#[allow(dead_code)]
 pub fn create_cancel_order_v2_instruction(
+
     market: &Pubkey,
     bids: &Pubkey,
     asks: &Pubkey,

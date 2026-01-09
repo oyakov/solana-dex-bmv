@@ -84,6 +84,7 @@ impl SolanaClient {
     }
 
 
+    #[allow(dead_code)]
     pub async fn health(&self) -> bool {
         match self.client.get_version().await {
             Ok(_) => true,
@@ -94,6 +95,7 @@ impl SolanaClient {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn send_bundle(&self, transactions: Vec<String>, jito_api_url: &str) -> Result<String> {
         // (Existing send_bundle implementation...)
         let payload = serde_json::json!({
@@ -123,6 +125,7 @@ impl SolanaClient {
         Ok(bundle_id)
     }
 
+    #[allow(dead_code)]
     pub async fn find_open_orders(
         &self,
         market_id: &str,
@@ -167,6 +170,7 @@ impl SolanaClient {
         Ok(accounts.first().map(|(p, _)| *p))
     }
 
+    #[allow(dead_code)]
     pub async fn place_order(
         &self,
         market_id: &str,
@@ -224,6 +228,7 @@ impl SolanaClient {
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
 
+    #[allow(dead_code)]
     pub async fn cancel_order(
         &self,
         market_id: &str,
@@ -265,6 +270,7 @@ impl SolanaClient {
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
+
 }
 
 

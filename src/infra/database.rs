@@ -5,11 +5,14 @@ use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use std::str::FromStr;
 
+#[allow(dead_code)]
 pub struct Database {
     pool: SqlitePool,
 }
 
+#[allow(dead_code)]
 impl Database {
+
     pub async fn connect(path: &Path) -> Result<Self> {
         let database_url = format!("sqlite:{}", path.to_string_lossy());
 

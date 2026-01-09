@@ -3,11 +3,13 @@ use rust_decimal::prelude::*;
 use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PivotEngine {
     pub target_allocation_usd: Decimal,
     pub lookback_days: u32,
     pub initial_fade_in_days: u32,
 }
+
 
 impl PivotEngine {
     pub fn new(target_allocation_usd: Decimal) -> Self {

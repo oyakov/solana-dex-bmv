@@ -10,8 +10,10 @@ use tracing::{info, error};
 pub struct TradingService {
     _settings: BotSettings,
     solana: std::sync::Arc<SolanaClient>,
+    #[allow(dead_code)]
     database: std::sync::Arc<Database>,
     wallet_manager: std::sync::Arc<WalletManager>,
+
     pivot_engine: PivotEngine,
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,

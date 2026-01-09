@@ -46,9 +46,11 @@ impl WalletManager {
         Ok(Self { wallets })
     }
 
+    #[allow(dead_code)]
     pub fn get_all_pubkeys(&self) -> Vec<String> {
         self.wallets.iter().map(|k| k.pubkey().to_string()).collect()
     }
+
 
     pub fn get_keypair(&self, index: usize) -> Result<&Keypair> {
         self.wallets.get(index).ok_or_else(|| anyhow!("Wallet index out of bounds"))
