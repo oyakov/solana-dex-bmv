@@ -18,6 +18,9 @@ RUN cargo build --release
 # Final stage
 FROM debian:bookworm-slim
 
+# Create a non-root user
+RUN groupadd -r botgroup && useradd -r -g botgroup -m -s /sbin/nologin botuser
+
 WORKDIR /app
 
 # Install runtime dependencies
@@ -30,6 +33,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy the binary from builder
 COPY --from=builder /app/target/release/solana-dex-bmv /app/solana-dex-bmv
 COPY Cargo.toml /app/Cargo.toml
+
+# Set ownership to botuser
+RUN chown -R botuser:botgroup /app
+
+# Switch to non-root user
+USER botuser
 
 # Run the bot
 ENTRYPOINT ["/app/solana-dex-bmv"]

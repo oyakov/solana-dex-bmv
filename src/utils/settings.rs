@@ -96,10 +96,24 @@ impl Default for RpcSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MultiWalletSettings {
     pub enabled: bool,
     pub keypairs: Vec<String>,
+}
+
+impl std::fmt::Debug for MultiWalletSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let masked_keypairs: Vec<String> = self
+            .keypairs
+            .iter()
+            .map(|_| "***MASKED***".to_string())
+            .collect();
+        f.debug_struct("MultiWalletSettings")
+            .field("enabled", &self.enabled)
+            .field("keypairs", &masked_keypairs)
+            .finish()
+    }
 }
 
 impl Default for MultiWalletSettings {
@@ -111,10 +125,19 @@ impl Default for MultiWalletSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct WalletsSettings {
     pub multi_wallet: MultiWalletSettings,
     pub usdc_wallet_3: String,
+}
+
+impl std::fmt::Debug for WalletsSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WalletsSettings")
+            .field("multi_wallet", &self.multi_wallet)
+            .field("usdc_wallet_3", &"***MASKED***")
+            .finish()
+    }
 }
 
 impl Default for WalletsSettings {
@@ -145,11 +168,21 @@ impl Default for RiskLimitsSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DryRunSettings {
     pub enabled: bool,
     pub use_live_rpc: bool,
     pub simulate_fills: bool,
+}
+
+impl std::fmt::Debug for DryRunSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DryRunSettings")
+            .field("enabled", &self.enabled)
+            .field("use_live_rpc", &self.use_live_rpc)
+            .field("simulate_fills", &self.simulate_fills)
+            .finish()
+    }
 }
 
 impl Default for DryRunSettings {
@@ -175,7 +208,7 @@ impl Default for DatabaseSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BotSettings {
     pub token_mint: String,
     pub openbook_market_id: String,
@@ -195,6 +228,33 @@ pub struct BotSettings {
     pub trading_tick_interval_seconds: u64,
     #[serde(default = "default_health_check_interval")]
     pub health_check_interval_seconds: u64,
+}
+
+impl std::fmt::Debug for BotSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BotSettings")
+            .field("token_mint", &self.token_mint)
+            .field("openbook_market_id", &self.openbook_market_id)
+            .field("order_grid", &self.order_grid)
+            .field("pivot_vwap", &self.pivot_vwap)
+            .field("channel_bounds", &self.channel_bounds)
+            .field("jito_bundle", &self.jito_bundle)
+            .field("rpc_endpoints", &self.rpc_endpoints)
+            .field("wallets", &self.wallets)
+            .field("risk_limits", &self.risk_limits)
+            .field("database", &self.database)
+            .field("dry_run", &self.dry_run)
+            .field("run_mode", &self.run_mode)
+            .field(
+                "trading_tick_interval_seconds",
+                &self.trading_tick_interval_seconds,
+            )
+            .field(
+                "health_check_interval_seconds",
+                &self.health_check_interval_seconds,
+            )
+            .finish()
+    }
 }
 
 fn default_run_mode() -> String {
@@ -248,10 +308,15 @@ impl BotSettings {
             let keypairs: Vec<String> = keypairs_env
                 .split(',')
                 .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
                 .collect();
             if !keypairs.is_empty() {
                 settings.wallets.multi_wallet.keypairs = keypairs;
             }
+        }
+
+        if let Ok(usdc_wallet_3_env) = std::env::var("USDC_WALLET_3") {
+            settings.wallets.usdc_wallet_3 = usdc_wallet_3_env;
         }
 
         if let Ok(token_mint_env) = std::env::var("TOKEN_MINT") {
@@ -260,6 +325,26 @@ impl BotSettings {
 
         if let Ok(market_id_env) = std::env::var("OPENBOOK_MARKET_ID") {
             settings.openbook_market_id = market_id_env;
+        }
+
+        if let Ok(rpc_primary_http) = std::env::var("RPC_PRIMARY_HTTP") {
+            settings.rpc_endpoints.primary_http = rpc_primary_http;
+        }
+
+        if let Ok(rpc_primary_ws) = std::env::var("RPC_PRIMARY_WS") {
+            settings.rpc_endpoints.primary_ws = rpc_primary_ws;
+        }
+
+        if let Ok(jito_url) = std::env::var("JITO_BUNDLER_URL") {
+            settings.jito_bundle.bundler_url = jito_url;
+        }
+
+        if let Ok(dry_run_env) = std::env::var("DRY_RUN_ENABLED") {
+            settings.dry_run.enabled = dry_run_env.parse().unwrap_or(settings.dry_run.enabled);
+        }
+
+        if let Ok(db_path_env) = std::env::var("DATABASE_PATH") {
+            settings.database.path = PathBuf::from(db_path_env);
         }
 
         Ok(settings)
@@ -321,5 +406,17 @@ dry_run:
         assert!(!settings.wallets.multi_wallet.enabled);
         assert_eq!(settings.wallets.multi_wallet.keypairs[0], "key1");
         assert!(!settings.dry_run.enabled);
+    }
+
+    #[test]
+    fn test_settings_masking() {
+        let mut settings = BotSettings::default();
+        settings.wallets.multi_wallet.keypairs = vec!["secret1".to_string()];
+        settings.wallets.usdc_wallet_3 = "secret2".to_string();
+
+        let debug_output = format!("{:?}", settings);
+        assert!(!debug_output.contains("secret1"));
+        assert!(!debug_output.contains("secret2"));
+        assert!(debug_output.contains("***MASKED***"));
     }
 }

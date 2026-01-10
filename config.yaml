@@ -17,17 +17,20 @@ jito_bundle:
   enabled: true
   tip_lamports: 1000
   max_bundle_txs: 5
-  bundler_url: "https://mainnet.block-engine.jito.wtf"
+  bundler_url: "https://mainnet.block-engine.jito.wtf/api/v1/bundles"
 
 rpc_endpoints:
+  # Primary RPC endpoints. Can be overridden by RPC_PRIMARY_HTTP and RPC_PRIMARY_WS env vars.
   primary_http: "https://api.mainnet-beta.solana.com"
   secondary_http: []
   primary_ws: "wss://api.mainnet-beta.solana.com"
 
 wallets:
+  # Wallet configuration. 
+  # Use WALLET_KEYPAIRS (comma-separated base58 or paths) and USDC_WALLET_3 env vars for production.
   multi_wallet:
     enabled: true
-    keypairs: []
+    keypairs: [] # Recommended: Use WALLET_KEYPAIRS env var
   usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 risk_limits:
