@@ -29,6 +29,7 @@ The system is built as a high-performance, asynchronous, event-driven trading en
 - **Circuit Breaker**: Halts trading if losses exceed a threshold within a time window.
 - **Kill Switch**: Immediate halt via a sentinel file or manual command.
 - **Fiat Floor**: Dynamically adjusts the SOL-denominated grid to maintain a minimum USD value.
+- **Secret Masking**: Custom `Debug` implementations to prevent private key leakage in logs.
 
 ## Design Patterns
 - **Orchestrator Pattern**: Centralized control of data flow.

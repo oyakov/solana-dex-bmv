@@ -13,6 +13,7 @@
 - [x] OpenBook API wrappers.
 - [x] Prometheus/Grafana infrastructure.
 - [x] Automated Health Checks.
+- [x] **Security Hardening**: Non-root Docker, Env var secrets, Masking.
 
 ## Phase 2: MVP Logic (PLANNED)
 - [ ] VWAP Pivot Formula implementation [BMV-30](https://linear.app/oleg-yakovlev/issue/BMV-30).

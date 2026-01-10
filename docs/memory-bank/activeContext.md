@@ -10,6 +10,7 @@ Developing the memory bank and ensuring documentation is up to date with the lat
 - **Trading Orchestrator**: Implemented `TradingService` to manage the main loop and decouple logic from `main.rs`.
 - **Observability**: Implemented Prometheus metrics exporter and structured tracing.
 - **Health Checks**: Implemented `HealthChecker` for automated connectivity and system verification.
+- **Security Hardening**: Implemented environment variable overrides, non-root Docker execution, and secret masking in logs.
 - **Pure Rust Migration**: Successfully moved from Python to a 100% Rust implementation.
 
 ## In Progress

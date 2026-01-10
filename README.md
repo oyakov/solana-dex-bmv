@@ -17,13 +17,23 @@ This project is a high-performance Solana trading system implemented in Rust, co
 - **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
 - **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
 - **Observability**: Structured logging using `tracing` and real-time metrics via Prometheus & Grafana.
+- **Security Hardening**: Secure configuration via environment variables, masked sensitive data in logs, and non-root execution in Docker.
+
+## Security & Secret Management
+
+The system is designed for secure production deployment:
+
+- **Environment Variables**: Sensitive data (keys, RPC URLs) should be provided via environment variables or a `.env` file. Environment variables ALWAYS override values in `config.yaml`.
+- **Credential Masking**: Private keys and sensitive wallet addresses are automatically masked in `Debug` logs and output with `***MASKED***`.
+- **Non-Root Execution**: In Docker, the application runs under a dedicated `botuser` to ensure minimal system privileges.
+- **Network Isolation**: By default, observability ports (3000, 9090, 9000) are bound to `127.0.0.1`, requiring an SSH tunnel for remote access.
 
 ## Quick Start (Docker)
 
 The fastest way to get started is using Docker Compose.
 
 1. **Configure Environment**:
-   Copy the example environment file and fill in your RPC URLs and keys.
+   Copy the example environment file and fill in your RPC URLs and keys. **Crucial for security**.
 
    ```powershell
    copy .env.example .env
@@ -73,17 +83,29 @@ To start the bot:
 cargo run -- --config config.yaml
 ```
 
-## Configuration
+Define configuration via `config.yaml` or environment variables. Environment variables take precedence.
 
-Define configuration via `config.yaml` or environment variables.
+### Environment Variable Overrides
 
-### Core Fields
+The following variables can be used to set sensitive fields:
+
+- `RPC_PRIMARY_HTTP`: Solana RPC HTTP URL.
+- `RPC_PRIMARY_WS`: Solana RPC WebSocket URL.
+- `TOKEN_MINT`: Mint address to trade.
+- `OPENBOOK_MARKET_ID`: OpenBook V2 Market ID.
+- `WALLET_KEYPAIRS`: Comma-separated list of base58 keys or paths to keypair files.
+- `USDC_WALLET_3`: Address of the fallback USDC wallet.
+- `JITO_BUNDLER_URL`: Jito bundle submission URL.
+- `DRY_RUN_ENABLED`: Set to `true` or `false`.
+- `DATABASE_PATH`: Path to the SQLite database file.
+
+### Yaml configuration (config.yaml)
 
 - `token_mint`: Mint address of the token to trade.
 - `openbook_market_id`: OpenBook V2 market ID.
 - `rpc_endpoints.primary_http`: Solana RPC HTTP endpoint.
 - `rpc_endpoints.primary_ws`: Solana RPC WebSocket endpoint.
-- `wallets.multi_wallet.keypairs`: List of paths to keypair files for rotation.
+- `wallets.multi_wallet.keypairs`: List of paths to keypair files (Recommended: use `WALLET_KEYPAIRS` env var).
 - `dry_run.enabled`: Set to `true` to simulate trades without real execution.
 
 ## Testing Instructions

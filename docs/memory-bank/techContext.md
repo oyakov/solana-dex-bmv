@@ -23,6 +23,6 @@
 
 ## Development & Operations
 - **Build System**: Cargo.
-- **Containerization**: Docker & Docker Compose (see [DOCKER.md](../DOCKER.md)).
+- **Containerization**: Docker & Docker Compose (Non-root user, local-only port binding).
 - **Testing**: Native Rust test runner (`cargo test`).
-- **Metrics**: Prometheus integration (Implemented, port 9000).
+- **Metrics**: Prometheus (port 9000, 127.0.0.1 binding) and masked secret logging.
