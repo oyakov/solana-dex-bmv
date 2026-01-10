@@ -8,7 +8,6 @@ use crate::services::{PivotEngine, TradingService};
 
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
-use rust_decimal::Decimal;
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::str::FromStr;
 use tracing::{info, Level};
@@ -65,7 +64,11 @@ async fn main() -> Result<()> {
     });
 
     // Initialize logic services
-    let pivot_engine = PivotEngine::new(Decimal::from(1000));
+    let pivot_engine = PivotEngine::new(
+        settings.pivot_vwap.pivot_price,
+        settings.pivot_vwap.lookback_days,
+        settings.pivot_vwap.nominal_daily_volume,
+    );
 
     // Initialize orchestrator
     let orchestrator =

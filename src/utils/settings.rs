@@ -8,12 +8,18 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderGridSettings {
     pub orders_per_side: u32,
+    pub buy_volume_multiplier: Decimal,
+    pub sell_volume_multiplier: Decimal,
+    pub rebalance_threshold_percent: Decimal,
 }
 
 impl Default for OrderGridSettings {
     fn default() -> Self {
         Self {
             orders_per_side: 16,
+            buy_volume_multiplier: Decimal::new(12, 1), // 1.2
+            sell_volume_multiplier: Decimal::ONE,       // 1.0 (equal)
+            rebalance_threshold_percent: Decimal::ONE,  // 1.0%
         }
     }
 }
@@ -23,6 +29,8 @@ pub struct PivotVwapSettings {
     pub pivot_price: Decimal,
     pub vwap_price: Decimal,
     pub lookback_minutes: u32,
+    pub lookback_days: u32,
+    pub nominal_daily_volume: Decimal,
 }
 
 impl Default for PivotVwapSettings {
@@ -31,6 +39,8 @@ impl Default for PivotVwapSettings {
             pivot_price: Decimal::ZERO,
             vwap_price: Decimal::ZERO,
             lookback_minutes: 0,
+            lookback_days: 365,
+            nominal_daily_volume: Decimal::new(1000, 0), // Default 1000 SOL/unit
         }
     }
 }
@@ -267,10 +277,15 @@ token_mint: "TEST_MINT"
 openbook_market_id: "TEST_MARKET"
 order_grid:
   orders_per_side: 32
+  buy_volume_multiplier: 1.2
+  sell_volume_multiplier: 1.0
+  rebalance_threshold_percent: 1.0
 pivot_vwap:
   pivot_price: 100.0
   vwap_price: 100.0
   lookback_minutes: 60
+  lookback_days: 365
+  nominal_daily_volume: 1000.0
 channel_bounds:
   buy_percent: 0.1
   sell_percent: 0.2

@@ -32,6 +32,8 @@ impl TradingService {
             orders_per_side: settings.order_grid.orders_per_side,
             buy_channel_width: settings.channel_bounds.buy_percent,
             sell_channel_width: settings.channel_bounds.sell_percent,
+            buy_volume_multiplier: settings.order_grid.buy_volume_multiplier,
+            sell_volume_multiplier: settings.order_grid.sell_volume_multiplier,
         };
 
         let rebalance_service =
@@ -71,52 +73,52 @@ impl TradingService {
     pub async fn tick(&self) -> Result<()> {
         info!("Trading tick starting");
 
-        // 1. Rebalance wallets if needed
+        // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
 
-        // 2. Fetch live market data (now from L2 orderbook)
+        // 2. Fetch live market data
         let market_id = &self._settings.openbook_market_id;
         let market_data = self.solana.get_market_data(market_id).await?;
 
-        // 3. Compute Pivot (Pass empty history and 31 days for now)
+        // 3. Compute Pivot
+        // Note: For MVP we might not have full historical trades from DB yet
         let pivot = self
             .pivot_engine
-            .compute_pivot(&[], &[], Some(&market_data), 31)
+            .compute_pivot(&[], &[], Some(&market_data), 0) // Assume day 0 for now
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
-        info!(?pivot, "New pivot calculated");
 
-        // 4. Build Grid
-        let grid = self
-            .grid_builder
-            .build(market_data.price, Decimal::from(100))
-            .await;
-        gauge!("bot_grid_levels_count", grid.len() as f64);
-        info!(levels = grid.len(), "Grid constructed");
+        // 4. Check if we need to rebuild the grid
+        if self.rebalance_service.should_rebuild(pivot) {
+            info!(?pivot, "Rebuilding grid...");
 
-        // 5. Execute Grid (Phase 2 core)
-        for level in grid {
-            let side = match level.side {
-                crate::domain::OrderSide::Buy => 0u8,
-                crate::domain::OrderSide::Sell => 1u8,
-            };
+            // 5. Build Grid
+            let grid = self
+                .grid_builder
+                .build(pivot, Decimal::from(100)) // Using 100 as default total size for now
+                .await;
 
-            if let Some(_wallet) = self.wallet_manager.get_keypair(0).ok() {
-                let price_u64 = (level.price * Decimal::from(1_000_000))
-                    .to_u64()
-                    .unwrap_or(0);
-                let size_u64 = (level.size * Decimal::from(1_000_000_000))
-                    .to_u64()
-                    .unwrap_or(0);
+            gauge!("bot_grid_levels_count", grid.len() as f64);
+            info!(levels = grid.len(), "Grid constructed");
+
+            // 6. Execute Grid Update
+            // TODO: In Phase 1 we should cancel old orders and place new ones
+            // For now, we just log the action (stabilization phase)
+            for level in grid {
+                let side_str = match level.side {
+                    crate::domain::OrderSide::Buy => "BUY",
+                    crate::domain::OrderSide::Sell => "SELL",
+                };
 
                 info!(
-                    ?side,
-                    ?price_u64,
-                    ?size_u64,
-                    "Placing grid order (Phase 2 execution)"
+                    side = %side_str,
+                    price = %level.price,
+                    size = %level.size,
+                    "Scheduling grid order (Phase 1 simulation)"
                 );
-                // self.solana.place_order(market_id, *wallet, side, price_u64, size_u64, ...).await?;
             }
+        } else {
+            info!("Pivot stable, no rebalance needed");
         }
 
         Ok(())

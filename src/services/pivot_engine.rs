@@ -3,20 +3,18 @@ use rust_decimal::prelude::*;
 use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct PivotEngine {
-    pub target_allocation_usd: Decimal,
+    pub seed_price: Decimal,
     pub lookback_days: u32,
-    pub initial_fade_in_days: u32,
+    pub nominal_daily_volume: Decimal,
 }
 
-
 impl PivotEngine {
-    pub fn new(target_allocation_usd: Decimal) -> Self {
+    pub fn new(seed_price: Decimal, lookback_days: u32, nominal_daily_volume: Decimal) -> Self {
         Self {
-            target_allocation_usd,
-            lookback_days: 365,
-            initial_fade_in_days: 30,
+            seed_price,
+            lookback_days,
+            nominal_daily_volume,
         }
     }
 
@@ -27,52 +25,62 @@ impl PivotEngine {
         market_update: Option<&MarketUpdate>,
         days_since_start: u32,
     ) -> Decimal {
-        if historical_trades.is_empty() && market_update.is_none() {
-            warn!("no_data_for_vwap_calculation");
-            return self.target_allocation_usd;
-        }
-
         let mut total_value = Decimal::ZERO;
         let mut total_volume = Decimal::ZERO;
 
+        // 1. Calculate from historical trades
         for trade in historical_trades {
             total_value += trade.price * trade.volume;
             total_volume += trade.volume;
         }
 
-        // Include current market data in VWAP if available
+        // 2. Include current market data (last 24h) if available
         if let Some(update) = market_update {
-            // Note: v2.5 says "Pure VWAP" is Σ(price × volume) / Σ volume
-            // We include the latest update to ensure hot state is reflected
             total_value += update.price * update.volume_24h;
             total_volume += update.volume_24h;
         }
 
-        let vwap = if total_volume.is_zero() {
-            warn!("total_volume_is_zero_in_vwap");
-            market_update.map(|m| m.price).unwrap_or(Decimal::ZERO)
+        // 3. Add Seeded Pivot weight
+        // If we have less than lookback_days of real data, fill the rest with seed_price
+        if days_since_start < self.lookback_days {
+            let seed_price = if self.seed_price.is_zero() {
+                // If seed_price is not set, use current market price or fallback to 100
+                market_update.map(|m| m.price).unwrap_or(Decimal::from(100))
+            } else {
+                self.seed_price
+            };
+
+            let remaining_days = self.lookback_days - days_since_start.min(self.lookback_days);
+            let seed_volume = Decimal::from(remaining_days) * self.nominal_daily_volume;
+
+            total_value += seed_price * seed_volume;
+            total_volume += seed_volume;
+
+            info!(
+                ?days_since_start,
+                ?remaining_days,
+                ?seed_price,
+                ?seed_volume,
+                "seeded_pivot_active"
+            );
+        }
+
+        let pivot = if total_volume.is_zero() {
+            warn!("no_volume_detected_falling_back_to_seed_or_market");
+            if !self.seed_price.is_zero() {
+                self.seed_price
+            } else {
+                market_update.map(|m| m.price).unwrap_or(Decimal::ZERO)
+            }
         } else {
             total_value / total_volume
         };
 
         let current_price = market_update.map(|m| m.price).unwrap_or(Decimal::ZERO);
-
-        let pivot = if days_since_start < self.initial_fade_in_days {
-            let fade_ratio =
-                Decimal::from(days_since_start) / Decimal::from(self.initial_fade_in_days);
-            let p = (current_price * (Decimal::ONE - fade_ratio)) + (vwap * fade_ratio);
-            info!(fade_in_active = ?fade_ratio, ?p, ?vwap);
-            p
-        } else {
-            info!(fade_in_complete = ?vwap);
-            vwap
-        };
-
-        info!(?vwap, current = ?current_price, final_pivot = ?pivot, "pivot_computed");
+        info!(?pivot, current = ?current_price, "pivot_computed");
         pivot
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -81,7 +89,8 @@ mod tests {
 
     #[test]
     fn test_compute_pivot_vwap() {
-        let engine = PivotEngine::new(Decimal::from(100));
+        // Seed price 0, but days_since_start 366 means no seed weight
+        let engine = PivotEngine::new(Decimal::ZERO, 365, Decimal::from(1000));
         let historical_trades = vec![
             Trade {
                 id: "1".to_string(),
@@ -102,65 +111,61 @@ mod tests {
         ];
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        // Days since start > initial_fade_in_days (30)
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 31));
+        // Days since start > lookback_days (365) -> No seed weight
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366));
 
         // VWAP: (100*10 + 110*10) / 20 = 2100 / 20 = 105
         assert_eq!(pivot, Decimal::from(105));
     }
 
     #[test]
-    fn test_compute_pivot_fade_in() {
-        let engine = PivotEngine::new(Decimal::from(100));
-        let historical_trades = vec![
-            Trade {
-                id: "1".to_string(),
-                timestamp: 1000,
-                price: Decimal::from(100),
-                volume: Decimal::from(10),
-                side: OrderSide::Buy,
-                wallet: "w1".to_string(),
-            },
-        ];
-        let market_update = MarketUpdate {
-            timestamp: 2000,
+    fn test_compute_pivot_seeded() {
+        // Seed price 100, nominal volume 10 per day.
+        // lookback_days = 10.
+        // days_since_start = 5.
+        // Remaining seed days = 5. Seed volume = 5 * 10 = 50.
+        let engine = PivotEngine::new(Decimal::from(100), 10, Decimal::from(10));
+
+        let historical_trades = vec![Trade {
+            id: "1".to_string(),
+            timestamp: 1000,
             price: Decimal::from(120),
-            volume_24h: Decimal::from(10),
-        };
+            volume: Decimal::from(50),
+            side: OrderSide::Buy,
+            wallet: "w1".to_string(),
+        }];
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        // Current price = 120
-        // VWAP = (100*10 + 120*10) / 20 = 110
-        // Halfway through fade-in (15 days out of 30)
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, Some(&market_update), 15));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 5));
 
-        // Ratio = 0.5
-        // Pivot = (120 * 0.5) + (110 * 0.5) = 60 + 55 = 115
-        assert_eq!(pivot, Decimal::from(115));
+        // Historical: 120 * 50 = 6000 value, volume 50
+        // Seed: 100 * 50 = 5000 value, volume 50
+        // Total: 11000 / 100 = 110
+        assert_eq!(pivot, Decimal::from(110));
     }
 
     #[test]
     fn test_compute_pivot_empty_data() {
-        let target = Decimal::from(1000);
-        let engine = PivotEngine::new(target);
+        let seed = Decimal::from(1000);
+        let engine = PivotEngine::new(seed, 365, Decimal::from(1000));
         let rt = tokio::runtime::Runtime::new().unwrap();
         let pivot = rt.block_on(engine.compute_pivot(&[], &[], None, 0));
-        assert_eq!(pivot, target);
+        assert_eq!(pivot, seed);
     }
 
     #[test]
-    fn test_compute_pivot_zero_volume() {
-        let engine = PivotEngine::new(Decimal::from(100));
+    fn test_compute_pivot_zero_volume_fallback() {
+        let engine = PivotEngine::new(Decimal::ZERO, 365, Decimal::ZERO);
         let market_update = MarketUpdate {
             timestamp: 1000,
             price: Decimal::from(150),
             volume_24h: Decimal::ZERO,
         };
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let pivot = rt.block_on(engine.compute_pivot(&[], &[], Some(&market_update), 31));
-        
+        // Both historical and seed volume are zero
+        let pivot = rt.block_on(engine.compute_pivot(&[], &[], Some(&market_update), 366));
+
         // Should fallback to market update price (150)
         assert_eq!(pivot, Decimal::from(150));
     }
 }
-
