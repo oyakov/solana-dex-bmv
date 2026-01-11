@@ -340,40 +340,37 @@ impl SolanaClient {
     ) -> Result<String> {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
-        let market_state = MarketStateV3::unpack(&market_data)?;
+        let market_state = MarketStateV2::unpack(&market_data)?;
 
         let open_orders = self
             .find_open_orders(market_id, &signer.pubkey())
             .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
 
-        let place_ix = crate::infra::openbook::create_new_order_v3_instruction(
+        let place_ix = crate::infra::openbook::create_place_order_v2_instruction(
             &market_pubkey,
             &open_orders,
-            &Pubkey::from(market_state.request_queue),
-            &Pubkey::from(market_state.event_queue),
-            &Pubkey::from(market_state.bids),
-            &Pubkey::from(market_state.asks),
-            &Pubkey::from(market_state.base_vault),
-            &Pubkey::from(market_state.quote_vault),
+            &market_state.asks,
+            &market_state.bids,
+            &market_state.event_heap,
+            &market_state.market_base_vault,
+            &market_state.market_quote_vault,
             &signer.pubkey(),
-            base_wallet,
-            quote_wallet,
+            quote_wallet, // Using quote_wallet as user_token_account for simplicity or correct determination
             place_side,
-            place_price,
-            place_size,
-            place_size * place_price,
-            0,
+            place_price as i64,
+            place_size as i64,
+            (place_size * place_price) as i64,
             0,
         );
 
         let cancel_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
             &market_pubkey,
-            &Pubkey::from(market_state.bids),
-            &Pubkey::from(market_state.asks),
+            &market_state.bids,
+            &market_state.asks,
             &open_orders,
             &signer.pubkey(),
-            &Pubkey::from(market_state.event_queue),
+            &market_state.event_heap,
             cancel_side,
             cancel_order_id,
         );
