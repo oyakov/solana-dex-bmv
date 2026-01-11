@@ -28,3 +28,9 @@ dry_run:
   enabled: true
   use_live_rpc: false
   simulate_fills: true
+
+kill_switch:
+  mode: "file"
+  file_path: "/tmp/solana-dex-bmv.kill"
+  redis_url: "redis://127.0.0.1/"
+  redis_key: "bmv:kill_switch"
