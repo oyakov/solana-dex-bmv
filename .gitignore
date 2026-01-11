@@ -210,3 +210,10 @@ __marimo__/
 # Added by cargo
 
 /target
+/temp/
+*.tar.gz
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+

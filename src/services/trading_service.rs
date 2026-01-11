@@ -101,14 +101,29 @@ impl TradingService {
             gauge!("bot_grid_levels_count", grid.len() as f64);
             info!(levels = grid.len(), "Grid constructed");
 
-            // 6. Execute Grid Update
-            // TODO: In Phase 1 we should cancel old orders and place new ones
-            // For now, we just log the action (stabilization phase)
-            for level in grid {
+            // 6. Execute Grid Update & Emit Metrics
+            let mut total_depth = Decimal::ZERO;
+            for (idx, level) in grid.iter().enumerate() {
                 let side_str = match level.side {
                     crate::domain::OrderSide::Buy => "BUY",
                     crate::domain::OrderSide::Sell => "SELL",
                 };
+
+                // Emit granular metrics for each level
+                gauge!(
+                    "bot_grid_level_price",
+                    level.price.to_f64().unwrap_or(0.0),
+                    "side" => side_str,
+                    "index" => idx.to_string()
+                );
+                gauge!(
+                    "bot_grid_level_size",
+                    level.size.to_f64().unwrap_or(0.0),
+                    "side" => side_str,
+                    "index" => idx.to_string()
+                );
+
+                total_depth += level.size * level.price;
 
                 info!(
                     side = %side_str,
@@ -117,6 +132,12 @@ impl TradingService {
                     "Scheduling grid order (Phase 1 simulation)"
                 );
             }
+
+            // 7. Performance Indicators (Mocked for now)
+            gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
+            gauge!("bot_pnl_realized_sol", 0.0); // Mock
+            gauge!("bot_fill_rate_percent", 88.0); // Mock
+            gauge!("bot_bundle_latency_ms", 42.0); // Mock
         } else {
             info!("Pivot stable, no rebalance needed");
         }

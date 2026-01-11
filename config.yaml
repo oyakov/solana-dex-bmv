@@ -3,11 +3,16 @@ openbook_market_id: "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
 
 order_grid:
   orders_per_side: 16
+  buy_volume_multiplier: 1.2
+  sell_volume_multiplier: 1.0
+  rebalance_threshold_percent: 1.0
 
 pivot_vwap:
   pivot_price: 0.0
   vwap_price: 0.0
   lookback_minutes: 0
+  lookback_days: 365
+  nominal_daily_volume: 1000
 
 channel_bounds:
   buy_percent: 0.15
