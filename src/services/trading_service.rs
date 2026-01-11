@@ -64,9 +64,8 @@ impl TradingService {
             "Starting TradingService main loop"
         );
 
-        let tick_interval = tokio::time::Duration::from_secs(
-            self._settings.trading_tick_interval_seconds,
-        );
+        let tick_interval =
+            tokio::time::Duration::from_secs(self._settings.trading_tick_interval_seconds);
         let recovery_delay = tokio::time::Duration::from_secs(5);
         let mut interval = tokio::time::interval(tick_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

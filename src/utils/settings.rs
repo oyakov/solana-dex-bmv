@@ -45,8 +45,8 @@ impl Default for PivotVwapSettings {
             lookback_minutes: 0,
             lookback_days: 365,
             nominal_daily_volume: Decimal::new(1000, 0), // Default 1000 SOL/unit
-            market_id_rent_sol: Decimal::new(4, 1),       // 0.4 SOL
-            account_rent_sol: Decimal::new(23, 3),        // 0.023 SOL
+            market_id_rent_sol: Decimal::new(4, 1),      // 0.4 SOL
+            account_rent_sol: Decimal::new(23, 3),       // 0.023 SOL
             jito_tip_sol: Decimal::ZERO,
             fee_bps: Decimal::new(25, 0), // 25 bps = 0.25%
         }
