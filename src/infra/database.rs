@@ -101,7 +101,7 @@ impl Database {
             VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&trade.id)
-        .bind(trade.timestamp as i64)
+        .bind(trade.timestamp)
         .bind(trade.price.to_string())
         .bind(trade.volume.to_string())
         .bind(side_str)
