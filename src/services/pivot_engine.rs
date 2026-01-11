@@ -247,10 +247,10 @@ mod tests {
             Decimal::ZERO,
             365,
             Decimal::from(1000),
-            Decimal::from(1),    // 1 SOL market rent
-            Decimal::from(0.5),  // 0.5 SOL account rent
-            Decimal::from(0.25), // 0.25 SOL tip
-            Decimal::from(25),   // 0.25% fee
+            Decimal::from(1),                         // 1 SOL market rent
+            Decimal::from_str_exact("0.5").unwrap(),  // 0.5 SOL account rent
+            Decimal::from_str_exact("0.25").unwrap(), // 0.25 SOL tip
+            Decimal::from(25),                        // 0.25% fee
         );
         let historical_trades = vec![Trade {
             id: "1".to_string(),
@@ -267,8 +267,8 @@ mod tests {
         // Base: 100 * 10 = 1000, volume 10
         // Cost: 1.75 SOL * 100 = 175
         // Fee: 10 * 0.0025 = 0.025
-        // Pivot: (1000 + 175) / (10 - 0.025) = 1175 / 9.975 = 117.79...
-        let expected = Decimal::from_str_exact("117.7894736842105263157894737").unwrap();
+        // Pivot: (1000 + 175) / (10 - 0.025) = 1175 / 9.975 = 117.794486...
+        let expected = Decimal::from_str_exact("117.79448621553884711779448622").unwrap();
         assert_eq!(pivot, expected);
     }
 }

@@ -63,12 +63,6 @@ impl MarketStateV2 {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct AnyNodeV2 {
-    pub tag: u8,
-    pub data: [u8; 87],
-}
-
 pub fn parse_book_side_v2(
     data: &[u8],
     is_bids: bool,
@@ -78,7 +72,6 @@ pub fn parse_book_side_v2(
     quote_lot_size: i64,
 ) -> Result<Vec<OrderbookLevel>> {
     if data.len() < 8 + 8 {
-        // Discr + header
         return Err(anyhow!("BookSide data too short"));
     }
 
@@ -86,34 +79,21 @@ pub fn parse_book_side_v2(
         return Err(anyhow!("Invalid BookSide discriminator"));
     }
 
-    // BookSide in V2 is usually a large buffer of AnyNodes.
-    // Offset 8..12: bump_index, etc.
-    // Nodes typically start at a fixed offset after the header.
-    let nodes_start = 8 + 128; // Simplified offset estimation for V2 zero-copy
-    let node_size = 88; // 1 (tag) + 87 (data)
+    let nodes_start = 8 + 128;
+    let node_size = 88;
 
     let mut levels = Vec::new();
 
-    // Loop through nodes
     for i in 0..((data.len() - nodes_start) / node_size).min(1024) {
         let offset = nodes_start + i * node_size;
         let tag = data[offset];
 
         if tag == 2 {
             // LeafNode tag in V2
-            // LeafNode Layout (Within AnyNode data):
-            // 0..4: owner_slot (u32)
-            // 4..8: order_index (u32)
-            // 8..24: key (u128) -> contains price
-            // 24..56: owner (Pubkey)
-            // 56..64: quantity (i64)
-
             let key = u128::from_le_bytes(data[offset + 1 + 8..offset + 1 + 24].try_into()?);
             let price_raw = (key >> 64) as u64;
             let quantity = i64::from_le_bytes(data[offset + 1 + 56..offset + 1 + 64].try_into()?);
 
-            // V2 Price calculation:
-            // price = (price_raw * quote_lot_size * 10^base_decimals) / (base_lot_size * 10^quote_decimals)
             let base_pow = Decimal::from(10u64.pow(base_decimals as u32));
             let quote_pow = Decimal::from(10u64.pow(quote_decimals as u32));
 
@@ -135,7 +115,7 @@ pub fn parse_book_side_v2(
     Ok(levels)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn create_place_order_v2_instruction(
     market: &Pubkey,
     open_orders: &Pubkey,
@@ -146,7 +126,7 @@ pub fn create_place_order_v2_instruction(
     market_quote_vault: &Pubkey,
     owner: &Pubkey,
     user_token_account: &Pubkey,
-    side: u8, // 0 for Bid, 1 for Ask
+    side: u8,
     price: i64,
     max_base_qty: i64,
     max_quote_qty: i64,
@@ -154,7 +134,6 @@ pub fn create_place_order_v2_instruction(
 ) -> solana_sdk::instruction::Instruction {
     let program_id = Pubkey::from_str(OPENBOOK_V2_PROGRAM_ID).unwrap();
 
-    // PlaceOrder discriminator: [142, 60, 48, 126, 114, 252, 19, 137]
     let mut data = Vec::with_capacity(8 + 32);
     data.extend_from_slice(&[142, 60, 48, 126, 114, 252, 19, 137]);
     data.push(side);
@@ -162,13 +141,12 @@ pub fn create_place_order_v2_instruction(
     data.extend_from_slice(&max_base_qty.to_le_bytes());
     data.extend_from_slice(&max_quote_qty.to_le_bytes());
     data.extend_from_slice(&client_order_id.to_le_bytes());
-    // ...other args like order_type (0 for limit)
     data.push(0);
 
     solana_sdk::instruction::Instruction {
         program_id,
         accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(*owner, true), // user
+            solana_sdk::instruction::AccountMeta::new(*owner, true),
             solana_sdk::instruction::AccountMeta::new(*open_orders, false),
             solana_sdk::instruction::AccountMeta::new(*market, false),
             solana_sdk::instruction::AccountMeta::new(*bids, false),
@@ -190,20 +168,20 @@ pub fn create_place_order_v2_instruction(
     }
 }
 
-// Keeping V1 logic for internal fallback or reference during transition
 pub const MARKET_STATE_LAYOUT_V3_LEN: usize = 388;
 #[derive(Debug, Clone)]
-pub struct MarketStateV1 {
+pub struct MarketStateV3 {
     pub bids: [u8; 32],
     pub asks: [u8; 32],
     pub base_lot_size: u64,
     pub quote_lot_size: u64,
+    pub event_queue: [u8; 32],
 }
 
-impl MarketStateV1 {
+impl MarketStateV3 {
     pub fn unpack(data: &[u8]) -> Result<Self> {
         if data.len() < MARKET_STATE_LAYOUT_V3_LEN {
-            return Err(anyhow!("V1 Market account data too short"));
+            return Err(anyhow!("V3/V1 Market account data too short"));
         }
         let mut bids = [0u8; 32];
         bids.copy_from_slice(&data[285..317]);
@@ -211,11 +189,14 @@ impl MarketStateV1 {
         asks.copy_from_slice(&data[317..349]);
         let base_lot_size = u64::from_le_bytes(data[349..357].try_into()?);
         let quote_lot_size = u64::from_le_bytes(data[357..365].try_into()?);
+        let mut event_queue = [0u8; 32];
+        event_queue.copy_from_slice(&data[253..285]);
         Ok(Self {
             bids,
             asks,
             base_lot_size,
             quote_lot_size,
+            event_queue,
         })
     }
 }
@@ -229,10 +210,11 @@ pub fn create_jito_tip_instruction(
         "HFqU5x63VTqvQss8hp1uE17D3Jp2N6rBqA5VvL9Fv95v",
         "Cw8CFyMvGrnC7JvSbxujSAn61S19p9k8X1Yj8D1nK5sN",
     ];
-    let tip_pubkey = std::str::FromStr::from_str(tip_accounts[0]).unwrap();
+    let tip_pubkey = Pubkey::from_str(tip_accounts[0]).unwrap();
     solana_sdk::system_instruction::transfer(owner, &tip_pubkey, tip_lamports)
 }
 
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn create_cancel_order_v2_instruction(
     market: &Pubkey,
     bids: &Pubkey,
@@ -248,6 +230,38 @@ pub fn create_cancel_order_v2_instruction(
     data.extend_from_slice(&11u32.to_le_bytes());
     data.push(side);
     data.extend_from_slice(&order_id.to_le_bytes());
+    solana_sdk::instruction::Instruction {
+        program_id,
+        accounts: vec![
+            solana_sdk::instruction::AccountMeta::new(*market, false),
+            solana_sdk::instruction::AccountMeta::new(*bids, false),
+            solana_sdk::instruction::AccountMeta::new(*asks, false),
+            solana_sdk::instruction::AccountMeta::new(*open_orders, false),
+            solana_sdk::instruction::AccountMeta::new_readonly(*owner, true),
+            solana_sdk::instruction::AccountMeta::new(*event_queue, false),
+        ],
+        data,
+    }
+}
+
+#[allow(dead_code, clippy::too_many_arguments)]
+pub fn create_cancel_all_orders_instruction(
+    market: &Pubkey,
+    bids: &Pubkey,
+    asks: &Pubkey,
+    open_orders: &Pubkey,
+    owner: &Pubkey,
+    event_queue: &Pubkey,
+    side: u8,
+    limit: u16,
+) -> solana_sdk::instruction::Instruction {
+    let program_id = Pubkey::from_str("srmqPvSwwJbtLZ9Uv7j8W7YVFe4Gz74Xp2Y7tENz7u4").unwrap();
+
+    let mut data = Vec::with_capacity(7);
+    data.extend_from_slice(&7u32.to_le_bytes());
+    data.push(side);
+    data.extend_from_slice(&limit.to_le_bytes());
+
     solana_sdk::instruction::Instruction {
         program_id,
         accounts: vec![

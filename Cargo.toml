@@ -27,6 +27,7 @@ metrics = "0.21"
 metrics-exporter-prometheus = "0.12.1"
 tokio-tungstenite = "0.20"
 futures-util = "0.3"
+redis = { version = "0.24", features = ["tokio-comp"] }
 
 
 

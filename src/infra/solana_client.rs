@@ -1,5 +1,7 @@
 use crate::domain::{MarketUpdate, Orderbook};
-use crate::infra::openbook::{parse_book_side_v2, MarketStateV2, OPENBOOK_V2_PROGRAM_ID};
+use crate::infra::openbook::{
+    parse_book_side_v2, MarketStateV2, MarketStateV3, OPENBOOK_V2_PROGRAM_ID,
+};
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -33,7 +35,6 @@ impl SolanaClient {
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV2::unpack(&market_data)?;
 
-        // Fetch Bids and Asks accounts
         let bids_pubkey = market_state.bids;
         let asks_pubkey = market_state.asks;
 
@@ -155,18 +156,13 @@ impl SolanaClient {
         let program_id = Pubkey::from_str(OPENBOOK_V2_PROGRAM_ID)?;
         let market_pubkey = Pubkey::from_str(market_id)?;
 
-        // OpenOrdersAccount discriminator for V2: [175, 126, 173, 116, 219, 13, 23, 201] (Estimated)
-        // For now, filtering by owner and market in the data
         let filters = vec![
             solana_client::rpc_filter::RpcFilterType::Memcmp(
-                solana_client::rpc_filter::Memcmp::new_raw_bytes(
-                    8, // owner offset in OpenOrdersAccountV2
-                    owner.to_bytes().to_vec(),
-                ),
+                solana_client::rpc_filter::Memcmp::new_raw_bytes(8, owner.to_bytes().to_vec()),
             ),
             solana_client::rpc_filter::RpcFilterType::Memcmp(
                 solana_client::rpc_filter::Memcmp::new_raw_bytes(
-                    40, // market offset in OpenOrdersAccountV2
+                    40,
                     market_pubkey.to_bytes().to_vec(),
                 ),
             ),
@@ -190,6 +186,7 @@ impl SolanaClient {
         Ok(accounts.first().map(|(p, _)| *p))
     }
 
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub async fn place_order(
         &self,
         market_id: &str,
@@ -206,13 +203,11 @@ impl SolanaClient {
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV2::unpack(&market_data)?;
 
-        // Discover open_orders
         let open_orders = self
             .find_open_orders(market_id, &signer.pubkey())
             .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
 
-        // Determine user token account based on side
         let user_token_account = if side == 0 { quote_wallet } else { base_wallet };
 
         let order_ix = crate::infra::openbook::create_place_order_v2_instruction(
@@ -221,15 +216,15 @@ impl SolanaClient {
             &market_state.asks,
             &market_state.bids,
             &market_state.event_heap,
-            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market base vault from State
-            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market quote vault from State
+            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market base vault
+            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market quote vault
             &signer.pubkey(),
             user_token_account,
             side,
             price,
             size_lots,
-            size_lots * price, // Simplified max_quote_qty
-            0,                 // client_order_id
+            size_lots * price,
+            0,
         );
 
         let tip_ix =
@@ -257,7 +252,6 @@ impl SolanaClient {
         jito_api_url: &str,
         tip_lamports: u64,
     ) -> Result<String> {
-        // TODO: Implement V2 CancelOrder
         let tip_ix =
             crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
         let bh = self.client.get_latest_blockhash().await?;
@@ -267,6 +261,63 @@ impl SolanaClient {
             &[signer],
             bh,
         );
+        let tx_bytes = bincode::serialize(&tx)?;
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
+        self.send_bundle(vec![tx_base64], jito_api_url).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn cancel_all_orders(
+        &self,
+        market_id: &str,
+        signer: &dyn solana_sdk::signer::Signer,
+        jito_api_url: &str,
+        tip_lamports: u64,
+    ) -> Result<String> {
+        let market_pubkey = Pubkey::from_str(market_id)?;
+        let market_data = self.client.get_account_data(&market_pubkey).await?;
+        let market_state = MarketStateV3::unpack(&market_data)?;
+
+        let open_orders = match self.find_open_orders(market_id, &signer.pubkey()).await? {
+            Some(oo) => oo,
+            None => {
+                info!("No open orders account found to cancel");
+                return Ok("no_open_orders".to_string());
+            }
+        };
+
+        let cancel_bid_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+            &market_pubkey,
+            &Pubkey::new_from_array(market_state.bids),
+            &Pubkey::new_from_array(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::new_from_array(market_state.event_queue),
+            0,
+            u16::MAX,
+        );
+
+        let cancel_ask_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+            &market_pubkey,
+            &Pubkey::new_from_array(market_state.bids),
+            &Pubkey::new_from_array(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::new_from_array(market_state.event_queue),
+            1,
+            u16::MAX,
+        );
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[cancel_bid_ix, cancel_ask_ix, tip_ix],
+            Some(&signer.pubkey()),
+            &[signer],
+            bh,
+        );
+
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
