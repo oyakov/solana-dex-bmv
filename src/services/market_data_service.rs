@@ -1,6 +1,6 @@
 use crate::domain::{OrderSide, Trade};
-use crate::infra::database::Database;
 use crate::infra::openbook::OPENBOOK_V2_PROGRAM_ID;
+use crate::infra::DatabaseProvider;
 use crate::services::PivotEngine;
 use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};
@@ -13,7 +13,7 @@ use tracing::{error, info, warn};
 
 pub struct MarketDataService {
     ws_url: String,
-    database: Arc<Database>,
+    database: Arc<dyn crate::infra::DatabaseProvider>,
     market_id: String,
     pivot_engine: Arc<PivotEngine>,
 }
@@ -21,7 +21,7 @@ pub struct MarketDataService {
 impl MarketDataService {
     pub fn new(
         ws_url: &str,
-        database: Arc<Database>,
+        database: Arc<dyn DatabaseProvider>,
         market_id: &str,
         pivot_engine: Arc<PivotEngine>,
     ) -> Self {

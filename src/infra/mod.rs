@@ -1,10 +1,14 @@
 pub mod database;
 pub mod health;
 pub mod kill_switch;
+pub mod mocks;
 pub mod observability;
 pub mod openbook;
 pub mod solana_client;
+pub mod traits;
 pub mod wallet_manager;
+
+pub use traits::{DatabaseProvider, SolanaProvider};
 
 pub use database::Database;
 pub use health::HealthChecker;

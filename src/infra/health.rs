@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::info;
 
-use crate::infra::{Database, SolanaClient};
+use crate::infra::{DatabaseProvider, SolanaProvider};
 use crate::utils::BotSettings;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,13 +34,17 @@ pub struct HealthReport {
 }
 
 pub struct HealthChecker {
-    solana: Arc<SolanaClient>,
-    database: Arc<Database>,
+    solana: Arc<dyn SolanaProvider>,
+    database: Arc<dyn DatabaseProvider>,
     settings: BotSettings,
 }
 
 impl HealthChecker {
-    pub fn new(solana: Arc<SolanaClient>, database: Arc<Database>, settings: BotSettings) -> Self {
+    pub fn new(
+        solana: Arc<dyn SolanaProvider>,
+        database: Arc<dyn DatabaseProvider>,
+        settings: BotSettings,
+    ) -> Self {
         Self {
             solana,
             database,

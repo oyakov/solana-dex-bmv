@@ -1,11 +1,7 @@
-mod domain;
-mod infra;
-mod services;
-mod utils;
+use solana_dex_bmv::infra::{Database, HealthChecker, SolanaClient, WalletManager};
+use solana_dex_bmv::services::{MarketDataService, PivotEngine, TradingService};
+use solana_dex_bmv::utils::BotSettings;
 
-use crate::infra::{Database, SolanaClient, WalletManager};
-use crate::services::{PivotEngine, TradingService};
-use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::sync::Arc;
@@ -22,7 +18,7 @@ async fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     // Initialize metrics
-    infra::observability::init_metrics();
+    solana_dex_bmv::infra::observability::init_metrics();
 
     info!("Solana DEX BMV bot (Rust) starting");
 
@@ -39,10 +35,9 @@ async fn main() -> Result<()> {
     let wallet_manager = Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
 
     // Perform connectivity health checks
-    let health_checker =
-        infra::HealthChecker::new(solana.clone(), database.clone(), settings.clone());
+    let health_checker = HealthChecker::new(solana.clone(), database.clone(), settings.clone());
     let health_reports = health_checker.run_all_checks().await;
-    infra::HealthChecker::display_reports(&health_reports);
+    HealthChecker::display_reports(&health_reports);
     health_checker
         .verify_critical_services(&health_reports)
         .await?;
@@ -74,7 +69,7 @@ async fn main() -> Result<()> {
     ));
 
     // Initialize and spawn Market Data Service (WebSocket ingestion)
-    let market_data_service = services::MarketDataService::new(
+    let market_data_service = MarketDataService::new(
         &settings.rpc_endpoints.primary_ws,
         database.clone(),
         &settings.openbook_market_id,

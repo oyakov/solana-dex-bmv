@@ -1,4 +1,4 @@
-use crate::infra::{SolanaClient, WalletManager};
+use crate::infra::{SolanaProvider, WalletManager};
 use crate::utils::BotSettings;
 use anyhow::Result;
 use rust_decimal::Decimal;
@@ -6,7 +6,7 @@ use solana_sdk::signer::Signer;
 use tracing::info;
 
 pub struct RebalanceService {
-    solana: std::sync::Arc<SolanaClient>,
+    solana: std::sync::Arc<dyn crate::infra::SolanaProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
     settings: BotSettings,
     last_pivot: std::sync::Mutex<Option<Decimal>>,
@@ -15,7 +15,7 @@ pub struct RebalanceService {
 
 impl RebalanceService {
     pub fn new(
-        solana: std::sync::Arc<SolanaClient>,
+        solana: std::sync::Arc<dyn SolanaProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
         settings: BotSettings,
     ) -> Self {
@@ -85,7 +85,7 @@ impl RebalanceService {
                 .get_balance(&wallet.pubkey().to_string())
                 .await?;
             let balance_sol = Decimal::from(balance_lamports) / Decimal::from(1_000_000_000u64);
-            info!(wallet = %wallet.pubkey(), balance = %balance_sol, "Wallet health check");
+            info!(wallet = %(*wallet).pubkey(), balance = %balance_sol, "Wallet health check");
         }
         Ok(())
     }

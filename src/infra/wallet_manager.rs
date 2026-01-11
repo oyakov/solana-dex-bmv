@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
 use solana_sdk::signer::keypair::{read_keypair_file, Keypair};
 use solana_sdk::signer::Signer;
+use std::sync::Arc;
 
 use tracing::{info, warn};
 
 pub struct WalletManager {
-    wallets: Vec<Keypair>,
+    wallets: Vec<Arc<Keypair>>,
 }
 
 impl WalletManager {
@@ -18,7 +19,7 @@ impl WalletManager {
                 match read_keypair_file(secret) {
                     Ok(kp) => {
                         info!(pubkey = %kp.pubkey(), "Loaded wallet from file");
-                        wallets.push(kp);
+                        wallets.push(Arc::new(kp));
                         continue;
                     }
                     Err(e) => {
@@ -33,7 +34,7 @@ impl WalletManager {
             // Actually in 1.18 it might be different. Let's check common usage.
             // Usually it's Keypair::from_base58_string(secret)
             info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
-            wallets.push(kp);
+            wallets.push(Arc::new(kp));
         }
 
         if wallets.is_empty() {
@@ -52,14 +53,14 @@ impl WalletManager {
     }
 
     #[allow(dead_code)]
-    pub fn get_keypair(&self, index: usize) -> Result<&Keypair> {
+    pub fn get_keypair(&self, index: usize) -> Result<&Arc<Keypair>> {
         self.wallets
             .get(index)
             .ok_or_else(|| anyhow!("Wallet index out of bounds"))
     }
 
-    pub fn get_all_wallets(&self) -> Vec<&Keypair> {
-        self.wallets.iter().collect()
+    pub fn get_all_wallets(&self) -> Vec<Arc<Keypair>> {
+        self.wallets.clone()
     }
 
     pub fn count(&self) -> usize {

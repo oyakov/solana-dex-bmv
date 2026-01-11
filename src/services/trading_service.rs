@@ -1,5 +1,5 @@
 use crate::domain::OrderSide;
-use crate::infra::{Database, KillSwitch, SolanaClient, WalletManager};
+use crate::infra::{DatabaseProvider, KillSwitch, SolanaProvider, WalletManager};
 use crate::services::{
     GridBuilder, PivotEngine, PnlTracker, RebalanceService, RiskManager, RiskSnapshot,
 };
@@ -15,8 +15,8 @@ use tracing::{error, info};
 
 pub struct TradingService {
     _settings: BotSettings,
-    solana: std::sync::Arc<SolanaClient>,
-    database: std::sync::Arc<Database>,
+    solana: std::sync::Arc<dyn SolanaProvider>,
+    database: std::sync::Arc<dyn DatabaseProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
     kill_switch: std::sync::Arc<KillSwitch>,
 
@@ -30,8 +30,8 @@ pub struct TradingService {
 impl TradingService {
     pub fn new(
         settings: BotSettings,
-        solana: std::sync::Arc<SolanaClient>,
-        database: std::sync::Arc<Database>,
+        solana: std::sync::Arc<dyn SolanaProvider>,
+        database: std::sync::Arc<dyn DatabaseProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
         pivot_engine: std::sync::Arc<PivotEngine>,
     ) -> Self {
@@ -292,7 +292,7 @@ impl TradingService {
         for wallet in self.wallet_manager.get_all_wallets() {
             if self
                 .solana
-                .find_open_orders(market_id, &wallet.pubkey())
+                .find_open_orders(market_id, &(*wallet).pubkey())
                 .await?
                 .is_some()
             {
@@ -325,11 +325,70 @@ impl TradingService {
         for wallet in self.wallet_manager.get_all_wallets() {
             let result = self
                 .solana
-                .cancel_all_orders(market_id, wallet, jito_url, tip_lamports)
+                .cancel_all_orders(market_id, &*wallet, jito_url, tip_lamports)
                 .await?;
             info!(wallet = %wallet.pubkey(), %result, "Cancel-all submitted");
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infra::mocks::{MockDatabaseProvider, MockSolanaProvider};
+    use crate::utils::BotSettings;
+    use mockall::predicate::*;
+    use rust_decimal_macros::dec;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_trading_service_tick_basic() {
+        let mut mock_solana = MockSolanaProvider::new();
+        let mut mock_database = MockDatabaseProvider::new();
+
+        let settings = BotSettings::default();
+
+        // Mock get_market_data
+        let market_id_clone = settings.openbook_market_id.clone();
+        mock_solana
+            .expect_get_market_data()
+            .with(eq(market_id_clone))
+            .returning(|_| {
+                Ok(crate::domain::MarketUpdate {
+                    price: dec!(100.5),
+                    volume_24h: dec!(1000000),
+                    timestamp: 123456789,
+                })
+            });
+
+        // Mock recent trades
+        mock_database
+            .expect_get_recent_trades()
+            .returning(|_| Ok(vec![]));
+
+        // Mock state
+        mock_database.expect_get_state().returning(|_| Ok(None));
+
+        let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
+        let database: Arc<dyn DatabaseProvider> = Arc::new(mock_database);
+        let wallet_manager = Arc::new(crate::infra::WalletManager::new(&[]).unwrap());
+
+        let pivot_engine = Arc::new(PivotEngine::new(
+            dec!(100.5),
+            7,
+            60,
+            dec!(1000000),
+            dec!(0.02),
+            dec!(0.01),
+            dec!(0.001),
+            dec!(10),
+        ));
+
+        let service = TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
+
+        let result = service.tick().await;
+        assert!(result.is_ok());
     }
 }

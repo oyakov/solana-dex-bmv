@@ -5,7 +5,9 @@ use crate::infra::openbook::{
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
+// use solana_sdk::hash::Hash; (unused since full path is used below)
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::{Keypair, Signer};
 
 use anyhow::{anyhow, Result};
 use base64::Engine;
@@ -17,6 +19,128 @@ pub struct SolanaClient {
     client: RpcClient,
 }
 
+#[async_trait::async_trait]
+impl crate::infra::SolanaProvider for SolanaClient {
+    async fn get_market_data(&self, market_id: &str) -> Result<MarketUpdate> {
+        self.get_market_data_impl(market_id).await
+    }
+
+    async fn cancel_all_orders(
+        &self,
+        market_id: &str,
+        wallet: &Keypair,
+        jito_url: &str,
+        tip_lamports: u64,
+    ) -> Result<String> {
+        self.cancel_all_orders_impl(market_id, wallet, jito_url, tip_lamports)
+            .await
+    }
+
+    async fn find_open_orders(
+        &self,
+        market_id: &str,
+        owner: &solana_sdk::pubkey::Pubkey,
+    ) -> Result<Option<solana_sdk::pubkey::Pubkey>> {
+        self.find_open_orders_impl(market_id, owner).await
+    }
+
+    async fn health(&self) -> bool {
+        self.health_impl().await
+    }
+
+    async fn get_orderbook(&self, market_id: &str) -> Result<crate::domain::Orderbook> {
+        self.get_orderbook_impl(market_id).await
+    }
+
+    async fn get_balance(&self, address: &str) -> Result<u64> {
+        self.get_balance_impl(address).await
+    }
+
+    async fn send_bundle(&self, txs: Vec<String>, jito_url: &str) -> Result<String> {
+        self.send_bundle_impl(txs, jito_url).await
+    }
+
+    async fn get_latest_blockhash(&self) -> Result<solana_sdk::hash::Hash> {
+        self.get_latest_blockhash_impl().await
+    }
+
+    async fn place_order(
+        &self,
+        market_id: &str,
+        signer: &Keypair,
+        side: u8,
+        price: i64,
+        size_lots: i64,
+        jito_api_url: &str,
+        tip_lamports: u64,
+        base_wallet: &Pubkey,
+        quote_wallet: &Pubkey,
+    ) -> Result<String> {
+        self.place_order_impl(
+            market_id,
+            signer,
+            side,
+            price,
+            size_lots,
+            jito_api_url,
+            tip_lamports,
+            base_wallet,
+            quote_wallet,
+        )
+        .await
+    }
+
+    async fn cancel_order(
+        &self,
+        market_id: &str,
+        signer: &Keypair,
+        side: u8,
+        order_id: u128,
+        jito_api_url: &str,
+        tip_lamports: u64,
+    ) -> Result<String> {
+        self.cancel_order_impl(
+            market_id,
+            signer,
+            side,
+            order_id,
+            jito_api_url,
+            tip_lamports,
+        )
+        .await
+    }
+
+    async fn place_and_cancel_bundle(
+        &self,
+        market_id: &str,
+        signer: &Keypair,
+        place_side: u8,
+        place_price: u64,
+        place_size: u64,
+        cancel_side: u8,
+        cancel_order_id: u128,
+        jito_api_url: &str,
+        tip_lamports: u64,
+        base_wallet: &Pubkey,
+        quote_wallet: &Pubkey,
+    ) -> Result<String> {
+        self.place_and_cancel_bundle_impl(
+            market_id,
+            signer,
+            place_side,
+            place_price,
+            place_size,
+            cancel_side,
+            cancel_order_id,
+            jito_api_url,
+            tip_lamports,
+            base_wallet,
+            quote_wallet,
+        )
+        .await
+    }
+}
+
 impl SolanaClient {
     pub fn new(rpc_url: &str, commitment: CommitmentConfig) -> Self {
         Self {
@@ -24,13 +148,13 @@ impl SolanaClient {
         }
     }
 
-    pub async fn get_balance(&self, owner: &str) -> Result<u64> {
+    pub async fn get_balance_impl(&self, owner: &str) -> Result<u64> {
         let pubkey = Pubkey::from_str(owner).map_err(|e| anyhow!("Invalid pubkey: {}", e))?;
         let balance = self.client.get_balance(&pubkey).await?;
         Ok(balance)
     }
 
-    pub async fn get_orderbook(&self, market_id: &str) -> Result<Orderbook> {
+    pub async fn get_orderbook_impl(&self, market_id: &str) -> Result<Orderbook> {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV2::unpack(&market_data)?;
@@ -80,8 +204,8 @@ impl SolanaClient {
         })
     }
 
-    pub async fn get_market_data(&self, market_id: &str) -> Result<MarketUpdate> {
-        match self.get_orderbook(market_id).await {
+    pub async fn get_market_data_impl(&self, market_id: &str) -> Result<MarketUpdate> {
+        match self.get_orderbook_impl(market_id).await {
             Ok(ob) => {
                 let mid_price = ob.get_mid_price().unwrap_or(Decimal::ZERO);
                 Ok(MarketUpdate {
@@ -102,7 +226,7 @@ impl SolanaClient {
         }
     }
 
-    pub async fn health(&self) -> bool {
+    pub async fn health_impl(&self) -> bool {
         match self.client.get_version().await {
             Ok(_) => true,
             Err(e) => {
@@ -112,7 +236,7 @@ impl SolanaClient {
         }
     }
 
-    pub async fn send_bundle(
+    pub async fn send_bundle_impl(
         &self,
         transactions: Vec<String>,
         jito_api_url: &str,
@@ -148,7 +272,7 @@ impl SolanaClient {
         Ok(bundle_id)
     }
 
-    pub async fn find_open_orders(
+    pub async fn find_open_orders_impl(
         &self,
         market_id: &str,
         owner: &Pubkey,
@@ -187,10 +311,10 @@ impl SolanaClient {
     }
 
     #[allow(dead_code, clippy::too_many_arguments)]
-    pub async fn place_order(
+    pub async fn place_order_impl(
         &self,
         market_id: &str,
-        signer: &dyn solana_sdk::signer::Signer,
+        signer: &Keypair,
         side: u8,
         price: i64,
         size_lots: i64,
@@ -204,7 +328,7 @@ impl SolanaClient {
         let market_state = MarketStateV2::unpack(&market_data)?;
 
         let open_orders = self
-            .find_open_orders(market_id, &signer.pubkey())
+            .find_open_orders_impl(market_id, &signer.pubkey())
             .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
 
@@ -234,19 +358,19 @@ impl SolanaClient {
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[order_ix, tip_ix],
             Some(&signer.pubkey()),
-            &[signer],
+            &[signer as &dyn Signer],
             bh,
         );
 
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
-        self.send_bundle(vec![tx_base64], jito_api_url).await
+        self.send_bundle_impl(vec![tx_base64], jito_api_url).await
     }
 
-    pub async fn cancel_order(
+    pub async fn cancel_order_impl(
         &self,
         _market_id: &str,
-        signer: &dyn solana_sdk::signer::Signer,
+        signer: &Keypair,
         _side: u8,
         _order_id: u128,
         jito_api_url: &str,
@@ -258,19 +382,19 @@ impl SolanaClient {
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[tip_ix],
             Some(&signer.pubkey()),
-            &[signer],
+            &[signer as &dyn Signer],
             bh,
         );
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
-        self.send_bundle(vec![tx_base64], jito_api_url).await
+        self.send_bundle_impl(vec![tx_base64], jito_api_url).await
     }
 
     #[allow(dead_code)]
-    pub async fn cancel_all_orders(
+    pub async fn cancel_all_orders_impl(
         &self,
         market_id: &str,
-        signer: &dyn solana_sdk::signer::Signer,
+        signer: &Keypair,
         jito_api_url: &str,
         tip_lamports: u64,
     ) -> Result<String> {
@@ -278,7 +402,10 @@ impl SolanaClient {
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV3::unpack(&market_data)?;
 
-        let open_orders = match self.find_open_orders(market_id, &signer.pubkey()).await? {
+        let open_orders = match self
+            .find_open_orders_impl(market_id, &signer.pubkey())
+            .await?
+        {
             Some(oo) => oo,
             None => {
                 info!("No open orders account found to cancel");
@@ -314,20 +441,20 @@ impl SolanaClient {
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[cancel_bid_ix, cancel_ask_ix, tip_ix],
             Some(&signer.pubkey()),
-            &[signer],
+            &[signer as &dyn Signer],
             bh,
         );
 
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
-        self.send_bundle(vec![tx_base64], jito_api_url).await
+        self.send_bundle_impl(vec![tx_base64], jito_api_url).await
     }
 
     #[allow(dead_code)]
-    pub async fn place_and_cancel_bundle(
+    pub async fn place_and_cancel_bundle_impl(
         &self,
         market_id: &str,
-        signer: &dyn solana_sdk::signer::Signer,
+        signer: &Keypair,
         place_side: u8,
         place_price: u64,
         place_size: u64,
@@ -343,10 +470,15 @@ impl SolanaClient {
         let market_state = MarketStateV2::unpack(&market_data)?;
 
         let open_orders = self
-            .find_open_orders(market_id, &signer.pubkey())
+            .find_open_orders_impl(market_id, &signer.pubkey())
             .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
 
+        let user_token_account = if place_side == 0 {
+            quote_wallet
+        } else {
+            base_wallet
+        };
         let place_ix = crate::infra::openbook::create_place_order_v2_instruction(
             &market_pubkey,
             &open_orders,
@@ -355,8 +487,8 @@ impl SolanaClient {
             &market_state.event_heap,
             &market_state.market_base_vault,
             &market_state.market_quote_vault,
-            &signer.pubkey(),
-            quote_wallet, // Using quote_wallet as user_token_account for simplicity or correct determination
+            &(*signer).pubkey(),
+            user_token_account,
             place_side,
             place_price as i64,
             place_size as i64,
@@ -382,12 +514,15 @@ impl SolanaClient {
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[place_ix, cancel_ix, tip_ix],
             Some(&signer.pubkey()),
-            &[signer],
+            &[signer as &dyn Signer],
             bh,
         );
 
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
-        self.send_bundle(vec![tx_base64], jito_api_url).await
+        self.send_bundle_impl(vec![tx_base64], jito_api_url).await
+    }
+    pub async fn get_latest_blockhash_impl(&self) -> Result<solana_sdk::hash::Hash> {
+        self.client.get_latest_blockhash().await.map_err(Into::into)
     }
 }

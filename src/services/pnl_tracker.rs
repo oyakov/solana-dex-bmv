@@ -137,4 +137,40 @@ mod tests {
         assert_eq!(snapshot.realized_pnl, Decimal::from(10));
         assert_eq!(snapshot.net_position, Decimal::ZERO);
     }
+
+    #[test]
+    fn tracks_net_short_flip() {
+        let mut tracker = PnlTracker::default();
+        // Sell 5 at 100 -> Short 5, Avg Cost 100
+        tracker.record_trade(OrderSide::Sell, Decimal::from(100), Decimal::from(5));
+
+        // Buy 10 at 90 -> Covers 5 (PNL: +50), then Long 5, Avg Cost 90
+        tracker.record_trade(OrderSide::Buy, Decimal::from(90), Decimal::from(10));
+
+        let snapshot = tracker.snapshot(Decimal::from(95));
+        assert_eq!(snapshot.realized_pnl, Decimal::from(50));
+        assert_eq!(snapshot.net_position, Decimal::from(5));
+        assert_eq!(snapshot.average_cost, Decimal::from(90));
+        assert_eq!(snapshot.unrealized_pnl, Decimal::from(25)); // (95-90)*5
+    }
+
+    #[test]
+    fn handles_zero_volume_and_negative_prices() {
+        let mut tracker = PnlTracker::default();
+        tracker.record_trade(OrderSide::Buy, Decimal::from(100), Decimal::ZERO);
+        assert_eq!(
+            tracker.snapshot(Decimal::from(100)).net_position,
+            Decimal::ZERO
+        );
+
+        tracker.record_trade(OrderSide::Buy, Decimal::from(-10), Decimal::from(1));
+        assert_eq!(
+            tracker.snapshot(Decimal::from(0)).net_position,
+            Decimal::from(1)
+        );
+        assert_eq!(
+            tracker.snapshot(Decimal::from(0)).average_cost,
+            Decimal::from(-10)
+        );
+    }
 }

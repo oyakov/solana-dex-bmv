@@ -59,3 +59,97 @@ impl RiskManager {
         None
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::RiskLimitsSettings;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn test_risk_manager_max_daily_loss() {
+        let limits = RiskLimitsSettings {
+            max_daily_loss_usd: Decimal::from(100),
+            max_open_orders: 10,
+            max_position_usd: Decimal::ZERO,
+            max_order_usd: Decimal::ZERO,
+        };
+        let manager = RiskManager::new(limits);
+
+        // Under limit
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(50),
+            open_orders: 5,
+        };
+        assert!(manager.evaluate(&snapshot).is_none());
+
+        // At limit
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(100),
+            open_orders: 5,
+        };
+        let reason = manager.evaluate(&snapshot).unwrap();
+        match reason {
+            CircuitBreakerReason::MaxDailyLoss { limit, value } => {
+                assert_eq!(limit, Decimal::from(100));
+                assert_eq!(value, Decimal::from(100));
+            }
+            _ => panic!("Expected MaxDailyLoss"),
+        }
+
+        // Over limit
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(150),
+            open_orders: 5,
+        };
+        assert!(manager.evaluate(&snapshot).is_some());
+    }
+
+    #[test]
+    fn test_risk_manager_max_open_orders() {
+        let limits = RiskLimitsSettings {
+            max_daily_loss_usd: Decimal::from(1000),
+            max_open_orders: 2,
+            max_position_usd: Decimal::ZERO,
+            max_order_usd: Decimal::ZERO,
+        };
+        let manager = RiskManager::new(limits);
+
+        // Under limit
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(100),
+            open_orders: 1,
+        };
+        assert!(manager.evaluate(&snapshot).is_none());
+
+        // At limit
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(100),
+            open_orders: 2,
+        };
+        let reason = manager.evaluate(&snapshot).unwrap();
+        match reason {
+            CircuitBreakerReason::MaxOpenOrders { limit, value } => {
+                assert_eq!(limit, 2);
+                assert_eq!(value, 2);
+            }
+            _ => panic!("Expected MaxOpenOrders"),
+        }
+    }
+
+    #[test]
+    fn test_risk_manager_disabled_limits() {
+        let limits = RiskLimitsSettings {
+            max_daily_loss_usd: Decimal::ZERO,
+            max_open_orders: 0,
+            max_position_usd: Decimal::ZERO,
+            max_order_usd: Decimal::ZERO,
+        };
+        let manager = RiskManager::new(limits);
+
+        let snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::from(1000000),
+            open_orders: 1000,
+        };
+        assert!(manager.evaluate(&snapshot).is_none());
+    }
+}

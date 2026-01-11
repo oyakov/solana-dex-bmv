@@ -1,25 +1,25 @@
-use crate::infra::SolanaClient;
+use crate::infra::SolanaProvider;
 use crate::utils::BotSettings;
 use anyhow::{anyhow, Result};
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signer::Signer;
+
 use std::sync::Arc;
 use tracing::info;
 
 pub struct TradeExecutor {
     settings: BotSettings,
-    solana: Arc<SolanaClient>,
+    solana: Arc<dyn SolanaProvider>,
 }
 
 impl TradeExecutor {
-    pub fn new(settings: BotSettings, solana: Arc<SolanaClient>) -> Self {
+    pub fn new(settings: BotSettings, solana: Arc<dyn SolanaProvider>) -> Self {
         Self { settings, solana }
     }
 
     pub async fn place_and_cancel_bundle(
         &self,
         market_id: &str,
-        signer: &dyn Signer,
+        signer: &solana_sdk::signature::Keypair,
         place_side: u8,
         place_price: u64,
         place_size: u64,
@@ -34,10 +34,7 @@ impl TradeExecutor {
             ));
         }
 
-        info!(
-            market_id = market_id,
-            "sending_atomic_place_cancel_bundle"
-        );
+        info!(market_id = market_id, "sending_atomic_place_cancel_bundle");
 
         self.solana
             .place_and_cancel_bundle(

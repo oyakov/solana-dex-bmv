@@ -196,9 +196,60 @@ impl PivotEngine {
 mod tests {
     use super::*;
     use crate::domain::OrderSide;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn test_compute_pivot_vwap() {
+    fn test_trade_cache_pruning() {
+        let engine = PivotEngine::new(
+            Decimal::ZERO,
+            0,
+            1, // 1 minute lookback
+            Decimal::from(1000),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+        );
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            // Trade outside lookback (push first)
+            engine
+                .record_trade(Trade {
+                    id: "old".to_string(),
+                    timestamp: now - 120, // 2m ago
+                    price: Decimal::from(50),
+                    volume: Decimal::from(1),
+                    side: OrderSide::Buy,
+                    wallet: "w1".to_string(),
+                })
+                .await;
+
+            // Trade within lookback
+            engine
+                .record_trade(Trade {
+                    id: "recent".to_string(),
+                    timestamp: now - 30, // 30s ago
+                    price: Decimal::from(100),
+                    volume: Decimal::from(1),
+                    side: OrderSide::Buy,
+                    wallet: "w1".to_string(),
+                })
+                .await;
+
+            let cached = engine.cached_trades().await;
+            assert_eq!(cached.len(), 1);
+            assert_eq!(cached[0].id, "recent");
+        });
+    }
+
+    #[test]
+    fn test_compute_pivot_with_cache_no_double_count() {
         let engine = PivotEngine::new(
             Decimal::ZERO,
             365,
@@ -209,27 +260,29 @@ mod tests {
             Decimal::ZERO,
             Decimal::ZERO,
         );
-        let historical_trades = vec![
-            Trade {
-                id: "1".to_string(),
-                timestamp: 1000,
-                price: Decimal::from(100),
-                volume: Decimal::from(10),
-                side: OrderSide::Buy,
-                wallet: "w1".to_string(),
-            },
-            Trade {
-                id: "2".to_string(),
-                timestamp: 2000,
-                price: Decimal::from(110),
-                volume: Decimal::from(10),
-                side: OrderSide::Buy,
-                wallet: "w1".to_string(),
-            },
-        ];
+
+        let trade = Trade {
+            id: "1".to_string(),
+            timestamp: 1000,
+            price: Decimal::from(100),
+            volume: Decimal::from(10),
+            side: OrderSide::Buy,
+            wallet: "w1".to_string(),
+        };
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366 * 86_400));
-        assert_eq!(pivot, Decimal::from(105));
+        rt.block_on(async {
+            // Seed the same trade in cache
+            engine.seed_trades(vec![trade.clone()]).await;
+
+            let historical_trades = vec![trade];
+
+            // Pivot should be 100, not skewed if double counting happened
+            // (100 * 10) / 10 = 100
+            let pivot = engine
+                .compute_pivot(&[], &historical_trades, None, 366 * 86_400)
+                .await;
+            assert_eq!(pivot, Decimal::from(100));
+        });
     }
 }
