@@ -5,7 +5,6 @@ mod utils;
 
 use crate::infra::{Database, SolanaClient, WalletManager};
 use crate::services::{PivotEngine, TradingService};
-
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -66,6 +65,7 @@ async fn main() -> Result<()> {
     let pivot_engine = Arc::new(PivotEngine::new(
         settings.pivot_vwap.pivot_price,
         settings.pivot_vwap.lookback_days,
+        settings.pivot_vwap.lookback_minutes,
         settings.pivot_vwap.nominal_daily_volume,
         settings.pivot_vwap.market_id_rent_sol,
         settings.pivot_vwap.account_rent_sol,

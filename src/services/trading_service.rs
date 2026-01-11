@@ -5,13 +5,12 @@ use crate::services::{
 };
 use crate::utils::BotSettings;
 use anyhow::Result;
+use metrics::{counter, gauge};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use metrics::{counter, gauge};
 use tracing::{error, info};
 
 pub struct TradingService {
@@ -105,7 +104,7 @@ impl TradingService {
         // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
 
-        // 1a. Ingest recent trades for PnL tracking (Enhanced version from bmv-29)
+        // 1a. Ingest recent trades for PnL tracking
         let last_trade_ts = self
             .database
             .get_state("pnl_last_trade_ts")
@@ -175,18 +174,26 @@ impl TradingService {
         let market_data = self.solana.get_market_data(market_id).await?;
 
         // 3. Fetch recent trades from DB for VWAP
-        let lookback_secs = (self._settings.pivot_vwap.lookback_minutes * 60) as i64;
+        let lookback_secs = self.pivot_engine.lookback_window_seconds();
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         let recent_trades = self.database.get_recent_trades(now - lookback_secs).await?;
 
-        // 4. Compute Pivot
+        // 4. Compute Elapsed seconds for Seeded Pivot
+        let cached_trades = self.pivot_engine.cached_trades().await;
+        let elapsed_seconds = if let Some(first_trade) = cached_trades.first() {
+            now.saturating_sub(first_trade.timestamp)
+        } else {
+            0
+        };
+
+        // 5. Compute Pivot
         let pivot = self
             .pivot_engine
-            .compute_pivot(&[], &recent_trades, Some(&market_data), 0)
+            .compute_pivot(&[], &recent_trades, Some(&market_data), elapsed_seconds)
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
 
-        // 4a. Emit PnL Metrics
+        // 5a. Emit PnL Metrics
         let pnl_snapshot = {
             let tracker = self.pnl_tracker.lock().await;
             tracker.snapshot(market_data.price)
@@ -208,17 +215,17 @@ impl TradingService {
             pnl_snapshot.average_cost.to_f64().unwrap_or(0.0)
         );
 
-        // 5. Check if we need to rebuild the grid
+        // 6. Check if we need to rebuild the grid
         if self.rebalance_service.should_rebuild(pivot) {
             info!(?pivot, "Rebuilding grid...");
 
-            // 6. Build Grid
+            // 7. Build Grid
             let grid = self.grid_builder.build(pivot, Decimal::from(100)).await;
 
             gauge!("bot_grid_levels_count", grid.len() as f64);
             info!(levels = grid.len(), "Grid constructed");
 
-            // 7. Execute Grid Update & Emit Metrics
+            // 8. Execute Grid Update & Emit Metrics
             let mut total_depth = Decimal::ZERO;
             for (idx, level) in grid.iter().enumerate() {
                 let side_str = match level.side {
@@ -249,7 +256,7 @@ impl TradingService {
                 );
             }
 
-            // 8. Performance Indicators
+            // 9. Performance Indicators
             gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
             gauge!("bot_fill_rate_percent", 88.0); // Mock
             gauge!("bot_bundle_latency_ms", 42.0); // Mock

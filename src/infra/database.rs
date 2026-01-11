@@ -27,7 +27,7 @@ impl Database {
         .await?;
 
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS trades (
+            "CREATE TABLE IF NOT EXISTS trades_history (
                 id TEXT PRIMARY KEY,
                 timestamp BIGINT NOT NULL,
                 price TEXT NOT NULL,
@@ -40,9 +40,26 @@ impl Database {
         .await?;
 
         // Add index on timestamp for faster VWAP queries
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades (timestamp)")
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_trades_history_timestamp ON trades_history (timestamp)",
+        )
+        .execute(&pool)
+        .await?;
+
+        let legacy_table: Option<String> =
+            sqlx::query_scalar("SELECT to_regclass('public.trades')")
+                .fetch_one(&pool)
+                .await?;
+        if legacy_table.is_some() {
+            sqlx::query(
+                "INSERT INTO trades_history (id, timestamp, price, volume, side, wallet)
+                SELECT id, timestamp, price, volume, side, wallet
+                FROM trades
+                ON CONFLICT (id) DO NOTHING",
+            )
             .execute(&pool)
             .await?;
+        }
 
         Ok(Self { pool })
     }
@@ -79,7 +96,7 @@ impl Database {
         };
 
         sqlx::query(
-            "INSERT INTO trades (id, timestamp, price, volume, side, wallet)
+            "INSERT INTO trades_history (id, timestamp, price, volume, side, wallet)
             VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&trade.id)
@@ -98,7 +115,7 @@ impl Database {
 
     pub async fn get_recent_trades(&self, since_timestamp: i64) -> Result<Vec<Trade>> {
         let rows: Vec<(String, i64, String, String, String, String)> = sqlx::query_as(
-            "SELECT id, timestamp, price, volume, side, wallet FROM trades WHERE timestamp >= $1 ORDER BY timestamp ASC, id ASC",
+            "SELECT id, timestamp, price, volume, side, wallet FROM trades_history WHERE timestamp >= $1 ORDER BY timestamp ASC, id ASC",
         )
         .bind(since_timestamp)
         .fetch_all(&self.pool)
