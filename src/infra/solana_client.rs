@@ -297,4 +297,75 @@ impl SolanaClient {
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
+
+    #[allow(dead_code)]
+    pub async fn place_and_cancel_bundle(
+        &self,
+        market_id: &str,
+        signer: &dyn solana_sdk::signer::Signer,
+        place_side: u8,
+        place_price: u64,
+        place_size: u64,
+        cancel_side: u8,
+        cancel_order_id: u128,
+        jito_api_url: &str,
+        tip_lamports: u64,
+        base_wallet: &Pubkey,
+        quote_wallet: &Pubkey,
+    ) -> Result<String> {
+        let market_pubkey = Pubkey::from_str(market_id)?;
+        let market_data = self.client.get_account_data(&market_pubkey).await?;
+        let market_state = MarketStateV3::unpack(&market_data)?;
+
+        let open_orders = self
+            .find_open_orders(market_id, &signer.pubkey())
+            .await?
+            .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
+
+        let place_ix = crate::infra::openbook::create_new_order_v3_instruction(
+            &market_pubkey,
+            &open_orders,
+            &Pubkey::from(market_state.request_queue),
+            &Pubkey::from(market_state.event_queue),
+            &Pubkey::from(market_state.bids),
+            &Pubkey::from(market_state.asks),
+            &Pubkey::from(market_state.base_vault),
+            &Pubkey::from(market_state.quote_vault),
+            &signer.pubkey(),
+            base_wallet,
+            quote_wallet,
+            place_side,
+            place_price,
+            place_size,
+            place_size * place_price,
+            0,
+            0,
+        );
+
+        let cancel_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
+            &market_pubkey,
+            &Pubkey::from(market_state.bids),
+            &Pubkey::from(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::from(market_state.event_queue),
+            cancel_side,
+            cancel_order_id,
+        );
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[place_ix, cancel_ix, tip_ix],
+            Some(&signer.pubkey()),
+            &[signer],
+            bh,
+        );
+
+        let tx_bytes = bincode::serialize(&tx)?;
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
+        self.send_bundle(vec![tx_base64], jito_api_url).await
+    }
 }
