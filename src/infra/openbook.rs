@@ -23,6 +23,8 @@ pub struct MarketStateV2 {
     pub bids: Pubkey,
     pub asks: Pubkey,
     pub event_heap: Pubkey,
+    pub market_base_vault: Pubkey,
+    pub market_quote_vault: Pubkey,
 }
 
 impl MarketStateV2 {
@@ -48,6 +50,8 @@ impl MarketStateV2 {
         let bids = Pubkey::new_from_array(data[64..96].try_into()?);
         let asks = Pubkey::new_from_array(data[96..128].try_into()?);
         let event_heap = Pubkey::new_from_array(data[128..160].try_into()?);
+        let market_base_vault = Pubkey::new_from_array(data[160..192].try_into()?);
+        let market_quote_vault = Pubkey::new_from_array(data[192..224].try_into()?);
 
         Ok(Self {
             bump,
@@ -59,6 +63,8 @@ impl MarketStateV2 {
             bids,
             asks,
             event_heap,
+            market_base_vault,
+            market_quote_vault,
         })
     }
 }
