@@ -56,9 +56,8 @@ impl TradingService {
             "Starting TradingService main loop"
         );
 
-        let tick_interval = tokio::time::Duration::from_secs(
-            self._settings.trading_tick_interval_seconds,
-        );
+        let tick_interval =
+            tokio::time::Duration::from_secs(self._settings.trading_tick_interval_seconds);
         let recovery_delay = tokio::time::Duration::from_secs(5);
         let mut interval = tokio::time::interval(tick_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -84,19 +83,25 @@ impl TradingService {
         let market_id = &self._settings.openbook_market_id;
         let market_data = self.solana.get_market_data(market_id).await?;
 
-        // 3. Compute Pivot
-        // Note: For MVP we might not have full historical trades from DB yet
+        // 3. Fetch recent trades from DB for VWAP
+        let lookback_secs = (self._settings.pivot_vwap.lookback_minutes * 60) as i64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs() as i64;
+        let recent_trades = self.database.get_recent_trades(now - lookback_secs).await?;
+
+        // 4. Compute Pivot
         let pivot = self
             .pivot_engine
-            .compute_pivot(&[], &[], Some(&market_data), 0) // Assume day 0 for now
+            .compute_pivot(&[], &recent_trades, Some(&market_data), 0) // Assume day 0 for now
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
 
-        // 4. Check if we need to rebuild the grid
+        // 5. Check if we need to rebuild the grid
         if self.rebalance_service.should_rebuild(pivot) {
             info!(?pivot, "Rebuilding grid...");
 
-            // 5. Build Grid
+            // 6. Build Grid
             let grid = self
                 .grid_builder
                 .build(pivot, Decimal::from(100)) // Using 100 as default total size for now
@@ -105,7 +110,7 @@ impl TradingService {
             gauge!("bot_grid_levels_count", grid.len() as f64);
             info!(levels = grid.len(), "Grid constructed");
 
-            // 6. Execute Grid Update & Emit Metrics
+            // 7. Execute Grid Update & Emit Metrics
             let mut total_depth = Decimal::ZERO;
             for (idx, level) in grid.iter().enumerate() {
                 let side_str = match level.side {
@@ -137,7 +142,7 @@ impl TradingService {
                 );
             }
 
-            // 7. Performance Indicators (Mocked for now)
+            // 8. Performance Indicators (Mocked for now)
             gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
             gauge!("bot_pnl_realized_sol", 0.0); // Mock
             gauge!("bot_fill_rate_percent", 88.0); // Mock

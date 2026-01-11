@@ -78,13 +78,13 @@ impl HealthChecker {
 
         match result {
             Ok(_) => HealthReport {
-                service_name: "Database (SQLite)".to_string(),
+                service_name: "Database (PostgreSQL)".to_string(),
                 status: ServiceStatus::Healthy,
                 latency_ms: latency,
                 message: None,
             },
             Err(e) => HealthReport {
-                service_name: "Database (SQLite)".to_string(),
+                service_name: "Database (PostgreSQL)".to_string(),
                 status: ServiceStatus::Failed,
                 latency_ms: latency,
                 message: Some(format!("DB check failed: {}", e)),

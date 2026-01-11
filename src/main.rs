@@ -9,7 +9,7 @@ use crate::services::{PivotEngine, TradingService};
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use solana_sdk::commitment_config::CommitmentConfig;
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -73,12 +73,23 @@ async fn main() -> Result<()> {
         settings.pivot_vwap.fee_bps,
     );
 
+    // Initialize and spawn Market Data Service (WebSocket ingestion)
+    let market_data_service = services::MarketDataService::new(
+        &settings.rpc_endpoints.primary_ws,
+        database.clone(),
+        &settings.openbook_market_id,
+    );
+    tokio::spawn(async move {
+        if let Err(e) = market_data_service.run().await {
+            error!(error = ?e, "MarketDataService failed");
+        }
+    });
+
     // Initialize orchestrator
     let orchestrator =
         TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
 
     // Run the trading loop
-    // Note: This will run forever until interrupted
     orchestrator.run().await?;
 
     info!("Solana DEX BMV bot shutting down gracefully");
