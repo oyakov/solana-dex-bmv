@@ -87,19 +87,18 @@ impl TradingService {
 
         // 3. Compute Pivot
         let cached_trades = self.pivot_engine.cached_trades().await;
-        let days_since_start = if let Some(first_trade) = cached_trades.first() {
+        let elapsed_seconds = if let Some(first_trade) = cached_trades.first() {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs() as i64;
-            let elapsed = now.saturating_sub(first_trade.timestamp);
-            (elapsed / 86_400) as u32
+            now.saturating_sub(first_trade.timestamp)
         } else {
             0
         };
         let pivot = self
             .pivot_engine
-            .compute_pivot(&[], &cached_trades, Some(&market_data), days_since_start)
+            .compute_pivot(&[], &cached_trades, Some(&market_data), elapsed_seconds)
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
 

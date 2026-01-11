@@ -90,7 +90,7 @@ impl PivotEngine {
         _positions: &[AssetPosition],
         historical_trades: &[Trade],
         market_update: Option<&MarketUpdate>,
-        days_since_start: u32,
+        elapsed_seconds: i64,
     ) -> Decimal {
         let mut total_value = Decimal::ZERO;
         let mut total_volume = Decimal::ZERO;
@@ -108,23 +108,34 @@ impl PivotEngine {
         }
 
         // 3. Add Seeded Pivot weight
-        // If we have less than lookback_days of real data, fill the rest with seed_price
-        if days_since_start < self.lookback_days {
+        // If we have less than the lookback window of real data, fill the rest with seed_price
+        let lookback_days = if self.lookback_minutes > 0 {
+            Decimal::from(self.lookback_window_seconds() as u64) / Decimal::from(86_400)
+        } else {
+            Decimal::from(self.lookback_days)
+        };
+        let elapsed_days =
+            Decimal::from(elapsed_seconds.max(0) as u64) / Decimal::from(86_400);
+        let remaining_days = if elapsed_days < lookback_days {
+            lookback_days - elapsed_days
+        } else {
+            Decimal::ZERO
+        };
+
+        if remaining_days > Decimal::ZERO {
             let seed_price = if self.seed_price.is_zero() {
                 // If seed_price is not set, use current market price or fallback to 100
                 market_update.map(|m| m.price).unwrap_or(Decimal::from(100))
             } else {
                 self.seed_price
             };
+            let seed_volume = remaining_days * self.nominal_daily_volume;
 
-            let remaining_days = self.lookback_days - days_since_start.min(self.lookback_days);
-            let seed_volume = Decimal::from(remaining_days) * self.nominal_daily_volume;
 
             total_value += seed_price * seed_volume;
             total_volume += seed_volume;
 
             info!(
-                ?days_since_start,
                 ?remaining_days,
                 ?seed_price,
                 ?seed_volume,
@@ -180,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_compute_pivot_vwap() {
-        // Seed price 0, but days_since_start 366 means no seed weight
+        // Seed price 0, but elapsed days 366 means no seed weight
         let engine = PivotEngine::new(
             Decimal::ZERO,
             365,
@@ -212,7 +223,7 @@ mod tests {
 
         let rt = tokio::runtime::Runtime::new().unwrap();
         // Days since start > lookback_days (365) -> No seed weight
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366 * 86_400));
 
         // VWAP: (100*10 + 110*10) / 20 = 2100 / 20 = 105
         assert_eq!(pivot, Decimal::from(105));
@@ -245,7 +256,7 @@ mod tests {
         }];
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 5));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 5 * 86_400));
 
         // Historical: 120 * 50 = 6000 value, volume 50
         // Seed: 100 * 50 = 5000 value, volume 50
@@ -267,7 +278,7 @@ mod tests {
             Decimal::ZERO,
         );
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let pivot = rt.block_on(engine.compute_pivot(&[], &[], None, 0));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &[], None, 0 * 86_400));
         assert_eq!(pivot, seed);
     }
 
@@ -290,7 +301,7 @@ mod tests {
         };
         let rt = tokio::runtime::Runtime::new().unwrap();
         // Both historical and seed volume are zero
-        let pivot = rt.block_on(engine.compute_pivot(&[], &[], Some(&market_update), 366));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &[], Some(&market_update), 366 * 86_400));
 
         // Should fallback to market update price (150)
         assert_eq!(pivot, Decimal::from(150));
@@ -318,7 +329,7 @@ mod tests {
         }];
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366));
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366 * 86_400));
 
         // Base: 100 * 10 = 1000, volume 10
         // Cost: 1.75 SOL * 100 = 175

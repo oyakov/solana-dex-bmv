@@ -46,6 +46,22 @@ impl Database {
         .execute(&pool)
         .await?;
 
+        let legacy_table: Option<String> =
+            sqlx::query_scalar("SELECT to_regclass('public.trades')")
+                .fetch_one(&pool)
+                .await?;
+        if legacy_table.is_some() {
+            sqlx::query(
+                "INSERT INTO trades_history (id, timestamp, price, volume, side, wallet)
+                SELECT id, timestamp, price, volume, side, wallet
+                FROM trades
+                ON CONFLICT (id) DO NOTHING",
+            )
+            .execute(&pool)
+            .await?;
+        }
+
+
         Ok(Self { pool })
     }
 
