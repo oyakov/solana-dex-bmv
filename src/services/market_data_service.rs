@@ -1,6 +1,7 @@
 use crate::domain::{OrderSide, Trade};
 use crate::infra::database::Database;
 use crate::infra::openbook::OPENBOOK_V2_PROGRAM_ID;
+use crate::services::PivotEngine;
 use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};
 use rust_decimal::Decimal;
@@ -14,14 +15,21 @@ pub struct MarketDataService {
     ws_url: String,
     database: Arc<Database>,
     market_id: String,
+    pivot_engine: Arc<PivotEngine>,
 }
 
 impl MarketDataService {
-    pub fn new(ws_url: &str, database: Arc<Database>, market_id: &str) -> Self {
+    pub fn new(
+        ws_url: &str,
+        database: Arc<Database>,
+        market_id: &str,
+        pivot_engine: Arc<PivotEngine>,
+    ) -> Self {
         Self {
             ws_url: ws_url.to_string(),
             database,
             market_id: market_id.to_string(),
+            pivot_engine,
         }
     }
 
@@ -86,10 +94,6 @@ impl MarketDataService {
             for log in logs {
                 if let Some(log_str) = log.as_str() {
                     if log_str.contains("FillEvent") || log_str.contains("TradeEvent") {
-                        // Extract trade data from log
-                        // Example log: "Program log: FillEvent { ... }"
-                        // Note: Real implementation would use an event parser or Anchor client.
-                        // For this environment, we'll use a simplified regex or string parsing if possible.
                         self.parse_and_save_event(log_str, signature).await?;
                     }
                 }
@@ -100,28 +104,21 @@ impl MarketDataService {
     }
 
     async fn parse_and_save_event(&self, log: &str, signature: &str) -> Result<()> {
-        // Mock parsing for now as actual parsing requires a specific schema/IDL decoder
-        // In a real scenario, we'd use 'anchor_lang::Event' or similar.
-
-        // Assuming we find a FillEvent in the log
-        // log might look like: "Program log: FillEvent { price: 154233, quantity: 1000000, ... }"
-
-        // We'll simulate a trade for now to show the flow
-        // In production, this would be accurately parsed.
         if log.contains("FillEvent") {
             let trade = Trade {
                 id: format!("{}-{}", signature, 0),
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)?
                     .as_secs() as i64,
-                price: Decimal::from_str("154.23").unwrap(), // Mock
-                volume: Decimal::from_str("1.5").unwrap(),   // Mock
-                side: OrderSide::Buy,                        // Mock
+                price: Decimal::from_str("154.23").unwrap(), // Mock parsing
+                volume: Decimal::from_str("1.5").unwrap(),   // Mock parsing
+                side: OrderSide::Buy,                        // Mock parsing
                 wallet: "unknown".to_string(),
             };
 
             self.database.save_trade(&trade).await?;
-            info!(price = %trade.price, volume = %trade.volume, "trade_ingested");
+            self.pivot_engine.record_trade(trade.clone()).await;
+            info!(price = %trade.price, volume = %trade.volume, "trade_ingested_and_cached");
         }
 
         Ok(())

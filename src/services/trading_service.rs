@@ -18,7 +18,7 @@ pub struct TradingService {
     wallet_manager: std::sync::Arc<WalletManager>,
     kill_switch: std::sync::Arc<KillSwitch>,
 
-    pivot_engine: PivotEngine,
+    pivot_engine: std::sync::Arc<PivotEngine>,
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,
     risk_manager: RiskManager,
@@ -30,7 +30,7 @@ impl TradingService {
         solana: std::sync::Arc<SolanaClient>,
         database: std::sync::Arc<Database>,
         wallet_manager: std::sync::Arc<WalletManager>,
-        pivot_engine: PivotEngine,
+        pivot_engine: std::sync::Arc<PivotEngine>,
     ) -> Self {
         let grid_builder = GridBuilder {
             orders_per_side: settings.order_grid.orders_per_side,
