@@ -8,6 +8,7 @@ use anyhow::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use metrics::{counter, gauge};
@@ -104,46 +105,67 @@ impl TradingService {
         // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
 
-        // 1a. Ingest recent trades for PnL tracking
+        // 1a. Ingest recent trades for PnL tracking (Enhanced version from bmv-29)
         let last_trade_ts = self
             .database
             .get_state("pnl_last_trade_ts")
             .await?
             .and_then(|value| value.parse::<i64>().ok())
             .unwrap_or(0);
-        let last_trade_id = self
+        let last_trade_ids = self
             .database
-            .get_state("pnl_last_trade_id")
+            .get_state("pnl_last_trade_ids")
             .await?
+            .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
             .unwrap_or_default();
         let trades_for_pnl = self.database.get_recent_trades(last_trade_ts).await?;
 
         if !trades_for_pnl.is_empty() {
             let mut tracker = self.pnl_tracker.lock().await;
             let mut newest_ts = last_trade_ts;
-            let mut newest_id = last_trade_id.clone();
+            let mut newest_ids = if newest_ts == last_trade_ts {
+                last_trade_ids.clone()
+            } else {
+                Vec::new()
+            };
+            let mut last_ids_set: HashSet<String> = if newest_ts == last_trade_ts {
+                last_trade_ids.into_iter().collect()
+            } else {
+                HashSet::new()
+            };
+            let mut processed_any = false;
 
             for trade in trades_for_pnl {
-                if trade.timestamp > last_trade_ts
-                    || (trade.timestamp == last_trade_ts && trade.id > last_trade_id)
-                {
-                    tracker.record_trade(trade.side, trade.price, trade.volume);
+                if trade.timestamp < last_trade_ts {
+                    continue;
+                }
 
-                    if trade.timestamp > newest_ts
-                        || (trade.timestamp == newest_ts && trade.id > newest_id)
-                    {
-                        newest_ts = trade.timestamp;
-                        newest_id = trade.id.clone();
+                if trade.timestamp == last_trade_ts && last_ids_set.contains(&trade.id) {
+                    continue;
+                }
+
+                if trade.timestamp > newest_ts {
+                    newest_ts = trade.timestamp;
+                    newest_ids.clear();
+                    last_ids_set.clear();
+                }
+
+                tracker.record_trade(trade.side, trade.price, trade.volume);
+                processed_any = true;
+
+                if trade.timestamp == newest_ts {
+                    if last_ids_set.insert(trade.id.clone()) {
+                        newest_ids.push(trade.id.clone());
                     }
                 }
             }
 
-            if newest_ts != last_trade_ts || newest_id != last_trade_id {
+            if processed_any {
                 self.database
                     .set_state("pnl_last_trade_ts", &newest_ts.to_string())
                     .await?;
                 self.database
-                    .set_state("pnl_last_trade_id", &newest_id)
+                    .set_state("pnl_last_trade_ids", &serde_json::to_string(&newest_ids)?)
                     .await?;
             }
         }
