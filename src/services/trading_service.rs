@@ -1,11 +1,14 @@
 use crate::domain::OrderSide;
 use crate::infra::{Database, KillSwitch, SolanaClient, WalletManager};
-use crate::services::{GridBuilder, PivotEngine, RebalanceService, RiskManager, RiskSnapshot};
+use crate::services::{
+    GridBuilder, PivotEngine, PnlTracker, RebalanceService, RiskManager, RiskSnapshot,
+};
 use crate::utils::BotSettings;
 use anyhow::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use metrics::{counter, gauge};
@@ -22,6 +25,7 @@ pub struct TradingService {
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,
     risk_manager: RiskManager,
+    pnl_tracker: tokio::sync::Mutex<PnlTracker>,
 }
 
 impl TradingService {
@@ -55,6 +59,7 @@ impl TradingService {
             grid_builder,
             rebalance_service,
             risk_manager,
+            pnl_tracker: tokio::sync::Mutex::new(PnlTracker::default()),
         }
     }
 
@@ -100,11 +105,76 @@ impl TradingService {
         // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
 
+        // 1a. Ingest recent trades for PnL tracking (Enhanced version from bmv-29)
+        let last_trade_ts = self
+            .database
+            .get_state("pnl_last_trade_ts")
+            .await?
+            .and_then(|value| value.parse::<i64>().ok())
+            .unwrap_or(0);
+        let last_trade_ids = self
+            .database
+            .get_state("pnl_last_trade_ids")
+            .await?
+            .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+            .unwrap_or_default();
+        let trades_for_pnl = self.database.get_recent_trades(last_trade_ts).await?;
+
+        if !trades_for_pnl.is_empty() {
+            let mut tracker = self.pnl_tracker.lock().await;
+            let mut newest_ts = last_trade_ts;
+            let mut newest_ids = if newest_ts == last_trade_ts {
+                last_trade_ids.clone()
+            } else {
+                Vec::new()
+            };
+            let mut last_ids_set: HashSet<String> = if newest_ts == last_trade_ts {
+                last_trade_ids.into_iter().collect()
+            } else {
+                HashSet::new()
+            };
+            let mut processed_any = false;
+
+            for trade in trades_for_pnl {
+                if trade.timestamp < last_trade_ts {
+                    continue;
+                }
+
+                if trade.timestamp == last_trade_ts && last_ids_set.contains(&trade.id) {
+                    continue;
+                }
+
+                if trade.timestamp > newest_ts {
+                    newest_ts = trade.timestamp;
+                    newest_ids.clear();
+                    last_ids_set.clear();
+                }
+
+                tracker.record_trade(trade.side, trade.price, trade.volume);
+                processed_any = true;
+
+                if trade.timestamp == newest_ts {
+                    if last_ids_set.insert(trade.id.clone()) {
+                        newest_ids.push(trade.id.clone());
+                    }
+                }
+            }
+
+            if processed_any {
+                self.database
+                    .set_state("pnl_last_trade_ts", &newest_ts.to_string())
+                    .await?;
+                self.database
+                    .set_state("pnl_last_trade_ids", &serde_json::to_string(&newest_ids)?)
+                    .await?;
+            }
+        }
+
         // 2. Fetch live market data
         let market_id = &self._settings.openbook_market_id;
         let market_data = self.solana.get_market_data(market_id).await?;
 
-        // 3. Fetch recent trades from DB for VWAP (from V2 migration)
+        // 3. Fetch recent trades from DB for VWAP
         let lookback_secs = (self._settings.pivot_vwap.lookback_minutes * 60) as i64;
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         let recent_trades = self.database.get_recent_trades(now - lookback_secs).await?;
@@ -116,15 +186,34 @@ impl TradingService {
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
 
+        // 4a. Emit PnL Metrics
+        let pnl_snapshot = {
+            let tracker = self.pnl_tracker.lock().await;
+            tracker.snapshot(market_data.price)
+        };
+        gauge!(
+            "bot_pnl_realized_sol",
+            pnl_snapshot.realized_pnl.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_pnl_unrealized_sol",
+            pnl_snapshot.unrealized_pnl.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_position_net_sol",
+            pnl_snapshot.net_position.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_position_avg_cost",
+            pnl_snapshot.average_cost.to_f64().unwrap_or(0.0)
+        );
+
         // 5. Check if we need to rebuild the grid
         if self.rebalance_service.should_rebuild(pivot) {
             info!(?pivot, "Rebuilding grid...");
 
             // 6. Build Grid
-            let grid = self
-                .grid_builder
-                .build(pivot, Decimal::from(100)) // Using 100 as default total size for now
-                .await;
+            let grid = self.grid_builder.build(pivot, Decimal::from(100)).await;
 
             gauge!("bot_grid_levels_count", grid.len() as f64);
             info!(levels = grid.len(), "Grid constructed");
@@ -137,7 +226,6 @@ impl TradingService {
                     crate::domain::OrderSide::Sell => "SELL",
                 };
 
-                // Emit granular metrics for each level
                 gauge!(
                     "bot_grid_level_price",
                     level.price.to_f64().unwrap_or(0.0),
@@ -161,9 +249,8 @@ impl TradingService {
                 );
             }
 
-            // 8. Performance Indicators (Mocked for now)
+            // 8. Performance Indicators
             gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
-            gauge!("bot_pnl_realized_sol", 0.0); // Mock
             gauge!("bot_fill_rate_percent", 88.0); // Mock
             gauge!("bot_bundle_latency_ms", 42.0); // Mock
         } else {
