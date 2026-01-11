@@ -31,6 +31,10 @@ pub struct PivotVwapSettings {
     pub lookback_minutes: u32,
     pub lookback_days: u32,
     pub nominal_daily_volume: Decimal,
+    pub market_id_rent_sol: Decimal,
+    pub account_rent_sol: Decimal,
+    pub jito_tip_sol: Decimal,
+    pub fee_bps: Decimal,
 }
 
 impl Default for PivotVwapSettings {
@@ -41,6 +45,10 @@ impl Default for PivotVwapSettings {
             lookback_minutes: 0,
             lookback_days: 365,
             nominal_daily_volume: Decimal::new(1000, 0), // Default 1000 SOL/unit
+            market_id_rent_sol: Decimal::new(4, 1),       // 0.4 SOL
+            account_rent_sol: Decimal::new(23, 3),        // 0.023 SOL
+            jito_tip_sol: Decimal::ZERO,
+            fee_bps: Decimal::new(25, 0), // 25 bps = 0.25%
         }
     }
 }
@@ -371,6 +379,10 @@ pivot_vwap:
   lookback_minutes: 60
   lookback_days: 365
   nominal_daily_volume: 1000.0
+  market_id_rent_sol: 0.4
+  account_rent_sol: 0.023
+  jito_tip_sol: 0.0
+  fee_bps: 25
 channel_bounds:
   buy_percent: 0.1
   sell_percent: 0.2
