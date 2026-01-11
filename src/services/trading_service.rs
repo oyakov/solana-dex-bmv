@@ -7,6 +7,7 @@ use rust_decimal::Decimal;
 
 use metrics::{counter, gauge};
 use tracing::{error, info};
+use std::collections::HashSet;
 
 pub struct TradingService {
     _settings: BotSettings,
@@ -94,34 +95,62 @@ impl TradingService {
             .get_state("pnl_last_trade_id")
             .await?
             .unwrap_or_default();
+        let last_trade_ids = self
+            .database
+            .get_state("pnl_last_trade_ids")
+            .await?
+            .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+            .unwrap_or_else(|| {
+                if last_trade_id.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![last_trade_id.clone()]
+                }
+            });
         let trades = self.database.get_recent_trades(last_trade_ts).await?;
 
         if !trades.is_empty() {
             let mut tracker = self.pnl_tracker.lock().await;
             let mut newest_ts = last_trade_ts;
-            let mut newest_id = last_trade_id.clone();
+            let mut newest_ids = last_trade_ids.clone();
+            let mut last_ids_set: HashSet<String> = last_trade_ids.into_iter().collect();
+            let mut processed_any = false;
 
             for trade in trades {
-                if trade.timestamp > last_trade_ts
-                    || (trade.timestamp == last_trade_ts && trade.id > last_trade_id)
-                {
-                    tracker.record_trade(trade.side, trade.price, trade.volume);
+                if trade.timestamp < last_trade_ts {
+                    continue;
+                }
 
-                    if trade.timestamp > newest_ts
-                        || (trade.timestamp == newest_ts && trade.id > newest_id)
-                    {
-                        newest_ts = trade.timestamp;
-                        newest_id = trade.id.clone();
+                if trade.timestamp == last_trade_ts && last_ids_set.contains(&trade.id) {
+                    continue;
+                }
+
+                if trade.timestamp > newest_ts {
+                    newest_ts = trade.timestamp;
+                    newest_ids.clear();
+                    last_ids_set.clear();
+                }
+
+                tracker.record_trade(trade.side, trade.price, trade.volume);
+                processed_any = true;
+
+                if trade.timestamp == newest_ts {
+                    if last_ids_set.insert(trade.id.clone()) {
+                        newest_ids.push(trade.id.clone());
                     }
                 }
             }
 
-            if newest_ts != last_trade_ts || newest_id != last_trade_id {
+            if processed_any {
+                let newest_id = newest_ids.last().cloned().unwrap_or_default();
                 self.database
                     .set_state("pnl_last_trade_ts", &newest_ts.to_string())
                     .await?;
                 self.database
                     .set_state("pnl_last_trade_id", &newest_id)
+                    .await?;
+                self.database
+                    .set_state("pnl_last_trade_ids", &serde_json::to_string(&newest_ids)?)
                     .await?;
             }
         }
