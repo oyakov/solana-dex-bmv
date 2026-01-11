@@ -6,6 +6,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use metrics::{counter, gauge};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{error, info};
 
 pub struct TradingService {
@@ -85,10 +86,20 @@ impl TradingService {
         let market_data = self.solana.get_market_data(market_id).await?;
 
         // 3. Compute Pivot
-        // Note: For MVP we might not have full historical trades from DB yet
+        let cached_trades = self.pivot_engine.cached_trades().await;
+        let days_since_start = if let Some(first_trade) = cached_trades.first() {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            let elapsed = now.saturating_sub(first_trade.timestamp);
+            (elapsed / 86_400) as u32
+        } else {
+            0
+        };
         let pivot = self
             .pivot_engine
-            .compute_pivot(&[], &[], Some(&market_data), 0) // Assume day 0 for now
+            .compute_pivot(&[], &cached_trades, Some(&market_data), days_since_start)
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
 

@@ -4,12 +4,12 @@ mod services;
 mod utils;
 
 use crate::infra::{Database, SolanaClient, WalletManager};
-use crate::services::{PivotEngine, TradingService};
+use crate::services::{PivotEngine, TradeStreamService, TradingService};
 
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use solana_sdk::commitment_config::CommitmentConfig;
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -66,12 +66,21 @@ async fn main() -> Result<()> {
     let pivot_engine = PivotEngine::new(
         settings.pivot_vwap.pivot_price,
         settings.pivot_vwap.lookback_days,
+        settings.pivot_vwap.lookback_minutes,
         settings.pivot_vwap.nominal_daily_volume,
         settings.pivot_vwap.market_id_rent_sol,
         settings.pivot_vwap.account_rent_sol,
         settings.pivot_vwap.jito_tip_sol,
         settings.pivot_vwap.fee_bps,
     );
+
+    let trade_stream_service =
+        TradeStreamService::new(settings.clone(), database.clone(), pivot_engine.clone());
+    tokio::spawn(async move {
+        if let Err(err) = trade_stream_service.run().await {
+            error!(error = ?err, "trade_stream_service_failed");
+        }
+    });
 
     // Initialize orchestrator
     let orchestrator =

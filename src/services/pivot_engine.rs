@@ -1,22 +1,28 @@
 use crate::domain::{AssetPosition, MarketUpdate, Trade};
 use rust_decimal::prelude::*;
+use std::collections::VecDeque;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
 pub struct PivotEngine {
     pub seed_price: Decimal,
+    pub lookback_minutes: u32,
     pub lookback_days: u32,
     pub nominal_daily_volume: Decimal,
     pub market_id_rent_sol: Decimal,
     pub account_rent_sol: Decimal,
     pub jito_tip_sol: Decimal,
     pub fee_bps: Decimal,
+    trade_cache: std::sync::Arc<RwLock<VecDeque<Trade>>>,
 }
 
 impl PivotEngine {
     pub fn new(
         seed_price: Decimal,
         lookback_days: u32,
+        lookback_minutes: u32,
         nominal_daily_volume: Decimal,
         market_id_rent_sol: Decimal,
         account_rent_sol: Decimal,
@@ -25,12 +31,57 @@ impl PivotEngine {
     ) -> Self {
         Self {
             seed_price,
+            lookback_minutes,
             lookback_days,
             nominal_daily_volume,
             market_id_rent_sol,
             account_rent_sol,
             jito_tip_sol,
             fee_bps,
+            trade_cache: std::sync::Arc::new(RwLock::new(VecDeque::new())),
+        }
+    }
+
+    pub fn lookback_window_seconds(&self) -> i64 {
+        let minutes = if self.lookback_minutes > 0 {
+            self.lookback_minutes as i64
+        } else {
+            self.lookback_days as i64 * 24 * 60
+        };
+        minutes * 60
+    }
+
+    pub async fn seed_trades(&self, trades: Vec<Trade>) {
+        let mut cache = self.trade_cache.write().await;
+        cache.clear();
+        cache.extend(trades);
+        self.prune_cache_locked(&mut cache);
+    }
+
+    pub async fn record_trade(&self, trade: Trade) {
+        let mut cache = self.trade_cache.write().await;
+        cache.push_back(trade);
+        self.prune_cache_locked(&mut cache);
+    }
+
+    pub async fn cached_trades(&self) -> Vec<Trade> {
+        let mut cache = self.trade_cache.write().await;
+        self.prune_cache_locked(&mut cache);
+        cache.iter().cloned().collect()
+    }
+
+    fn prune_cache_locked(&self, cache: &mut VecDeque<Trade>) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let cutoff = now - self.lookback_window_seconds();
+        while let Some(front) = cache.front() {
+            if front.timestamp < cutoff {
+                cache.pop_front();
+            } else {
+                break;
+            }
         }
     }
 
@@ -133,6 +184,7 @@ mod tests {
         let engine = PivotEngine::new(
             Decimal::ZERO,
             365,
+            0,
             Decimal::from(1000),
             Decimal::ZERO,
             Decimal::ZERO,
@@ -175,6 +227,7 @@ mod tests {
         let engine = PivotEngine::new(
             Decimal::from(100),
             10,
+            0,
             Decimal::from(10),
             Decimal::ZERO,
             Decimal::ZERO,
@@ -206,6 +259,7 @@ mod tests {
         let engine = PivotEngine::new(
             seed,
             365,
+            0,
             Decimal::from(1000),
             Decimal::ZERO,
             Decimal::ZERO,
@@ -222,6 +276,7 @@ mod tests {
         let engine = PivotEngine::new(
             Decimal::ZERO,
             365,
+            0,
             Decimal::ZERO,
             Decimal::ZERO,
             Decimal::ZERO,
@@ -246,6 +301,7 @@ mod tests {
         let engine = PivotEngine::new(
             Decimal::ZERO,
             365,
+            0,
             Decimal::from(1000),
             Decimal::from(1),    // 1 SOL market rent
             Decimal::from(0.5),  // 0.5 SOL account rent
