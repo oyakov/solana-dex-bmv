@@ -7,14 +7,30 @@ pub struct PivotEngine {
     pub seed_price: Decimal,
     pub lookback_days: u32,
     pub nominal_daily_volume: Decimal,
+    pub market_id_rent_sol: Decimal,
+    pub account_rent_sol: Decimal,
+    pub jito_tip_sol: Decimal,
+    pub fee_bps: Decimal,
 }
 
 impl PivotEngine {
-    pub fn new(seed_price: Decimal, lookback_days: u32, nominal_daily_volume: Decimal) -> Self {
+    pub fn new(
+        seed_price: Decimal,
+        lookback_days: u32,
+        nominal_daily_volume: Decimal,
+        market_id_rent_sol: Decimal,
+        account_rent_sol: Decimal,
+        jito_tip_sol: Decimal,
+        fee_bps: Decimal,
+    ) -> Self {
         Self {
             seed_price,
             lookback_days,
             nominal_daily_volume,
+            market_id_rent_sol,
+            account_rent_sol,
+            jito_tip_sol,
+            fee_bps,
         }
     }
 
@@ -65,7 +81,24 @@ impl PivotEngine {
             );
         }
 
-        let pivot = if total_volume.is_zero() {
+        let cost_sol = self.market_id_rent_sol + self.account_rent_sol + self.jito_tip_sol;
+        let reference_price = if !total_volume.is_zero() {
+            total_value / total_volume
+        } else if let Some(update) = market_update {
+            update.price
+        } else if !self.seed_price.is_zero() {
+            self.seed_price
+        } else {
+            Decimal::ZERO
+        };
+
+        let cost_value = cost_sol * reference_price;
+        let fee_rate = self.fee_bps / Decimal::from(10_000);
+        let fee_volume = total_volume * fee_rate;
+        let adjusted_volume = total_volume - fee_volume;
+        let adjusted_value = total_value + cost_value;
+
+        let pivot = if adjusted_volume <= Decimal::ZERO {
             warn!("no_volume_detected_falling_back_to_seed_or_market");
             if !self.seed_price.is_zero() {
                 self.seed_price
@@ -73,11 +106,18 @@ impl PivotEngine {
                 market_update.map(|m| m.price).unwrap_or(Decimal::ZERO)
             }
         } else {
-            total_value / total_volume
+            adjusted_value / adjusted_volume
         };
 
         let current_price = market_update.map(|m| m.price).unwrap_or(Decimal::ZERO);
-        info!(?pivot, current = ?current_price, "pivot_computed");
+        info!(
+            ?pivot,
+            current = ?current_price,
+            ?total_volume,
+            ?fee_volume,
+            ?cost_value,
+            "pivot_computed"
+        );
         pivot
     }
 }
@@ -90,7 +130,15 @@ mod tests {
     #[test]
     fn test_compute_pivot_vwap() {
         // Seed price 0, but days_since_start 366 means no seed weight
-        let engine = PivotEngine::new(Decimal::ZERO, 365, Decimal::from(1000));
+        let engine = PivotEngine::new(
+            Decimal::ZERO,
+            365,
+            Decimal::from(1000),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+        );
         let historical_trades = vec![
             Trade {
                 id: "1".to_string(),
@@ -124,7 +172,15 @@ mod tests {
         // lookback_days = 10.
         // days_since_start = 5.
         // Remaining seed days = 5. Seed volume = 5 * 10 = 50.
-        let engine = PivotEngine::new(Decimal::from(100), 10, Decimal::from(10));
+        let engine = PivotEngine::new(
+            Decimal::from(100),
+            10,
+            Decimal::from(10),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+        );
 
         let historical_trades = vec![Trade {
             id: "1".to_string(),
@@ -147,7 +203,15 @@ mod tests {
     #[test]
     fn test_compute_pivot_empty_data() {
         let seed = Decimal::from(1000);
-        let engine = PivotEngine::new(seed, 365, Decimal::from(1000));
+        let engine = PivotEngine::new(
+            seed,
+            365,
+            Decimal::from(1000),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+        );
         let rt = tokio::runtime::Runtime::new().unwrap();
         let pivot = rt.block_on(engine.compute_pivot(&[], &[], None, 0));
         assert_eq!(pivot, seed);
@@ -155,7 +219,15 @@ mod tests {
 
     #[test]
     fn test_compute_pivot_zero_volume_fallback() {
-        let engine = PivotEngine::new(Decimal::ZERO, 365, Decimal::ZERO);
+        let engine = PivotEngine::new(
+            Decimal::ZERO,
+            365,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+        );
         let market_update = MarketUpdate {
             timestamp: 1000,
             price: Decimal::from(150),
@@ -167,5 +239,36 @@ mod tests {
 
         // Should fallback to market update price (150)
         assert_eq!(pivot, Decimal::from(150));
+    }
+
+    #[test]
+    fn test_compute_pivot_with_costs_and_fees() {
+        let engine = PivotEngine::new(
+            Decimal::ZERO,
+            365,
+            Decimal::from(1000),
+            Decimal::from(1),    // 1 SOL market rent
+            Decimal::from(0.5),  // 0.5 SOL account rent
+            Decimal::from(0.25), // 0.25 SOL tip
+            Decimal::from(25),   // 0.25% fee
+        );
+        let historical_trades = vec![Trade {
+            id: "1".to_string(),
+            timestamp: 1000,
+            price: Decimal::from(100),
+            volume: Decimal::from(10),
+            side: OrderSide::Buy,
+            wallet: "w1".to_string(),
+        }];
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let pivot = rt.block_on(engine.compute_pivot(&[], &historical_trades, None, 366));
+
+        // Base: 100 * 10 = 1000, volume 10
+        // Cost: 1.75 SOL * 100 = 175
+        // Fee: 10 * 0.0025 = 0.025
+        // Pivot: (1000 + 175) / (10 - 0.025) = 1175 / 9.975 = 117.79...
+        let expected = Decimal::from_str_exact("117.7894736842105263157894737").unwrap();
+        assert_eq!(pivot, expected);
     }
 }

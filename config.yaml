@@ -13,6 +13,10 @@ pivot_vwap:
   lookback_minutes: 0
   lookback_days: 365
   nominal_daily_volume: 1000
+  market_id_rent_sol: 0.4
+  account_rent_sol: 0.023
+  jito_tip_sol: 0.0
+  fee_bps: 25
 
 channel_bounds:
   buy_percent: 0.15

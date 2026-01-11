@@ -67,6 +67,10 @@ async fn main() -> Result<()> {
         settings.pivot_vwap.pivot_price,
         settings.pivot_vwap.lookback_days,
         settings.pivot_vwap.nominal_daily_volume,
+        settings.pivot_vwap.market_id_rent_sol,
+        settings.pivot_vwap.account_rent_sol,
+        settings.pivot_vwap.jito_tip_sol,
+        settings.pivot_vwap.fee_bps,
     );
 
     // Initialize orchestrator
