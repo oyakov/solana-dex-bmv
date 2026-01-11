@@ -1,20 +1,19 @@
 use crate::domain::{MarketUpdate, Orderbook};
-use crate::infra::openbook::{MarketStateV3, parse_slab};
+use crate::infra::openbook::{parse_slab, MarketStateV3};
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
+use anyhow::{anyhow, Result};
+use base64::Engine;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
-use anyhow::{Result, anyhow};
-use tracing::{info, error, warn};
-use base64::Engine;
+use tracing::{error, info, warn};
 
 pub struct SolanaClient {
     client: RpcClient,
 }
-
 
 impl SolanaClient {
     pub fn new(rpc_url: &str, commitment: CommitmentConfig) -> Self {
@@ -33,25 +32,41 @@ impl SolanaClient {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV3::unpack(&market_data)?;
-        
+
         // Fetch Bids and Asks accounts
         let bids_pubkey = Pubkey::from(market_state.bids);
         let asks_pubkey = Pubkey::from(market_state.asks);
 
-        
-        let mut accounts = self.client.get_multiple_accounts(&[bids_pubkey, asks_pubkey]).await?;
+        let mut accounts = self
+            .client
+            .get_multiple_accounts(&[bids_pubkey, asks_pubkey])
+            .await?;
 
-        let asks_account = accounts.pop().ok_or_else(|| anyhow!("Missing asks account"))?;
-        let bids_account = accounts.pop().ok_or_else(|| anyhow!("Missing bids account"))?;
-        
+        let asks_account = accounts
+            .pop()
+            .ok_or_else(|| anyhow!("Missing asks account"))?;
+        let bids_account = accounts
+            .pop()
+            .ok_or_else(|| anyhow!("Missing bids account"))?;
+
         let bids_data = bids_account.map(|a| a.data).unwrap_or_default();
         let asks_data = asks_account.map(|a| a.data).unwrap_or_default();
-        
-        let bids = parse_slab(&bids_data, true, market_state.base_lot_size, market_state.quote_lot_size)?;
-        let asks = parse_slab(&asks_data, false, market_state.base_lot_size, market_state.quote_lot_size)?;
-        
+
+        let bids = parse_slab(
+            &bids_data,
+            true,
+            market_state.base_lot_size,
+            market_state.quote_lot_size,
+        )?;
+        let asks = parse_slab(
+            &asks_data,
+            false,
+            market_state.base_lot_size,
+            market_state.quote_lot_size,
+        )?;
+
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
-        
+
         Ok(Orderbook {
             market_id: market_id.to_string(),
             timestamp: now,
@@ -83,7 +98,6 @@ impl SolanaClient {
         }
     }
 
-
     #[allow(dead_code)]
     pub async fn health(&self) -> bool {
         match self.client.get_version().await {
@@ -96,7 +110,11 @@ impl SolanaClient {
     }
 
     #[allow(dead_code)]
-    pub async fn send_bundle(&self, transactions: Vec<String>, jito_api_url: &str) -> Result<String> {
+    pub async fn send_bundle(
+        &self,
+        transactions: Vec<String>,
+        jito_api_url: &str,
+    ) -> Result<String> {
         // (Existing send_bundle implementation...)
         let payload = serde_json::json!({
             "jsonrpc": "2.0",
@@ -105,8 +123,12 @@ impl SolanaClient {
             "params": [transactions]
         });
 
-        info!(count = transactions.len(), api = jito_api_url, "sending_jito_bundle");
-        
+        info!(
+            count = transactions.len(),
+            api = jito_api_url,
+            "sending_jito_bundle"
+        );
+
         let client = reqwest::Client::new();
         let response = client.post(jito_api_url).json(&payload).send().await?;
         let result: serde_json::Value = response.json().await?;
@@ -162,11 +184,10 @@ impl SolanaClient {
             with_context: Some(false),
         };
 
-
-
-
-
-        let accounts = self.client.get_program_accounts_with_config(&program_id, config).await?;
+        let accounts = self
+            .client
+            .get_program_accounts_with_config(&program_id, config)
+            .await?;
         Ok(accounts.first().map(|(p, _)| *p))
     }
 
@@ -187,11 +208,13 @@ impl SolanaClient {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV3::unpack(&market_data)?;
-        
+
         // Discover open_orders
-        let open_orders = self.find_open_orders(market_id, &signer.pubkey()).await?
+        let open_orders = self
+            .find_open_orders(market_id, &signer.pubkey())
+            .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
-            
+
         let order_ix = crate::infra::openbook::create_new_order_v3_instruction(
             &market_pubkey,
             &open_orders,
@@ -208,12 +231,13 @@ impl SolanaClient {
             price,
             size,
             size * price, // Simplified max_quote_qty
-            0, // Limit
-            0, // client_id
+            0,            // Limit
+            0,            // client_id
         );
-        
-        let tip_ix = crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
-        
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+
         // Construct the transaction
         let bh = self.client.get_latest_blockhash().await?;
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
@@ -222,7 +246,7 @@ impl SolanaClient {
             &[signer],
             bh,
         );
-        
+
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
@@ -241,10 +265,12 @@ impl SolanaClient {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV3::unpack(&market_data)?;
-        
-        let open_orders = self.find_open_orders(market_id, &signer.pubkey()).await?
+
+        let open_orders = self
+            .find_open_orders(market_id, &signer.pubkey())
+            .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found"))?;
-            
+
         let cancel_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
             &market_pubkey,
             &Pubkey::from(market_state.bids),
@@ -255,9 +281,10 @@ impl SolanaClient {
             side,
             order_id,
         );
-        
-        let tip_ix = crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
-        
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+
         let bh = self.client.get_latest_blockhash().await?;
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[cancel_ix, tip_ix],
@@ -265,14 +292,9 @@ impl SolanaClient {
             &[signer],
             bh,
         );
-        
+
         let tx_bytes = bincode::serialize(&tx)?;
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
-
 }
-
-
-
-

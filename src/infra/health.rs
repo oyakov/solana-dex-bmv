@@ -1,10 +1,10 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use metrics::gauge;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info};
-use metrics::gauge;
+use tracing::info;
 
-use crate::infra::{SolanaClient, Database};
+use crate::infra::{Database, SolanaClient};
 use crate::utils::BotSettings;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -110,22 +110,21 @@ impl HealthChecker {
             "method": "getTipAccounts",
             "params": []
         });
-        
-        let result = client.post(&self.settings.jito_bundle.bundler_url)
+
+        let result = client
+            .post(&self.settings.jito_bundle.bundler_url)
             .json(&payload)
             .send()
             .await;
         let latency = start.elapsed().as_millis();
 
         match result {
-            Ok(resp) if resp.status().is_success() => {
-                HealthReport {
-                    service_name: "Jito Bundler".to_string(),
-                    status: ServiceStatus::Healthy,
-                    latency_ms: latency,
-                    message: None,
-                }
-            }
+            Ok(resp) if resp.status().is_success() => HealthReport {
+                service_name: "Jito Bundler".to_string(),
+                status: ServiceStatus::Healthy,
+                latency_ms: latency,
+                message: None,
+            },
             Ok(resp) => HealthReport {
                 service_name: "Jito Bundler".to_string(),
                 status: ServiceStatus::Degraded,
@@ -143,7 +142,10 @@ impl HealthChecker {
 
     pub async fn check_openbook(&self) -> HealthReport {
         let start = Instant::now();
-        let result = self.solana.get_orderbook(&self.settings.openbook_market_id).await;
+        let result = self
+            .solana
+            .get_orderbook(&self.settings.openbook_market_id)
+            .await;
         let latency = start.elapsed().as_millis();
 
         match result {
@@ -164,15 +166,15 @@ impl HealthChecker {
 
     pub async fn run_all_checks(&self) -> Vec<HealthReport> {
         info!("Running connectivity health checks...");
-        
+
         let mut reports = Vec::new();
         reports.push(self.check_solana().await);
         reports.push(self.check_database().await);
         reports.push(self.check_jito().await);
         reports.push(self.check_openbook().await);
-        
+
         self.emit_metrics(&reports);
-        
+
         reports
     }
 
@@ -203,18 +205,21 @@ impl HealthChecker {
 
     pub fn display_reports(reports: &[HealthReport]) {
         println!("\n=== CONNECTIVITY STATUS ===");
-        println!("{:<20} | {:<10} | {:<10} | {}", 
-            "Service", "Status", "Latency", "Notes");
+        println!(
+            "{:<20} | {:<10} | {:<10} | {}",
+            "Service", "Status", "Latency", "Notes"
+        );
         println!("{}", "-".repeat(70));
-        
+
         for report in reports {
             let latency_str = if report.status == ServiceStatus::Skipped {
                 "-".to_string()
             } else {
                 format!("{}ms", report.latency_ms)
             };
-            
-            println!("{:<20} | {:<10} | {:<10} | {}", 
+
+            println!(
+                "{:<20} | {:<10} | {:<10} | {}",
                 report.service_name,
                 report.status.to_status_string(),
                 latency_str,
@@ -226,9 +231,13 @@ impl HealthChecker {
 
     pub async fn verify_critical_services(&self, reports: &[HealthReport]) -> Result<()> {
         for report in reports {
-            if (report.service_name == "Solana RPC" || report.service_name == "Database (SQLite)") 
-                && report.status == ServiceStatus::Failed {
-                return Err(anyhow!("Critical service failure: {}. Cannot proceed.", report.service_name));
+            if (report.service_name == "Solana RPC" || report.service_name == "Database (SQLite)")
+                && report.status == ServiceStatus::Failed
+            {
+                return Err(anyhow!(
+                    "Critical service failure: {}. Cannot proceed.",
+                    report.service_name
+                ));
             }
         }
         Ok(())

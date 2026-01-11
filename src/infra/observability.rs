@@ -1,17 +1,17 @@
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::net::SocketAddr;
-use tracing::{info, error};
 use tokio::io::AsyncWriteExt;
+use tracing::{error, info};
 
 pub fn init_metrics() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 9000));
-    
+
     // Install the recorder and get a handle to render metrics
     // In 0.12.1, install_recorder() returns the handle.
     let handle = PrometheusBuilder::new()
         .install_recorder()
         .expect("failed to install Prometheus recorder");
-    
+
     // Spawn a manual listener to serve metrics with the mandatory Content-Type header
     tokio::spawn(async move {
         match tokio::net::TcpListener::bind(addr).await {

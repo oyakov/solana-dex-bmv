@@ -28,26 +28,29 @@ The system is designed for secure production deployment:
 - **Non-Root Execution**: In Docker, the application runs under a dedicated `botuser` to ensure minimal system privileges.
 - **Network Isolation**: By default, observability ports (3000, 9090, 9000) are bound to `127.0.0.1`, requiring an SSH tunnel for remote access.
 
-## Quick Start (Docker)
+## Prerequisites
 
-The fastest way to get started is using Docker Compose.
+- Rust (Edition 2021)
+- Docker & Docker Compose
+- PostgreSQL 15+ (if running natively)
+- Solana RPC Endpoint (Mainnet-beta)
 
-1. **Configure Environment**:
-   Copy the example environment file and fill in your RPC URLs and keys. **Crucial for security**.
+## Getting Started
 
-   ```powershell
-   copy .env.example .env
+1. **Configure Environment**: Copy `.env.example` to `.env` and fill in your secrets.
+   ```bash
+   cp .env.example .env
    ```
+   *Note: Ensure `DATABASE_URL` is set if you're not using the default Docker DB.*
 
-2. **Launch with Docker Compose**:
-
-   ```powershell
+2. **Run with Docker**:
+   ```bash
    docker-compose up -d --build
    ```
 
 3. **View Logs**:
 
-   ```powershell
+   ```bash
    docker-compose logs -f
    ```
 
