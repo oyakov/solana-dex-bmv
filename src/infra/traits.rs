@@ -20,6 +20,7 @@ pub trait SolanaProvider: Send + Sync {
     async fn get_balance(&self, address: &str) -> Result<u64>;
     async fn send_bundle(&self, txs: Vec<String>, jito_url: &str) -> Result<String>;
     async fn get_latest_blockhash(&self) -> Result<solana_sdk::hash::Hash>;
+    #[allow(clippy::too_many_arguments)]
     async fn place_order(
         &self,
         market_id: &str,
@@ -41,6 +42,7 @@ pub trait SolanaProvider: Send + Sync {
         jito_api_url: &str,
         tip_lamports: u64,
     ) -> Result<String>;
+    #[allow(clippy::too_many_arguments)]
     async fn place_and_cancel_bundle(
         &self,
         market_id: &str,

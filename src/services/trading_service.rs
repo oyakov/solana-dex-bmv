@@ -152,10 +152,8 @@ impl TradingService {
                 tracker.record_trade(trade.side, trade.price, trade.volume);
                 processed_any = true;
 
-                if trade.timestamp == newest_ts {
-                    if last_ids_set.insert(trade.id.clone()) {
-                        newest_ids.push(trade.id.clone());
-                    }
+                if trade.timestamp == newest_ts && last_ids_set.insert(trade.id.clone()) {
+                    newest_ids.push(trade.id.clone());
                 }
             }
 
@@ -325,7 +323,7 @@ impl TradingService {
         for wallet in self.wallet_manager.get_all_wallets() {
             let result = self
                 .solana
-                .cancel_all_orders(market_id, &*wallet, jito_url, tip_lamports)
+                .cancel_all_orders(market_id, &wallet, jito_url, tip_lamports)
                 .await?;
             info!(wallet = %wallet.pubkey(), %result, "Cancel-all submitted");
         }

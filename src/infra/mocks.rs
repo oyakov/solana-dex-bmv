@@ -9,6 +9,7 @@ use solana_sdk::signature::Keypair;
 mock! {
     pub SolanaProvider {}
     #[async_trait]
+    #[allow(clippy::too_many_arguments)]
     impl SolanaProvider for SolanaProvider {
         async fn get_market_data(&self, market_id: &str) -> Result<MarketUpdate>;
         async fn cancel_all_orders(

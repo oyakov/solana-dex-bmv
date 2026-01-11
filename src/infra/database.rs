@@ -167,6 +167,7 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::infra::DatabaseProvider;
 
     async fn get_test_db() -> Option<Database> {
         let url = std::env::var("TEST_DATABASE_URL").ok()?;

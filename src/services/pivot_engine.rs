@@ -21,6 +21,7 @@ pub struct PivotEngine {
 }
 
 impl PivotEngine {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         seed_price: Decimal,
         lookback_days: u32,

@@ -16,6 +16,7 @@ impl TradeExecutor {
         Self { settings, solana }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn place_and_cancel_bundle(
         &self,
         market_id: &str,

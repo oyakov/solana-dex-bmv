@@ -450,7 +450,7 @@ impl SolanaClient {
         self.send_bundle_impl(vec![tx_base64], jito_api_url).await
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub async fn place_and_cancel_bundle_impl(
         &self,
         market_id: &str,
