@@ -1,3 +1,4 @@
+use crate::domain::OrderSide;
 use crate::infra::{Database, KillSwitch, SolanaClient, WalletManager};
 use crate::services::{GridBuilder, PivotEngine, RebalanceService, RiskManager, RiskSnapshot};
 use crate::utils::BotSettings;
@@ -5,6 +6,7 @@ use anyhow::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use metrics::{counter, gauge};
 use tracing::{error, info};
@@ -12,7 +14,6 @@ use tracing::{error, info};
 pub struct TradingService {
     _settings: BotSettings,
     solana: std::sync::Arc<SolanaClient>,
-    #[allow(dead_code)]
     database: std::sync::Arc<Database>,
     wallet_manager: std::sync::Arc<WalletManager>,
     kill_switch: std::sync::Arc<KillSwitch>,
@@ -89,10 +90,7 @@ impl TradingService {
             return Ok(());
         }
 
-        let risk_snapshot = RiskSnapshot {
-            daily_loss_usd: Decimal::ZERO,
-            open_orders: 0,
-        };
+        let risk_snapshot = self.build_risk_snapshot().await?;
         if let Some(reason) = self.risk_manager.evaluate(&risk_snapshot) {
             let reason_text = reason.to_string();
             self.kill_switch.trigger(&reason_text).await?;
@@ -170,6 +168,45 @@ impl TradingService {
         }
 
         Ok(())
+    }
+
+    async fn build_risk_snapshot(&self) -> Result<RiskSnapshot> {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
+        let since_timestamp = now.saturating_sub(86_400);
+        let trades = self.database.get_recent_trades(since_timestamp).await?;
+        let mut net_pnl_usd = Decimal::ZERO;
+
+        for trade in trades {
+            let notional = trade.price * trade.volume;
+            match trade.side {
+                OrderSide::Buy => net_pnl_usd -= notional,
+                OrderSide::Sell => net_pnl_usd += notional,
+            }
+        }
+
+        let daily_loss_usd = if net_pnl_usd < Decimal::ZERO {
+            -net_pnl_usd
+        } else {
+            Decimal::ZERO
+        };
+
+        let market_id = &self._settings.openbook_market_id;
+        let mut open_orders = 0u32;
+        for wallet in self.wallet_manager.get_all_wallets() {
+            if self
+                .solana
+                .find_open_orders(market_id, &wallet.pubkey())
+                .await?
+                .is_some()
+            {
+                open_orders = open_orders.saturating_add(1);
+            }
+        }
+
+        Ok(RiskSnapshot {
+            daily_loss_usd,
+            open_orders,
+        })
     }
 
     async fn handle_kill_switch(&self, reason: &str) -> Result<()> {
