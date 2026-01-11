@@ -1,5 +1,7 @@
 use crate::domain::{MarketUpdate, Orderbook};
-use crate::infra::openbook::{parse_slab, MarketStateV3};
+use crate::infra::openbook::{
+    parse_book_side_v2, MarketStateV2, MarketStateV3, OPENBOOK_V2_PROGRAM_ID,
+};
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -31,11 +33,10 @@ impl SolanaClient {
     pub async fn get_orderbook(&self, market_id: &str) -> Result<Orderbook> {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
-        let market_state = MarketStateV3::unpack(&market_data)?;
+        let market_state = MarketStateV2::unpack(&market_data)?;
 
-        // Fetch Bids and Asks accounts
-        let bids_pubkey = Pubkey::from(market_state.bids);
-        let asks_pubkey = Pubkey::from(market_state.asks);
+        let bids_pubkey = market_state.bids;
+        let asks_pubkey = market_state.asks;
 
         let mut accounts = self
             .client
@@ -52,15 +53,19 @@ impl SolanaClient {
         let bids_data = bids_account.map(|a| a.data).unwrap_or_default();
         let asks_data = asks_account.map(|a| a.data).unwrap_or_default();
 
-        let bids = parse_slab(
+        let bids = parse_book_side_v2(
             &bids_data,
             true,
+            market_state.base_decimals,
+            market_state.quote_decimals,
             market_state.base_lot_size,
             market_state.quote_lot_size,
         )?;
-        let asks = parse_slab(
+        let asks = parse_book_side_v2(
             &asks_data,
             false,
+            market_state.base_decimals,
+            market_state.quote_decimals,
             market_state.base_lot_size,
             market_state.quote_lot_size,
         )?;
@@ -76,14 +81,13 @@ impl SolanaClient {
     }
 
     pub async fn get_market_data(&self, market_id: &str) -> Result<MarketUpdate> {
-        // Now that we have get_orderbook, we can derive price from it
         match self.get_orderbook(market_id).await {
             Ok(ob) => {
                 let mid_price = ob.get_mid_price().unwrap_or(Decimal::ZERO);
                 Ok(MarketUpdate {
                     timestamp: ob.timestamp,
                     price: mid_price,
-                    volume_24h: Decimal::from(5000), // TODO: Get volume from event queue
+                    volume_24h: Decimal::from(5000),
                 })
             }
             Err(e) => {
@@ -98,7 +102,6 @@ impl SolanaClient {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn health(&self) -> bool {
         match self.client.get_version().await {
             Ok(_) => true,
@@ -109,13 +112,11 @@ impl SolanaClient {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn send_bundle(
         &self,
         transactions: Vec<String>,
         jito_api_url: &str,
     ) -> Result<String> {
-        // (Existing send_bundle implementation...)
         let payload = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -147,27 +148,22 @@ impl SolanaClient {
         Ok(bundle_id)
     }
 
-    #[allow(dead_code)]
     pub async fn find_open_orders(
         &self,
         market_id: &str,
         owner: &Pubkey,
     ) -> Result<Option<Pubkey>> {
-        let program_id = Pubkey::from_str("srmqPvSwwJbtLZ9Uv7j8W7YVFe4Gz74Xp2Y7tENz7u4")?;
+        let program_id = Pubkey::from_str(OPENBOOK_V2_PROGRAM_ID)?;
         let market_pubkey = Pubkey::from_str(market_id)?;
 
         let filters = vec![
-            solana_client::rpc_filter::RpcFilterType::DataSize(3228), // OpenOrders size
             solana_client::rpc_filter::RpcFilterType::Memcmp(
-                solana_client::rpc_filter::Memcmp::new_raw_bytes(
-                    13, // span of market
-                    market_pubkey.to_bytes().to_vec(),
-                ),
+                solana_client::rpc_filter::Memcmp::new_raw_bytes(8, owner.to_bytes().to_vec()),
             ),
             solana_client::rpc_filter::RpcFilterType::Memcmp(
                 solana_client::rpc_filter::Memcmp::new_raw_bytes(
-                    45, // span of owner
-                    owner.to_bytes().to_vec(),
+                    40,
+                    market_pubkey.to_bytes().to_vec(),
                 ),
             ),
         ];
@@ -180,7 +176,6 @@ impl SolanaClient {
                 data_slice: None,
                 min_context_slot: None,
             },
-
             with_context: Some(false),
         };
 
@@ -191,54 +186,50 @@ impl SolanaClient {
         Ok(accounts.first().map(|(p, _)| *p))
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub async fn place_order(
         &self,
         market_id: &str,
         signer: &dyn solana_sdk::signer::Signer,
         side: u8,
-        price: u64,
-        size: u64,
+        price: i64,
+        size_lots: i64,
         jito_api_url: &str,
         tip_lamports: u64,
-        // Optional pre-discovered accounts
         base_wallet: &Pubkey,
         quote_wallet: &Pubkey,
     ) -> Result<String> {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
-        let market_state = MarketStateV3::unpack(&market_data)?;
+        let market_state = MarketStateV2::unpack(&market_data)?;
 
-        // Discover open_orders
         let open_orders = self
             .find_open_orders(market_id, &signer.pubkey())
             .await?
             .ok_or_else(|| anyhow!("OpenOrders account not found for market {}", market_id))?;
 
-        let order_ix = crate::infra::openbook::create_new_order_v3_instruction(
+        let user_token_account = if side == 0 { quote_wallet } else { base_wallet };
+
+        let order_ix = crate::infra::openbook::create_place_order_v2_instruction(
             &market_pubkey,
             &open_orders,
-            &Pubkey::from(market_state.request_queue),
-            &Pubkey::from(market_state.event_queue),
-            &Pubkey::from(market_state.bids),
-            &Pubkey::from(market_state.asks),
-            &Pubkey::from(market_state.base_vault),
-            &Pubkey::from(market_state.quote_vault),
+            &market_state.asks,
+            &market_state.bids,
+            &market_state.event_heap,
+            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market base vault
+            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market quote vault
             &signer.pubkey(),
-            base_wallet,
-            quote_wallet,
+            user_token_account,
             side,
             price,
-            size,
-            size * price, // Simplified max_quote_qty
-            0,            // Limit
-            0,            // client_id
+            size_lots,
+            size_lots * price,
+            0,
         );
 
         let tip_ix =
             crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
 
-        // Construct the transaction
         let bh = self.client.get_latest_blockhash().await?;
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[order_ix, tip_ix],
@@ -252,13 +243,34 @@ impl SolanaClient {
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
 
-    #[allow(dead_code)]
     pub async fn cancel_order(
+        &self,
+        _market_id: &str,
+        signer: &dyn solana_sdk::signer::Signer,
+        _side: u8,
+        _order_id: u128,
+        jito_api_url: &str,
+        tip_lamports: u64,
+    ) -> Result<String> {
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[tip_ix],
+            Some(&signer.pubkey()),
+            &[signer],
+            bh,
+        );
+        let tx_bytes = bincode::serialize(&tx)?;
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
+        self.send_bundle(vec![tx_base64], jito_api_url).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn cancel_all_orders(
         &self,
         market_id: &str,
         signer: &dyn solana_sdk::signer::Signer,
-        side: u8,
-        order_id: u128,
         jito_api_url: &str,
         tip_lamports: u64,
     ) -> Result<String> {
@@ -266,28 +278,41 @@ impl SolanaClient {
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV3::unpack(&market_data)?;
 
-        let open_orders = self
-            .find_open_orders(market_id, &signer.pubkey())
-            .await?
-            .ok_or_else(|| anyhow!("OpenOrders account not found"))?;
+        let open_orders = match self.find_open_orders(market_id, &signer.pubkey()).await? {
+            Some(oo) => oo,
+            None => {
+                info!("No open orders account found to cancel");
+                return Ok("no_open_orders".to_string());
+            }
+        };
 
-        let cancel_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
+        let cancel_bid_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
             &market_pubkey,
-            &Pubkey::from(market_state.bids),
-            &Pubkey::from(market_state.asks),
+            &Pubkey::new_from_array(market_state.bids),
+            &Pubkey::new_from_array(market_state.asks),
             &open_orders,
             &signer.pubkey(),
-            &Pubkey::from(market_state.event_queue),
-            side,
-            order_id,
+            &Pubkey::new_from_array(market_state.event_queue),
+            0,
+            u16::MAX,
+        );
+
+        let cancel_ask_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+            &market_pubkey,
+            &Pubkey::new_from_array(market_state.bids),
+            &Pubkey::new_from_array(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::new_from_array(market_state.event_queue),
+            1,
+            u16::MAX,
         );
 
         let tip_ix =
             crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
-
         let bh = self.client.get_latest_blockhash().await?;
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[cancel_ix, tip_ix],
+            &[cancel_bid_ix, cancel_ask_ix, tip_ix],
             Some(&signer.pubkey()),
             &[signer],
             bh,
