@@ -150,7 +150,7 @@ pub fn parse_slab(
     Ok(levels)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn create_new_order_v3_instruction(
     market: &Pubkey,
     open_orders: &Pubkey,
@@ -227,7 +227,7 @@ pub fn create_jito_tip_instruction(
     solana_sdk::system_instruction::transfer(owner, &tip_pubkey, tip_lamports)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn create_cancel_order_v2_instruction(
     market: &Pubkey,
     bids: &Pubkey,
@@ -261,7 +261,7 @@ pub fn create_cancel_order_v2_instruction(
     }
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn create_cancel_all_orders_instruction(
     market: &Pubkey,
     bids: &Pubkey,

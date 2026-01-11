@@ -191,7 +191,7 @@ impl SolanaClient {
         Ok(accounts.first().map(|(p, _)| *p))
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub async fn place_order(
         &self,
         market_id: &str,

@@ -248,8 +248,8 @@ mod tests {
             365,
             Decimal::from(1000),
             Decimal::from(1),    // 1 SOL market rent
-            Decimal::from(0.5),  // 0.5 SOL account rent
-            Decimal::from(0.25), // 0.25 SOL tip
+            Decimal::from_str_exact("0.5").unwrap(),  // 0.5 SOL account rent
+            Decimal::from_str_exact("0.25").unwrap(), // 0.25 SOL tip
             Decimal::from(25),   // 0.25% fee
         );
         let historical_trades = vec![Trade {
