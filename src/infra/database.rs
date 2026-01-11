@@ -98,7 +98,7 @@ impl Database {
 
     pub async fn get_recent_trades(&self, since_timestamp: i64) -> Result<Vec<Trade>> {
         let rows: Vec<(String, i64, String, String, String, String)> = sqlx::query_as(
-            "SELECT id, timestamp, price, volume, side, wallet FROM trades WHERE timestamp >= $1 ORDER BY timestamp ASC",
+            "SELECT id, timestamp, price, volume, side, wallet FROM trades WHERE timestamp >= $1 ORDER BY timestamp ASC, id ASC",
         )
         .bind(since_timestamp)
         .fetch_all(&self.pool)

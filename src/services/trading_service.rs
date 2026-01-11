@@ -1,5 +1,5 @@
 use crate::infra::{Database, SolanaClient, WalletManager};
-use crate::services::{GridBuilder, PivotEngine, RebalanceService};
+use crate::services::{GridBuilder, PnlTracker, PivotEngine, RebalanceService};
 use crate::utils::BotSettings;
 use anyhow::Result;
 use rust_decimal::prelude::ToPrimitive;
@@ -18,6 +18,7 @@ pub struct TradingService {
     pivot_engine: PivotEngine,
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,
+    pnl_tracker: tokio::sync::Mutex<PnlTracker>,
 }
 
 impl TradingService {
@@ -47,6 +48,7 @@ impl TradingService {
             pivot_engine,
             grid_builder,
             rebalance_service,
+            pnl_tracker: tokio::sync::Mutex::new(PnlTracker::default()),
         }
     }
 
@@ -80,6 +82,50 @@ impl TradingService {
         // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
 
+        // 1a. Ingest recent trades for PnL tracking
+        let last_trade_ts = self
+            .database
+            .get_state("pnl_last_trade_ts")
+            .await?
+            .and_then(|value| value.parse::<i64>().ok())
+            .unwrap_or(0);
+        let last_trade_id = self
+            .database
+            .get_state("pnl_last_trade_id")
+            .await?
+            .unwrap_or_default();
+        let trades = self.database.get_recent_trades(last_trade_ts).await?;
+
+        if !trades.is_empty() {
+            let mut tracker = self.pnl_tracker.lock().await;
+            let mut newest_ts = last_trade_ts;
+            let mut newest_id = last_trade_id.clone();
+
+            for trade in trades {
+                if trade.timestamp > last_trade_ts
+                    || (trade.timestamp == last_trade_ts && trade.id > last_trade_id)
+                {
+                    tracker.record_trade(trade.side, trade.price, trade.volume);
+
+                    if trade.timestamp > newest_ts
+                        || (trade.timestamp == newest_ts && trade.id > newest_id)
+                    {
+                        newest_ts = trade.timestamp;
+                        newest_id = trade.id.clone();
+                    }
+                }
+            }
+
+            if newest_ts != last_trade_ts || newest_id != last_trade_id {
+                self.database
+                    .set_state("pnl_last_trade_ts", &newest_ts.to_string())
+                    .await?;
+                self.database
+                    .set_state("pnl_last_trade_id", &newest_id)
+                    .await?;
+            }
+        }
+
         // 2. Fetch live market data
         let market_id = &self._settings.openbook_market_id;
         let market_data = self.solana.get_market_data(market_id).await?;
@@ -91,6 +137,27 @@ impl TradingService {
             .compute_pivot(&[], &[], Some(&market_data), 0) // Assume day 0 for now
             .await;
         gauge!("bot_last_pivot_price", pivot.to_f64().unwrap_or(0.0));
+
+        let pnl_snapshot = {
+            let tracker = self.pnl_tracker.lock().await;
+            tracker.snapshot(market_data.price)
+        };
+        gauge!(
+            "bot_pnl_realized_sol",
+            pnl_snapshot.realized_pnl.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_pnl_unrealized_sol",
+            pnl_snapshot.unrealized_pnl.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_position_net_sol",
+            pnl_snapshot.net_position.to_f64().unwrap_or(0.0)
+        );
+        gauge!(
+            "bot_position_avg_cost",
+            pnl_snapshot.average_cost.to_f64().unwrap_or(0.0)
+        );
 
         // 4. Check if we need to rebuild the grid
         if self.rebalance_service.should_rebuild(pivot) {
@@ -139,7 +206,6 @@ impl TradingService {
 
             // 7. Performance Indicators (Mocked for now)
             gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
-            gauge!("bot_pnl_realized_sol", 0.0); // Mock
             gauge!("bot_fill_rate_percent", 88.0); // Mock
             gauge!("bot_bundle_latency_ms", 42.0); // Mock
         } else {
