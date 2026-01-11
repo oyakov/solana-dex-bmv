@@ -28,15 +28,12 @@ impl WalletManager {
             }
 
             // Try as base58 string
-            match Keypair::from_base58_string(secret) {
-                kp => {
-                    // from_base58_string in older solana-sdk returns Keypair directly and panics if invalid?
-                    // Actually in 1.18 it might be different. Let's check common usage.
-                    // Usually it's Keypair::from_base58_string(secret)
-                    info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
-                    wallets.push(kp);
-                }
-            }
+            let kp = Keypair::from_base58_string(secret);
+            // from_base58_string in older solana-sdk returns Keypair directly and panics if invalid?
+            // Actually in 1.18 it might be different. Let's check common usage.
+            // Usually it's Keypair::from_base58_string(secret)
+            info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
+            wallets.push(kp);
         }
 
         if wallets.is_empty() {
@@ -54,6 +51,7 @@ impl WalletManager {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn get_keypair(&self, index: usize) -> Result<&Keypair> {
         self.wallets
             .get(index)

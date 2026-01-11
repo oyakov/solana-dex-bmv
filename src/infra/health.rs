@@ -16,7 +16,7 @@ pub enum ServiceStatus {
 }
 
 impl ServiceStatus {
-    pub fn to_status_string(&self) -> String {
+    pub fn to_status_string(self) -> String {
         match self {
             ServiceStatus::Healthy => "HEALTHY".to_string(),
             ServiceStatus::Degraded => "DEGRADED".to_string(),
@@ -78,13 +78,13 @@ impl HealthChecker {
 
         match result {
             Ok(_) => HealthReport {
-                service_name: "Database (SQLite)".to_string(),
+                service_name: "Database (PostgreSQL)".to_string(),
                 status: ServiceStatus::Healthy,
                 latency_ms: latency,
                 message: None,
             },
             Err(e) => HealthReport {
-                service_name: "Database (SQLite)".to_string(),
+                service_name: "Database (PostgreSQL)".to_string(),
                 status: ServiceStatus::Failed,
                 latency_ms: latency,
                 message: Some(format!("DB check failed: {}", e)),
@@ -206,8 +206,8 @@ impl HealthChecker {
     pub fn display_reports(reports: &[HealthReport]) {
         println!("\n=== CONNECTIVITY STATUS ===");
         println!(
-            "{:<20} | {:<10} | {:<10} | {}",
-            "Service", "Status", "Latency", "Notes"
+            "{:<20} | {:<10} | {:<10} | Notes",
+            "Service", "Status", "Latency"
         );
         println!("{}", "-".repeat(70));
 

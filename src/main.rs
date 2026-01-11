@@ -9,7 +9,8 @@ use crate::services::{PivotEngine, TradingService};
 use crate::utils::BotSettings;
 use anyhow::{Context, Result};
 use solana_sdk::commitment_config::CommitmentConfig;
-use tracing::{info, Level};
+use std::sync::Arc;
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -31,13 +32,12 @@ async fn main() -> Result<()> {
 
     // Initialize infrastructure
     let commitment = CommitmentConfig::confirmed();
-    let solana = std::sync::Arc::new(SolanaClient::new(
+    let solana = Arc::new(SolanaClient::new(
         &settings.rpc_endpoints.primary_http,
         commitment,
     ));
-    let database = std::sync::Arc::new(Database::connect(&settings.database.url).await?);
-    let wallet_manager =
-        std::sync::Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
+    let database = Arc::new(Database::connect(&settings.database.url).await?);
+    let wallet_manager = Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
 
     // Perform connectivity health checks
     let health_checker =
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         .await?;
 
     // Spawn periodic health check task
-    let health_checker_task = std::sync::Arc::new(health_checker);
+    let health_checker_task = Arc::new(health_checker);
     let health_check_interval = settings.health_check_interval_seconds;
     tokio::spawn(async move {
         let mut interval =
@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
     });
 
     // Initialize logic services
-    let pivot_engine = PivotEngine::new(
+    let pivot_engine = Arc::new(PivotEngine::new(
         settings.pivot_vwap.pivot_price,
         settings.pivot_vwap.lookback_days,
         settings.pivot_vwap.nominal_daily_volume,
@@ -71,14 +71,26 @@ async fn main() -> Result<()> {
         settings.pivot_vwap.account_rent_sol,
         settings.pivot_vwap.jito_tip_sol,
         settings.pivot_vwap.fee_bps,
+    ));
+
+    // Initialize and spawn Market Data Service (WebSocket ingestion)
+    let market_data_service = services::MarketDataService::new(
+        &settings.rpc_endpoints.primary_ws,
+        database.clone(),
+        &settings.openbook_market_id,
+        pivot_engine.clone(),
     );
+    tokio::spawn(async move {
+        if let Err(e) = market_data_service.run().await {
+            error!(error = ?e, "MarketDataService failed");
+        }
+    });
 
     // Initialize orchestrator
     let orchestrator =
         TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
 
     // Run the trading loop
-    // Note: This will run forever until interrupted
     orchestrator.run().await?;
 
     info!("Solana DEX BMV bot shutting down gracefully");
