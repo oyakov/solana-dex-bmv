@@ -267,8 +267,8 @@ mod tests {
         // Base: 100 * 10 = 1000, volume 10
         // Cost: 1.75 SOL * 100 = 175
         // Fee: 10 * 0.0025 = 0.025
-        // Pivot: (1000 + 175) / (10 - 0.025) = 1175 / 9.975 = 117.79...
-        let expected = Decimal::from_str_exact("117.7894736842105263157894737").unwrap();
+        // Pivot: (1000 + 175) / (10 - 0.025) = 1175 / 9.975 = 117.794486...
+        let expected = Decimal::from_str_exact("117.79448621553884711779448622").unwrap();
         assert_eq!(pivot, expected);
     }
 }
