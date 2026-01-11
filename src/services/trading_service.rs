@@ -1,9 +1,10 @@
-use crate::infra::{Database, SolanaClient, WalletManager};
-use crate::services::{GridBuilder, PivotEngine, RebalanceService};
+use crate::infra::{Database, KillSwitch, SolanaClient, WalletManager};
+use crate::services::{GridBuilder, PivotEngine, RebalanceService, RiskManager, RiskSnapshot};
 use crate::utils::BotSettings;
 use anyhow::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use solana_sdk::signer::Signer;
 
 use metrics::{counter, gauge};
 use tracing::{error, info};
@@ -14,10 +15,12 @@ pub struct TradingService {
     #[allow(dead_code)]
     database: std::sync::Arc<Database>,
     wallet_manager: std::sync::Arc<WalletManager>,
+    kill_switch: std::sync::Arc<KillSwitch>,
 
     pivot_engine: PivotEngine,
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,
+    risk_manager: RiskManager,
 }
 
 impl TradingService {
@@ -38,15 +41,19 @@ impl TradingService {
 
         let rebalance_service =
             RebalanceService::new(solana.clone(), wallet_manager.clone(), settings.clone());
+        let kill_switch = std::sync::Arc::new(KillSwitch::from_settings(&settings.kill_switch));
+        let risk_manager = RiskManager::new(settings.risk_limits.clone());
 
         Self {
             _settings: settings,
             solana,
             database,
             wallet_manager,
+            kill_switch,
             pivot_engine,
             grid_builder,
             rebalance_service,
+            risk_manager,
         }
     }
 
@@ -76,6 +83,22 @@ impl TradingService {
 
     pub async fn tick(&self) -> Result<()> {
         info!("Trading tick starting");
+
+        if self.kill_switch.is_triggered().await? {
+            self.handle_kill_switch("manual trigger detected").await?;
+            return Ok(());
+        }
+
+        let risk_snapshot = RiskSnapshot {
+            daily_loss_usd: Decimal::ZERO,
+            open_orders: 0,
+        };
+        if let Some(reason) = self.risk_manager.evaluate(&risk_snapshot) {
+            let reason_text = reason.to_string();
+            self.kill_switch.trigger(&reason_text).await?;
+            self.handle_kill_switch(&reason_text).await?;
+            return Ok(());
+        }
 
         // 1. Housekeeping (wallet balances etc)
         self.rebalance_service.rebalance().await?;
@@ -144,6 +167,33 @@ impl TradingService {
             gauge!("bot_bundle_latency_ms", 42.0); // Mock
         } else {
             info!("Pivot stable, no rebalance needed");
+        }
+
+        Ok(())
+    }
+
+    async fn handle_kill_switch(&self, reason: &str) -> Result<()> {
+        counter!("bot_kill_switch_trigger_total", 1, "reason" => reason.to_string());
+        info!(%reason, "Kill switch triggered; canceling all orders and pausing trading");
+        self.cancel_all_orders().await
+    }
+
+    async fn cancel_all_orders(&self) -> Result<()> {
+        if self._settings.dry_run.enabled {
+            info!("Dry run enabled; skipping cancel-all execution");
+            return Ok(());
+        }
+
+        let market_id = &self._settings.openbook_market_id;
+        let tip_lamports = self._settings.jito_bundle.tip_lamports;
+        let jito_url = &self._settings.jito_bundle.bundler_url;
+
+        for wallet in self.wallet_manager.get_all_wallets() {
+            let result = self
+                .solana
+                .cancel_all_orders(market_id, wallet, jito_url, tip_lamports)
+                .await?;
+            info!(wallet = %wallet.pubkey(), %result, "Cancel-all submitted");
         }
 
         Ok(())

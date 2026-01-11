@@ -260,3 +260,37 @@ pub fn create_cancel_order_v2_instruction(
         data,
     }
 }
+
+#[allow(dead_code)]
+pub fn create_cancel_all_orders_instruction(
+    market: &Pubkey,
+    bids: &Pubkey,
+    asks: &Pubkey,
+    open_orders: &Pubkey,
+    owner: &Pubkey,
+    event_queue: &Pubkey,
+    side: u8,
+    limit: u16,
+) -> solana_sdk::instruction::Instruction {
+    let program_id =
+        std::str::FromStr::from_str("srmqPvSwwJbtLZ9Uv7j8W7YVFe4Gz74Xp2Y7tENz7u4").unwrap();
+
+    // Instruction discriminator 7 for CancelAllOrders (Serum/OpenBook)
+    let mut data = Vec::with_capacity(7);
+    data.extend_from_slice(&7u32.to_le_bytes());
+    data.push(side);
+    data.extend_from_slice(&limit.to_le_bytes());
+
+    solana_sdk::instruction::Instruction {
+        program_id,
+        accounts: vec![
+            solana_sdk::instruction::AccountMeta::new(*market, false),
+            solana_sdk::instruction::AccountMeta::new(*bids, false),
+            solana_sdk::instruction::AccountMeta::new(*asks, false),
+            solana_sdk::instruction::AccountMeta::new(*open_orders, false),
+            solana_sdk::instruction::AccountMeta::new_readonly(*owner, true),
+            solana_sdk::instruction::AccountMeta::new(*event_queue, false),
+        ],
+        data,
+    }
+}

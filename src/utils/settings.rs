@@ -176,6 +176,25 @@ impl Default for RiskLimitsSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KillSwitchSettings {
+    pub mode: String,
+    pub file_path: String,
+    pub redis_url: String,
+    pub redis_key: String,
+}
+
+impl Default for KillSwitchSettings {
+    fn default() -> Self {
+        Self {
+            mode: "file".to_string(),
+            file_path: "/tmp/solana-dex-bmv.kill".to_string(),
+            redis_url: "redis://127.0.0.1/".to_string(),
+            redis_key: "bmv:kill_switch".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DryRunSettings {
     pub enabled: bool,
@@ -228,6 +247,8 @@ pub struct BotSettings {
     pub wallets: WalletsSettings,
     pub risk_limits: RiskLimitsSettings,
     #[serde(default)]
+    pub kill_switch: KillSwitchSettings,
+    #[serde(default)]
     pub database: DatabaseSettings,
     pub dry_run: DryRunSettings,
     #[serde(default = "default_run_mode")]
@@ -250,6 +271,7 @@ impl std::fmt::Debug for BotSettings {
             .field("rpc_endpoints", &self.rpc_endpoints)
             .field("wallets", &self.wallets)
             .field("risk_limits", &self.risk_limits)
+            .field("kill_switch", &self.kill_switch)
             .field("database", &self.database)
             .field("dry_run", &self.dry_run)
             .field("run_mode", &self.run_mode)
@@ -289,6 +311,7 @@ impl Default for BotSettings {
             rpc_endpoints: RpcSettings::default(),
             wallets: WalletsSettings::default(),
             risk_limits: RiskLimitsSettings::default(),
+            kill_switch: KillSwitchSettings::default(),
             database: DatabaseSettings::default(),
             dry_run: DryRunSettings::default(),
             run_mode: default_run_mode(),

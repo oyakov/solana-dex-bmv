@@ -297,4 +297,62 @@ impl SolanaClient {
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle(vec![tx_base64], jito_api_url).await
     }
+
+    #[allow(dead_code)]
+    pub async fn cancel_all_orders(
+        &self,
+        market_id: &str,
+        signer: &dyn solana_sdk::signer::Signer,
+        jito_api_url: &str,
+        tip_lamports: u64,
+    ) -> Result<String> {
+        let market_pubkey = Pubkey::from_str(market_id)?;
+        let market_data = self.client.get_account_data(&market_pubkey).await?;
+        let market_state = MarketStateV3::unpack(&market_data)?;
+
+        let open_orders = match self.find_open_orders(market_id, &signer.pubkey()).await? {
+            Some(open_orders) => open_orders,
+            None => {
+                info!(market_id = %market_id, "No open orders account found to cancel");
+                return Ok("no_open_orders".to_string());
+            }
+        };
+
+        let cancel_bid_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+            &market_pubkey,
+            &Pubkey::from(market_state.bids),
+            &Pubkey::from(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::from(market_state.event_queue),
+            0,
+            u16::MAX,
+        );
+
+        let cancel_ask_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+            &market_pubkey,
+            &Pubkey::from(market_state.bids),
+            &Pubkey::from(market_state.asks),
+            &open_orders,
+            &signer.pubkey(),
+            &Pubkey::from(market_state.event_queue),
+            1,
+            u16::MAX,
+        );
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&signer.pubkey(), tip_lamports);
+
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[cancel_bid_ix, cancel_ask_ix, tip_ix],
+            Some(&signer.pubkey()),
+            &[signer],
+            bh,
+        );
+
+        let tx_bytes = bincode::serialize(&tx)?;
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
+        self.send_bundle(vec![tx_base64], jito_api_url).await
+    }
 }

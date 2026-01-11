@@ -48,6 +48,12 @@ risk_limits:
   max_daily_loss_usd: 0.0
   max_open_orders: 0
 
+kill_switch:
+  mode: "file"
+  file_path: "/tmp/solana-dex-bmv.kill"
+  redis_url: "redis://127.0.0.1/"
+  redis_key: "bmv:kill_switch"
+
 hotkeys_tui:
   enabled: true
   refresh_ms: 250
