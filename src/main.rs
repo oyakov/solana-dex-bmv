@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         &settings.rpc_endpoints.primary_http,
         commitment,
     ));
-    let database = std::sync::Arc::new(Database::connect(&settings.database.path).await?);
+    let database = std::sync::Arc::new(Database::connect(&settings.database.url).await?);
     let wallet_manager =
         std::sync::Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
 

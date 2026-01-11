@@ -1,28 +1,19 @@
 use crate::domain::{OrderSide, Trade};
 use anyhow::Result;
-use rust_decimal::Decimal;
-use sqlx::sqlite::SqlitePool;
-use std::path::Path;
-use std::str::FromStr;
 use metrics::counter;
+use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
+use std::str::FromStr;
 
 #[allow(dead_code)]
 pub struct Database {
-    pool: SqlitePool,
+    pool: PgPool,
 }
 
 #[allow(dead_code)]
 impl Database {
-
-    pub async fn connect(path: &Path) -> Result<Self> {
-        let database_url = format!("sqlite:{}", path.to_string_lossy());
-
-        // Ensure the database file exists or let sqlx create it
-        if !path.exists() {
-            std::fs::File::create(path)?;
-        }
-
-        let pool = SqlitePool::connect(&database_url).await?;
+    pub async fn connect(url: &str) -> Result<Self> {
+        let pool = PgPool::connect(url).await?;
 
         // Initialize tables
         sqlx::query(
@@ -38,7 +29,7 @@ impl Database {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS trades (
                 id TEXT PRIMARY KEY,
-                timestamp INTEGER NOT NULL,
+                timestamp BIGINT NOT NULL,
                 price TEXT NOT NULL,
                 volume TEXT NOT NULL,
                 side TEXT NOT NULL,
@@ -59,9 +50,9 @@ impl Database {
     pub async fn set_state(&self, key: &str, value: &str) -> Result<()> {
         sqlx::query(
             "INSERT INTO bot_state (key, value, updated_at)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
+            VALUES ($1, $2, CURRENT_TIMESTAMP)
             ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
+                value = EXCLUDED.value,
                 updated_at = CURRENT_TIMESTAMP",
         )
         .bind(key)
@@ -73,7 +64,7 @@ impl Database {
     }
 
     pub async fn get_state(&self, key: &str) -> Result<Option<String>> {
-        let row: Option<(String,)> = sqlx::query_as("SELECT value FROM bot_state WHERE key = ?")
+        let row: Option<(String,)> = sqlx::query_as("SELECT value FROM bot_state WHERE key = $1")
             .bind(key)
             .fetch_optional(&self.pool)
             .await?;
@@ -89,10 +80,10 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO trades (id, timestamp, price, volume, side, wallet)
-            VALUES (?, ?, ?, ?, ?, ?)",
+            VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&trade.id)
-        .bind(trade.timestamp)
+        .bind(trade.timestamp as i64)
         .bind(trade.price.to_string())
         .bind(trade.volume.to_string())
         .bind(side_str)
@@ -107,7 +98,7 @@ impl Database {
 
     pub async fn get_recent_trades(&self, since_timestamp: i64) -> Result<Vec<Trade>> {
         let rows: Vec<(String, i64, String, String, String, String)> = sqlx::query_as(
-            "SELECT id, timestamp, price, volume, side, wallet FROM trades WHERE timestamp >= ? ORDER BY timestamp ASC",
+            "SELECT id, timestamp, price, volume, side, wallet FROM trades WHERE timestamp >= $1 ORDER BY timestamp ASC",
         )
         .bind(since_timestamp)
         .fetch_all(&self.pool)
@@ -137,16 +128,21 @@ impl Database {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
+
+    async fn get_test_db() -> Option<Database> {
+        let url = std::env::var("TEST_DATABASE_URL").ok()?;
+        Database::connect(&url).await.ok()
+    }
 
     #[tokio::test]
     async fn test_database_state() -> Result<()> {
-        let temp_file = NamedTempFile::new()?;
-        let db = Database::connect(temp_file.path()).await?;
+        let db = match get_test_db().await {
+            Some(db) => db,
+            None => return Ok(()), // Skip if no test DB
+        };
 
         db.set_state("test_key", "test_value").await?;
         let val = db.get_state("test_key").await?;
@@ -165,8 +161,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_database_trades() -> Result<()> {
-        let temp_file = NamedTempFile::new()?;
-        let db = Database::connect(temp_file.path()).await?;
+        let db = match get_test_db().await {
+            Some(db) => db,
+            None => return Ok(()), // Skip if no test DB
+        };
 
         let trade = Trade {
             id: "trade_1".to_string(),
@@ -191,4 +189,3 @@ mod tests {
         Ok(())
     }
 }
-

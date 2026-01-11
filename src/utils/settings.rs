@@ -197,13 +197,13 @@ impl Default for DryRunSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseSettings {
-    pub path: PathBuf,
+    pub url: String,
 }
 
 impl Default for DatabaseSettings {
     fn default() -> Self {
         Self {
-            path: PathBuf::from("bot_state.sqlite"),
+            url: "postgres://botuser:botpass@localhost:5432/solana_dex".to_string(),
         }
     }
 }
@@ -343,8 +343,8 @@ impl BotSettings {
             settings.dry_run.enabled = dry_run_env.parse().unwrap_or(settings.dry_run.enabled);
         }
 
-        if let Ok(db_path_env) = std::env::var("DATABASE_PATH") {
-            settings.database.path = PathBuf::from(db_path_env);
+        if let Ok(url) = std::env::var("DATABASE_URL") {
+            settings.database.url = url;
         }
 
         Ok(settings)

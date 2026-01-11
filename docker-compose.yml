@@ -1,13 +1,30 @@
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=botuser
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-botpass}
+      - POSTGRES_DB=solana_dex
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bot-network
+    # Port 5432 is internal only within the network
+
   bot:
     build: .
     container_name: solana-dex-bmv
     restart: unless-stopped
+    depends_on:
+      - db
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgres://botuser:${DB_PASSWORD:-botpass}@db:5432/solana_dex
     volumes:
       - ./data:/app/data
-      - ./bot_state.sqlite:/app/bot_state.sqlite
       - ./config.yaml:/app/config.yaml
     ports:
       - "127.0.0.1:9000:9000"
@@ -21,7 +38,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
+    container_name: prometheus-bmv
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
@@ -32,7 +49,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: grafana-bmv
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -49,3 +66,4 @@ networks:
 
 volumes:
   data:
+  postgres_data:
