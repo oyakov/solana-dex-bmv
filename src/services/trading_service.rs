@@ -56,17 +56,21 @@ impl TradingService {
             "Starting TradingService main loop"
         );
 
+        let tick_interval = tokio::time::Duration::from_secs(
+            self._settings.trading_tick_interval_seconds,
+        );
+        let recovery_delay = tokio::time::Duration::from_secs(5);
+        let mut interval = tokio::time::interval(tick_interval);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
         loop {
+            interval.tick().await;
             counter!("bot_ticks_total", 1);
             if let Err(e) = self.tick().await {
                 counter!("bot_tick_errors_total", 1);
-                error!(error = ?e, "Error during trading tick");
+                error!(error = ?e, "Error during trading tick; entering recovery delay");
+                tokio::time::sleep(recovery_delay).await;
             }
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(
-                self._settings.trading_tick_interval_seconds,
-            ))
-            .await;
         }
     }
 
