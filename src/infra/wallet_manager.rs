@@ -63,6 +63,13 @@ impl WalletManager {
         self.wallets.clone()
     }
 
+    pub fn get_main_wallet(&self) -> Result<Arc<Keypair>> {
+        self.wallets
+            .first()
+            .cloned()
+            .ok_or_else(|| anyhow!("No wallets available in WalletManager"))
+    }
+
     pub fn count(&self) -> usize {
         self.wallets.len()
     }

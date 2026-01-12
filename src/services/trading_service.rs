@@ -307,9 +307,11 @@ impl TradingService {
 
         // 11. Execute Financial Manager checks
         self.financial_manager.check_balances().await?;
+        self.financial_manager
+            .rebalance_fiat(market_data.price, pivot)
+            .await?;
 
-        // 12. Periodic Rent Recovery (placeholder for background task in Phase 2)
-        // For Phase 1, we can call it here or keep it as a scheduled task.
+        // 12. Periodic Rent Recovery
         self.rent_recovery.recover_rent().await?;
 
         Ok(())

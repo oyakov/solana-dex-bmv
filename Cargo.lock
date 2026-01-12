@@ -4271,6 +4271,8 @@ dependencies = [
  "solana-account-decoder",
  "solana-client",
  "solana-sdk",
+ "spl-associated-token-account",
+ "spl-token",
  "sqlx",
  "tempfile",
  "tokio",

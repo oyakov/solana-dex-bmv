@@ -1,7 +1,5 @@
 use crate::domain::{MarketUpdate, Orderbook};
-use crate::infra::openbook::{
-    parse_book_side_v2, MarketStateV2, MarketStateV3, OPENBOOK_V2_PROGRAM_ID,
-};
+use crate::infra::openbook::{parse_book_side_v2, MarketStateV2, OPENBOOK_V2_PROGRAM_ID};
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -56,8 +54,30 @@ impl crate::infra::SolanaProvider for SolanaClient {
         self.get_balance_impl(address).await
     }
 
+    async fn get_token_balance(&self, wallet: &Pubkey, mint: &Pubkey) -> Result<u64> {
+        self.get_token_balance_impl(wallet, mint).await
+    }
+
     async fn send_bundle(&self, txs: Vec<String>, jito_url: &str) -> Result<String> {
         self.send_bundle_impl(txs, jito_url).await
+    }
+
+    async fn jupiter_swap(
+        &self,
+        signer: &Keypair,
+        input_mint: &Pubkey,
+        output_mint: &Pubkey,
+        amount_lamports: u64,
+        slippage_bps: u16,
+    ) -> Result<String> {
+        self.jupiter_swap_impl(
+            signer,
+            input_mint,
+            output_mint,
+            amount_lamports,
+            slippage_bps,
+        )
+        .await
     }
 
     async fn get_latest_blockhash(&self) -> Result<solana_sdk::hash::Hash> {
@@ -139,6 +159,41 @@ impl crate::infra::SolanaProvider for SolanaClient {
         )
         .await
     }
+
+    async fn send_flash_volume_bundle(
+        &self,
+        market_id: &str,
+        wallet_a: &Keypair,
+        wallet_b: &Keypair,
+        price_lots: i64,
+        size_lots: i64,
+        tip_lamports: u64,
+        jito_url: &str,
+        base_mint: &Pubkey,
+        quote_mint: &Pubkey,
+    ) -> Result<String> {
+        self.send_flash_volume_bundle_impl(
+            market_id,
+            wallet_a,
+            wallet_b,
+            price_lots,
+            size_lots,
+            tip_lamports,
+            jito_url,
+            base_mint,
+            quote_mint,
+        )
+        .await
+    }
+
+    async fn close_open_orders_account(
+        &self,
+        signer: &Keypair,
+        open_orders: &Pubkey,
+    ) -> Result<String> {
+        self.close_open_orders_account_impl(signer, open_orders)
+            .await
+    }
 }
 
 impl SolanaClient {
@@ -152,6 +207,21 @@ impl SolanaClient {
         let pubkey = Pubkey::from_str(owner).map_err(|e| anyhow!("Invalid pubkey: {}", e))?;
         let balance = self.client.get_balance(&pubkey).await?;
         Ok(balance)
+    }
+
+    pub async fn get_token_balance_impl(&self, owner: &Pubkey, mint: &Pubkey) -> Result<u64> {
+        let ata = spl_associated_token_account::get_associated_token_address(owner, mint);
+        match self.client.get_token_account_balance(&ata).await {
+            Ok(balance) => {
+                let amount = balance.amount.parse::<u64>().unwrap_or(0);
+                Ok(amount)
+            }
+            Err(e) => {
+                // If account doesn't exist, balance is 0
+                warn!(?e, owner = %owner, mint = %mint, "Failed to get token balance (likely account missing)");
+                Ok(0)
+            }
+        }
     }
 
     pub async fn get_orderbook_impl(&self, market_id: &str) -> Result<Orderbook> {
@@ -340,8 +410,8 @@ impl SolanaClient {
             &market_state.asks,
             &market_state.bids,
             &market_state.event_heap,
-            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market base vault
-            &Pubkey::new_from_array([0u8; 32]), // TODO: Get market quote vault
+            &market_state.market_base_vault,
+            &market_state.market_quote_vault,
             &signer.pubkey(),
             user_token_account,
             side,
@@ -400,7 +470,7 @@ impl SolanaClient {
     ) -> Result<String> {
         let market_pubkey = Pubkey::from_str(market_id)?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
-        let market_state = MarketStateV3::unpack(&market_data)?;
+        let market_state = MarketStateV2::unpack(&market_data)?;
 
         let open_orders = match self
             .find_open_orders_impl(market_id, &signer.pubkey())
@@ -413,26 +483,24 @@ impl SolanaClient {
             }
         };
 
-        let cancel_bid_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+        let cancel_bid_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
             &market_pubkey,
-            &Pubkey::new_from_array(market_state.bids),
-            &Pubkey::new_from_array(market_state.asks),
+            &market_state.bids,
+            &market_state.asks,
             &open_orders,
             &signer.pubkey(),
-            &Pubkey::new_from_array(market_state.event_queue),
             0,
-            u16::MAX,
+            u128::MAX, // Use a very large ID or 0 if protocol supports "Cancel All" via specific ID
         );
 
-        let cancel_ask_ix = crate::infra::openbook::create_cancel_all_orders_instruction(
+        let cancel_ask_ix = crate::infra::openbook::create_cancel_order_v2_instruction(
             &market_pubkey,
-            &Pubkey::new_from_array(market_state.bids),
-            &Pubkey::new_from_array(market_state.asks),
+            &market_state.bids,
+            &market_state.asks,
             &open_orders,
             &signer.pubkey(),
-            &Pubkey::new_from_array(market_state.event_queue),
             1,
-            u16::MAX,
+            u128::MAX,
         );
 
         let tip_ix =
@@ -502,7 +570,6 @@ impl SolanaClient {
             &market_state.asks,
             &open_orders,
             &signer.pubkey(),
-            &market_state.event_heap,
             cancel_side,
             cancel_order_id,
         );
@@ -522,7 +589,162 @@ impl SolanaClient {
         let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         self.send_bundle_impl(vec![tx_base64], jito_api_url).await
     }
+    pub async fn jupiter_swap_impl(
+        &self,
+        signer: &Keypair,
+        input_mint: &Pubkey,
+        output_mint: &Pubkey,
+        amount_lamports: u64,
+        slippage_bps: u16,
+    ) -> Result<String> {
+        let client = reqwest::Client::new();
+
+        // 1. Get Quote
+        let quote_url = format!(
+            "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
+            input_mint, output_mint, amount_lamports, slippage_bps
+        );
+        let quote_resp = client.get(&quote_url).send().await?;
+        let quote: serde_json::Value = quote_resp.json().await?;
+
+        if quote.get("error").is_some() {
+            return Err(anyhow!("Jupiter quote error: {:?}", quote["error"]));
+        }
+
+        // 2. Get Swap Transaction
+        let swap_url = "https://quote-api.jup.ag/v6/swap";
+        let swap_payload = serde_json::json!({
+            "quoteResponse": quote,
+            "userPublicKey": signer.pubkey().to_string(),
+            "wrapAndUnwrapSol": true
+        });
+
+        let swap_resp = client.post(swap_url).json(&swap_payload).send().await?;
+        let swap_result: serde_json::Value = swap_resp.json().await?;
+
+        let tx_base64 = swap_result["swapTransaction"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Missing swapTransaction in Jupiter response"))?;
+
+        // Sign and Send
+        let tx_bytes = base64::engine::general_purpose::STANDARD.decode(tx_base64)?;
+        let tx: solana_sdk::transaction::VersionedTransaction = bincode::deserialize(&tx_bytes)?;
+
+        let signed_tx =
+            solana_sdk::transaction::VersionedTransaction::try_new(tx.message, &[signer])?;
+
+        let sig = self.client.send_and_confirm_transaction(&signed_tx).await?;
+        Ok(sig.to_string())
+    }
+
     pub async fn get_latest_blockhash_impl(&self) -> Result<solana_sdk::hash::Hash> {
         self.client.get_latest_blockhash().await.map_err(Into::into)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn send_flash_volume_bundle_impl(
+        &self,
+        market_id: &str,
+        wallet_a: &Keypair,
+        wallet_b: &Keypair,
+        price_lots: i64,
+        size_lots: i64,
+        tip_lamports: u64,
+        jito_url: &str,
+        base_mint: &Pubkey,
+        quote_mint: &Pubkey,
+    ) -> Result<String> {
+        let market_pubkey = Pubkey::from_str(market_id)?;
+        let market_data = self.client.get_account_data(&market_pubkey).await?;
+        let market_state = MarketStateV2::unpack(&market_data)?;
+
+        let open_orders_a = self
+            .find_open_orders_impl(market_id, &wallet_a.pubkey())
+            .await?
+            .ok_or_else(|| anyhow!("OpenOrders A not found"))?;
+        let open_orders_b = self
+            .find_open_orders_impl(market_id, &wallet_b.pubkey())
+            .await?
+            .ok_or_else(|| anyhow!("OpenOrders B not found"))?;
+
+        let ata_a = spl_associated_token_account::get_associated_token_address(
+            &wallet_a.pubkey(),
+            quote_mint,
+        );
+        let ata_b = spl_associated_token_account::get_associated_token_address(
+            &wallet_b.pubkey(),
+            base_mint,
+        );
+
+        // A buys, B sells
+        let place_ix_a = crate::infra::openbook::create_place_order_v2_instruction(
+            &market_pubkey,
+            &open_orders_a,
+            &market_state.asks,
+            &market_state.bids,
+            &market_state.event_heap,
+            &market_state.market_base_vault,
+            &market_state.market_quote_vault,
+            &wallet_a.pubkey(),
+            &ata_a,
+            0, // Buy
+            price_lots,
+            size_lots,
+            size_lots * price_lots,
+            0,
+        );
+
+        let place_ix_b = crate::infra::openbook::create_place_order_v2_instruction(
+            &market_pubkey,
+            &open_orders_b,
+            &market_state.asks,
+            &market_state.bids,
+            &market_state.event_heap,
+            &market_state.market_base_vault,
+            &market_state.market_quote_vault,
+            &wallet_b.pubkey(),
+            &ata_b,
+            1, // Sell
+            price_lots,
+            size_lots,
+            size_lots * price_lots,
+            0,
+        );
+
+        let tip_ix =
+            crate::infra::openbook::create_jito_tip_instruction(&wallet_a.pubkey(), tip_lamports);
+
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[place_ix_a, place_ix_b, tip_ix],
+            Some(&wallet_a.pubkey()),
+            &[wallet_a as &dyn Signer, wallet_b as &dyn Signer],
+            bh,
+        );
+
+        let tx_bytes = bincode::serialize(&tx)?;
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
+        self.send_bundle_impl(vec![tx_base64], jito_url).await
+    }
+
+    pub async fn close_open_orders_account_impl(
+        &self,
+        signer: &Keypair,
+        open_orders: &Pubkey,
+    ) -> Result<String> {
+        let ix = crate::infra::openbook::create_close_open_orders_v2_instruction(
+            open_orders,
+            &signer.pubkey(),
+            &signer.pubkey(),
+        );
+        let bh = self.client.get_latest_blockhash().await?;
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&signer.pubkey()),
+            &[signer as &dyn Signer],
+            bh,
+        );
+        let sig = self.client.send_and_confirm_transaction(&tx).await?;
+        Ok(sig.to_string())
     }
 }

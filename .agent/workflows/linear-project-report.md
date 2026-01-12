@@ -2,7 +2,7 @@
 description: Current BMV proejct report on Linear
 ---
 
-Team: BVM
+Team: BMV
 
 Project: Система управления маркет-мейкингом BMV Eco System1
 

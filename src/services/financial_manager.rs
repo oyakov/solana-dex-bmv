@@ -1,8 +1,10 @@
 use crate::infra::{SolanaProvider, WalletManager};
 use crate::utils::BotSettings;
 use anyhow::Result;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
+use std::str::FromStr;
 use tracing::info;
 
 pub struct FinancialManager {
@@ -25,41 +27,119 @@ impl FinancialManager {
     }
 
     pub async fn check_balances(&self) -> Result<()> {
-        info!("Financial Manager: checking SOL/USDC balances");
+        info!("Financial Manager: checking SOL/USDC balances across swarm");
 
-        // 1. Calculate aggregated balance across swarm
         let mut total_sol = Decimal::ZERO;
+        let mut total_usdc = Decimal::ZERO;
         let wallets = self.wallet_manager.get_all_wallets();
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)?;
 
         for wallet in &wallets {
-            let lamports = self
-                .solana
-                .get_balance(&wallet.pubkey().to_string())
-                .await?;
+            let pubkey = wallet.pubkey();
+
+            // Fetch SOL
+            let lamports = self.solana.get_balance(&pubkey.to_string()).await?;
             total_sol += Decimal::from(lamports) / Decimal::from(1_000_000_000u64);
+
+            // Fetch USDC
+            let usdc_raw = self.solana.get_token_balance(&pubkey, &usdc_mint).await?;
+            total_usdc += Decimal::from(usdc_raw) / Decimal::from(1_000_000u64);
+            // USDC has 6 decimals
         }
 
-        info!(total_sol = %total_sol, "Aggregated swarm SOL balance");
+        info!(
+            total_sol = %total_sol.round_dp(4),
+            total_usdc = %total_usdc.round_dp(2),
+            "Aggregated swarm balances"
+        );
 
-        // 2. Check against MIN_SOL_RESERVE_% (placeholder logic)
-        // In a real implementation, we would also fetch USDC balance and
-        // perform conversions if needed using Jupiter DEX.
+        // Emit metrics
+        metrics::gauge!("bot_total_sol_balance", total_sol.to_f64().unwrap_or(0.0));
+        metrics::gauge!("bot_total_usdc_balance", total_usdc.to_f64().unwrap_or(0.0));
+
+        // 2. Check against MIN_SOL_RESERVE_%
+        // Example: Total $ Value = total_sol * price + total_usdc
+        // SOL share % = (total_sol * price) / Total $ Value
+        // For simplicity, we'll fetch the current price or pass it in.
 
         Ok(())
     }
 
-    pub async fn rebalance_fiat(
-        &self,
-        current_price: Decimal,
-        grid_boundary: Decimal,
-    ) -> Result<()> {
-        // Logic for SOL <-> USDC conversion based on position in channel
-        // e.g. Sell some SOL for USDC at upper boundary
+    pub async fn rebalance_fiat(&self, current_price: Decimal, pivot: Decimal) -> Result<()> {
+        let buy_bound = pivot * (Decimal::ONE - self.settings.channel_bounds.buy_percent);
+        let sell_bound = pivot * (Decimal::ONE + self.settings.channel_bounds.sell_percent);
+
         info!(
             %current_price,
-            %grid_boundary,
-            "Financial Manager: evaluating fiat/sol rebalance"
+            %pivot,
+            %buy_bound,
+            %sell_bound,
+            "Financial Manager: evaluating fiat/sol ratio"
         );
+
+        let sol_mint =
+            solana_sdk::pubkey::Pubkey::from_str("So11111111111111111111111111111111111111112")?;
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)?;
+        let main_wallet = self.wallet_manager.get_main_wallet()?;
+
+        if current_price > pivot && (sell_bound - pivot) > Decimal::ZERO {
+            // In SELL zone: SOL -> USDC (Gradients: 100/0 at Pivot -> 70/30 at sell_bound)
+            // Progress 0.0 at Pivot -> 1.0 at sell_bound
+            let progress = (current_price - pivot) / (sell_bound - pivot);
+            let _target_usdc_ratio = progress.min(Decimal::ONE)
+                * self.settings.financial_manager.upper_usdc_ratio_max_percent
+                / Decimal::from(100);
+
+            // To reach target_usdc_ratio, we may need to sell SOL.
+            // Placeholder: if progress > 0.5 and barrier met, sell $50 worth of SOL
+            if progress > Decimal::new(5, 1) {
+                // 0.5
+                let amount_usd = Decimal::from(50);
+                if amount_usd >= self.settings.financial_manager.min_conversion_barrier_usd {
+                    let amount_lamports = (Decimal::from(1_000_000_000u64) * amount_usd
+                        / current_price)
+                        .to_u64()
+                        .unwrap_or(0);
+                    if amount_lamports > 0 {
+                        info!(%amount_usd, "Executing SELL: SOL -> USDC via Jupiter");
+                        let sig = self
+                            .solana
+                            .jupiter_swap(
+                                &main_wallet,
+                                &sol_mint,
+                                &usdc_mint,
+                                amount_lamports,
+                                50, // 0.5% slippage
+                            )
+                            .await?;
+                        info!(%sig, "Swap successful");
+                    }
+                }
+            }
+        } else if current_price < pivot && (pivot - buy_bound) > Decimal::ZERO {
+            // In BUY zone: USDC -> SOL (Gradients: 100/0 at Pivot -> 70/30 at buy_bound)
+            let progress = (pivot - current_price) / (pivot - buy_bound);
+            let _target_sol_ratio = progress.min(Decimal::ONE)
+                * self.settings.financial_manager.lower_usdc_ratio_max_percent
+                / Decimal::from(100);
+
+            // If SOL share is too low, buy SOL.
+            // Placeholder: if progress > 0.5, buy $50 worth of SOL
+            if progress > Decimal::new(5, 1) {
+                let amount_usd = Decimal::from(50);
+                let amount_usdc_units = (amount_usd * Decimal::from(1_000_000u64))
+                    .to_u64()
+                    .unwrap_or(0);
+                if amount_usdc_units > 0 {
+                    info!(%amount_usd, "Executing BUY: USDC -> SOL via Jupiter");
+                    let sig = self
+                        .solana
+                        .jupiter_swap(&main_wallet, &usdc_mint, &sol_mint, amount_usdc_units, 50)
+                        .await?;
+                    info!(%sig, "Swap successful");
+                }
+            }
+        }
 
         Ok(())
     }

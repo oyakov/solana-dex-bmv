@@ -23,7 +23,16 @@ mock! {
         async fn health(&self) -> bool;
         async fn get_orderbook(&self, market_id: &str) -> Result<Orderbook>;
         async fn get_balance(&self, address: &str) -> Result<u64>;
+        async fn get_token_balance(&self, wallet: &Pubkey, mint: &Pubkey) -> Result<u64>;
         async fn send_bundle(&self, txs: Vec<String>, jito_url: &str) -> Result<String>;
+        async fn jupiter_swap(
+            &self,
+            signer: &Keypair,
+            input_mint: &Pubkey,
+            output_mint: &Pubkey,
+            amount_lamports: u64,
+            slippage_bps: u16,
+        ) -> Result<String>;
         async fn get_latest_blockhash(&self) -> Result<solana_sdk::hash::Hash>;
         async fn place_order(
             &self,
@@ -59,6 +68,23 @@ mock! {
             tip_lamports: u64,
             base_wallet: &Pubkey,
             quote_wallet: &Pubkey,
+        ) -> Result<String>;
+        async fn send_flash_volume_bundle(
+            &self,
+            market_id: &str,
+            wallet_a: &Keypair,
+            wallet_b: &Keypair,
+            price_lots: i64,
+            size_lots: i64,
+            tip_lamports: u64,
+            jito_url: &str,
+            base_mint: &Pubkey,
+            quote_mint: &Pubkey,
+        ) -> Result<String>;
+        async fn close_open_orders_account(
+            &self,
+            signer: &Keypair,
+            open_orders: &Pubkey,
         ) -> Result<String>;
     }
 }
