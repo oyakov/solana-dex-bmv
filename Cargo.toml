@@ -28,6 +28,8 @@ metrics-exporter-prometheus = "0.12.1"
 tokio-tungstenite = { version = "0.21", default-features = false, features = ["native-tls", "connect"] }
 futures-util = "0.3"
 redis = { version = "0.24", features = ["tokio-comp"] }
+axum = { version = "0.7", features = ["macros"] }
+tower-http = { version = "0.5", features = ["cors"] }
 
 mockall = "0.11"
 tempfile = "3.8"

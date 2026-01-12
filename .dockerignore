@@ -6,3 +6,5 @@ target/
 Cargo.lock
 docs/
 temp_test_results.txt
+dashboard/
+node_modules/

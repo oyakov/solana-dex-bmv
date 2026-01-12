@@ -15,3 +15,5 @@ pub use health::HealthChecker;
 pub use kill_switch::KillSwitch;
 pub use solana_client::SolanaClient;
 pub use wallet_manager::WalletManager;
+pub mod api;
+pub use api::ApiServer;

@@ -66,7 +66,7 @@ impl Database {
         .await?;
 
         let legacy_table: Option<String> =
-            sqlx::query_scalar("SELECT to_regclass('public.trades')")
+            sqlx::query_scalar("SELECT to_regclass('public.trades')::text")
                 .fetch_one(&pool)
                 .await?;
         if legacy_table.is_some() {

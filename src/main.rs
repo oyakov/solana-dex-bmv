@@ -81,6 +81,20 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Initialize and spawn API Server
+    let api_server = solana_dex_bmv::infra::ApiServer::new(
+        settings.clone(),
+        database.clone(),
+        solana.clone(),
+        wallet_manager.clone(),
+        pivot_engine.clone(),
+    );
+    tokio::spawn(async move {
+        if let Err(e) = api_server.run().await {
+            error!(error = ?e, "ApiServer failed");
+        }
+    });
+
     // Initialize orchestrator
     let orchestrator =
         TradingService::new(settings, solana, database, wallet_manager, pivot_engine);

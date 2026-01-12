@@ -7,7 +7,9 @@ use tracing::info;
 use crate::infra::{DatabaseProvider, SolanaProvider};
 use crate::utils::BotSettings;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ServiceStatus {
     Healthy,
     Degraded,
@@ -26,6 +28,7 @@ impl ServiceStatus {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct HealthReport {
     pub service_name: String,
     pub status: ServiceStatus,

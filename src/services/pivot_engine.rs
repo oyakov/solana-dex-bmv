@@ -18,6 +18,7 @@ pub struct PivotEngine {
 
     // In-memory trade cache for responsiveness
     trade_cache: RwLock<VecDeque<Trade>>,
+    last_pivot: RwLock<Decimal>,
 }
 
 impl PivotEngine {
@@ -42,7 +43,12 @@ impl PivotEngine {
             jito_tip_sol,
             fee_bps,
             trade_cache: RwLock::new(VecDeque::with_capacity(1000)),
+            last_pivot: RwLock::new(seed_price),
         }
+    }
+
+    pub async fn get_last_pivot(&self) -> Decimal {
+        *self.last_pivot.read().await
     }
 
     pub fn lookback_window_seconds(&self) -> i64 {
@@ -189,6 +195,8 @@ impl PivotEngine {
             ?cost_value,
             "pivot_computed"
         );
+
+        *self.last_pivot.write().await = pivot;
         pivot
     }
 }

@@ -28,6 +28,7 @@ services:
       - ./config.yaml:/app/config.yaml
     ports:
       - "127.0.0.1:9000:9000"
+      - "127.0.0.1:8080:8080"
     networks:
       - bot-network
     logging:
@@ -35,6 +36,18 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: bmv-dashboard
+    depends_on:
+      - bot
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks:
+      - bot-network
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
