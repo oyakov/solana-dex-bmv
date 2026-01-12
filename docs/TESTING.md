@@ -1,61 +1,48 @@
-# Testing Guide
+# Testing Guide - BMV Market Making Bot
 
-This document outlines the testing strategy and instructions for the Solana Dex (BMV) project (Rust implementation).
+This guide explains how to run and extend the testing suite for the BMV bot.
 
-## Test Structure
+## 1. Unit Tests
+Unit tests are located inside the `src/` directory within their respective modules. They test isolated logic and math.
 
-The tests are organized into the following categories:
-
-- **Unit Tests**: Defined within the module files in `src/`.
-- **Integration Tests**: Verification of the interaction between multiple modules.
-- **Doc Tests**: Verified examples in documentation comments.
-
-## Running Tests
-
-### All Tests
-
-Run all tests including unit, integration, and doc tests:
-
+**Run all unit tests:**
 ```powershell
-cargo test
+cargo test --lib
 ```
 
-### Specific Module Tests
+## 2. Integration Tests
+Integration tests are located in `tests/integration/`. They verify the cooperation between multiple services (e.g., Financial Manager and Solana Client) using mocks.
 
-To run tests for a specific module:
-
+**Run all integration tests:**
 ```powershell
-cargo test <module_name>
+cargo test --test integration_*
 ```
 
-### Integration Tests
+**Specific tests:**
+- `rebalance_logic`: Verifies SOL/USDC rebalancing triggers.
+- `flash_volume_jito`: Verifies atomic wash trade bundle construction.
+- `rent_recovery`: Verifies OpenOrder account scanning.
 
-If you have dedicated integration tests in the `tests/` directory (Rust style, e.g., `tests/*.rs`):
+## 3. Performance Tests (Benchmarks)
+Located in `tests/performance/`. Used to measure the latency of critical computations like the Pivot Point calculation.
 
+**Run performance tests:**
 ```powershell
-cargo test --test <test_name>
+cargo test --test performance_* -- --nocapture
 ```
 
-## Running with Logging
+## 4. Browser Automation
+Located in `tests/browser/`. Uses Playwright to verify the observability dashboard (Grafana).
 
-To see logs during test execution:
+**Prerequisites:**
+- Node.js installed.
+- `npm install playwright`
 
+**Run smoke test:**
 ```powershell
-$env:RUST_LOG="info"; cargo test -- --nocapture
+node tests/browser/dashboard_smoke.js
 ```
 
-## Code Quality
-
-We use `cargo fmt` and `cargo clippy`:
-
-```powershell
-cargo fmt --all -- --check
-cargo clippy -- -D warnings
-```
-
-## Environment Requirements
-
-Some integration tests may require valid RPC URLs in your `.env` file or exported as environment variables:
-
-- `SOLANA_RPC_HTTP_URL`
-- `SOLANA_RPC_WS_URL`
+## 5. Adding New Tests
+- **Common Helpers**: Use `tests/common/mod.rs` to share setup logic or custom mock expectations.
+- **Mocks**: Add new mockable methods to `solana_dex_bmv::infra::mocks` if needed.

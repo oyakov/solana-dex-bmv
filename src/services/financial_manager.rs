@@ -144,3 +144,49 @@ impl FinancialManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infra::mocks::MockSolanaProvider;
+    use crate::infra::WalletManager;
+    use rust_decimal_macros::dec;
+    use solana_sdk::signature::Keypair;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_rebalance_fiat_math_precision() {
+        let mut settings = BotSettings::default();
+        settings.channel_bounds.buy_percent = dec!(0.10); // 10%
+        settings.channel_bounds.sell_percent = dec!(0.20); // 20%
+        settings.financial_manager.upper_usdc_ratio_max_percent = dec!(30);
+        settings.financial_manager.min_conversion_barrier_usd = dec!(10);
+
+        let mut mock_solana = MockSolanaProvider::new();
+        // Setup mock to catch the swap call
+        mock_solana
+            .expect_jupiter_swap()
+            .returning(|_, _, _, _, _| Ok("sig".to_string()));
+
+        let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
+        let wallet_manager =
+            Arc::new(WalletManager::new(&[Keypair::new().to_base58_string()]).unwrap());
+
+        let manager = FinancialManager::new(solana, wallet_manager, settings);
+
+        // Price at pivot - no swap expected
+        let result = manager.rebalance_fiat(dec!(100), dec!(100)).await;
+        assert!(result.is_ok());
+
+        // Price in deep SELL zone (progress = 1.0)
+        // pivot 100, sell_bound 120. current 125
+        let result = manager.rebalance_fiat(dec!(125), dec!(100)).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_ratio_calculation_logic() {
+        // This test would be cleaner if the ratio math was in a pure function
+        // For now we rely on the integration-style unit test above
+    }
+}

@@ -98,3 +98,67 @@ impl FlashVolumeModule {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::MarketUpdate;
+    use crate::infra::mocks::MockSolanaProvider;
+    use crate::infra::WalletManager;
+    use rust_decimal_macros::dec;
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::signature::Keypair;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_flash_volume_wallet_requirement() {
+        let settings = BotSettings::default();
+        let mut mock_solana = MockSolanaProvider::new();
+
+        // Mock Solana but shouldn't be called if wallets are missing
+        let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
+
+        // Only 1 wallet - should return Ok(()) without doing anything
+        let wallet_manager =
+            Arc::new(WalletManager::new(&[Keypair::new().to_base58_string()]).unwrap());
+
+        let module = FlashVolumeModule::new(solana, wallet_manager, settings);
+        let result = module.execute_cycle().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_flash_volume_lot_math() {
+        let mut settings = BotSettings::default();
+        settings.flash_volume.enabled = true;
+        settings.flash_volume.size_sol = dec!(1.0);
+        settings.token_mint = Pubkey::new_unique().to_string();
+        settings.wallets.usdc_wallet_3 = Pubkey::new_unique().to_string();
+
+        let mut mock_solana = MockSolanaProvider::new();
+        mock_solana.expect_get_market_data().returning(|_| {
+            Ok(MarketUpdate {
+                price: dec!(150.0),
+                volume_24h: dec!(1000),
+                timestamp: 0,
+            })
+        });
+
+        mock_solana
+            .expect_send_flash_volume_bundle()
+            .returning(|_, _, _, _, _, _, _, _, _| Ok("sig".to_string()));
+
+        let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
+        let wallet_manager = Arc::new(
+            WalletManager::new(&[
+                Keypair::new().to_base58_string(),
+                Keypair::new().to_base58_string(),
+            ])
+            .unwrap(),
+        );
+
+        let module = FlashVolumeModule::new(solana, wallet_manager, settings);
+        let result = module.execute_cycle().await;
+        result.expect("Flash volume cycle failed");
+    }
+}

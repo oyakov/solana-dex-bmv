@@ -494,6 +494,19 @@ dry_run:
   enabled: false
   use_live_rpc: true
   simulate_fills: false
+flash_volume:
+  enabled: true
+  size_sol: 0.1
+  interval_min: 15
+  tip_sol: 0.001
+financial_manager:
+  min_sol_reserve_percent: 70.0
+  upper_usdc_ratio_max_percent: 30.0
+  lower_usdc_ratio_max_percent: 30.0
+  min_conversion_barrier_usd: 50.0
+target_control:
+  total_emission: 10000000.0
+  locked_tokens: 5000000.0
 "#;
         let settings: BotSettings = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(settings.token_mint, "TEST_MINT");

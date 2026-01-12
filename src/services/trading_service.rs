@@ -421,9 +421,29 @@ mod tests {
         // Mock state
         mock_database.expect_get_state().returning(|_| Ok(None));
 
+        // Elaboration for v2.7 modules:
+        mock_solana
+            .expect_get_balance()
+            .returning(|_| Ok(1_000_000_000));
+        mock_solana
+            .expect_get_token_balance()
+            .returning(|_, _| Ok(1_000_000));
+        mock_solana
+            .expect_find_open_orders()
+            .returning(|_, _| Ok(None));
+
+        // Settings to disable noisy modules if possible or just handle them
+        let mut settings = BotSettings::default();
+        settings.flash_volume.enabled = false;
+
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
         let database: Arc<dyn DatabaseProvider> = Arc::new(mock_database);
-        let wallet_manager = Arc::new(crate::infra::WalletManager::new(&[]).unwrap());
+        let wallet_manager = Arc::new(
+            crate::infra::WalletManager::new(&[
+                solana_sdk::signature::Keypair::new().to_base58_string()
+            ])
+            .unwrap(),
+        );
 
         let pivot_engine = Arc::new(PivotEngine::new(
             dec!(100.5),
@@ -439,6 +459,6 @@ mod tests {
         let service = TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
 
         let result = service.tick().await;
-        assert!(result.is_ok());
+        result.expect("Trading service tick failed");
     }
 }

@@ -263,6 +263,7 @@ pub fn create_close_open_orders_v2_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -276,14 +277,15 @@ mod tests {
         let price_lots: u64 = 150_000;
         let quantity_lots: i64 = 500;
 
-        let base_pow = dec!(1000000000); // 10^9
-        let quote_pow = dec!(1000000); // 10^6
+        let base_pow = Decimal::from(10u64.pow(base_decimals as u32));
+        let quote_pow = Decimal::from(10u64.pow(quote_decimals as u32));
 
         // Price = (price_lots * quote_lot_size * base_pow) / (base_lot_size * quote_pow)
-        let price = (dec!(150000) * dec!(100) * base_pow) / (dec!(100000) * quote_pow);
+        let price = (Decimal::from(price_lots) * Decimal::from(quote_lot_size) * base_pow)
+            / (Decimal::from(base_lot_size) * quote_pow);
         assert_eq!(price, dec!(150000));
 
-        let size = dec!(500) * dec!(100000) / base_pow;
+        let size = Decimal::from(quantity_lots) * Decimal::from(base_lot_size) / base_pow;
         assert_eq!(size, dec!(0.05));
     }
 }

@@ -73,5 +73,5 @@ logging_metrics:
 
 dry_run:
   enabled: true
-  use_live_rpc: false
+  use_live_rpc: true
   simulate_fills: true
