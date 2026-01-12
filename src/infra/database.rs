@@ -27,6 +27,45 @@ impl crate::infra::DatabaseProvider for Database {
     async fn save_trade(&self, trade: &Trade) -> Result<()> {
         self.save_trade_impl(trade).await
     }
+
+    async fn save_price_tick(&self, asset_price: Decimal, sol_price: Decimal) -> Result<()> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs() as i64;
+
+        sqlx::query(
+            "INSERT INTO price_history (timestamp, asset_price, sol_price)
+            VALUES ($1, $2, $3)",
+        )
+        .bind(timestamp)
+        .bind(asset_price.to_string())
+        .bind(sol_price.to_string())
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>> {
+        let rows: Vec<(i64, String, String)> = sqlx::query_as(
+            "SELECT timestamp, asset_price, sol_price FROM price_history 
+             WHERE timestamp >= $1 ORDER BY timestamp ASC",
+        )
+        .bind(since_ts)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let ticks = rows
+            .into_iter()
+            .map(|r| crate::domain::PriceTick {
+                timestamp: r.0,
+                asset_price: Decimal::from_str(&r.1).unwrap_or_default(),
+                sol_price: Decimal::from_str(&r.2).unwrap_or_default(),
+            })
+            .collect();
+
+        Ok(ticks)
+    }
 }
 
 #[allow(dead_code)]
@@ -53,6 +92,16 @@ impl Database {
                 volume TEXT NOT NULL,
                 side TEXT NOT NULL,
                 wallet TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS price_history (
+                timestamp BIGINT PRIMARY KEY,
+                asset_price TEXT NOT NULL,
+                sol_price TEXT NOT NULL
             )",
         )
         .execute(&pool)

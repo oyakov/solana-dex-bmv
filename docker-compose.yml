@@ -5,13 +5,15 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=botuser
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-botpass}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-BmVEcoSystem_Secure_2026_!}
       - POSTGRES_DB=solana_dex
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - bot-network
-    # Port 5432 is internal only within the network
+    ports:
+      - "127.0.0.1:5432:5432"
+    # Port 5432 is exposed to localhost for testing
 
   bot:
     build: .
@@ -22,7 +24,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgres://botuser:${DB_PASSWORD:-botpass}@db:5432/solana_dex
+      - DATABASE_URL=postgres://botuser:${DB_PASSWORD:-BmVEcoSystem_Secure_2026_!}@db:5432/solana_dex
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml

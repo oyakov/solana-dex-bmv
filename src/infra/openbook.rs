@@ -262,7 +262,6 @@ pub fn create_close_open_orders_v2_instruction(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 

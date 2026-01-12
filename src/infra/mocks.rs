@@ -97,5 +97,7 @@ mock! {
         async fn set_state(&self, key: &str, value: &str) -> Result<()>;
         async fn get_recent_trades(&self, since_ts: i64) -> Result<Vec<Trade>>;
         async fn save_trade(&self, trade: &Trade) -> Result<()>;
+        async fn save_price_tick(&self, asset_price: rust_decimal::Decimal, sol_price: rust_decimal::Decimal) -> Result<()>;
+        async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>>;
     }
 }

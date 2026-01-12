@@ -1,4 +1,4 @@
-use crate::infra::{Database, HealthChecker, SolanaClient, WalletManager};
+use crate::infra::{Database, DatabaseProvider, HealthChecker, SolanaClient, WalletManager};
 use crate::services::PivotEngine;
 use crate::utils::BotSettings;
 use anyhow::Result;
@@ -65,6 +65,7 @@ impl ApiServer {
         let app = Router::new()
             .route("/health", get(handle_health))
             .route("/stats", get(handle_stats))
+            .route("/history", get(handle_history))
             .route("/control", post(handle_control))
             .layer(CorsLayer::permissive())
             .with_state(self.state);
@@ -94,6 +95,20 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         active_wallets: state.wallet_manager.get_all_wallets().len(),
         kill_switch_active: false, // Should check Redis/State
     })
+}
+
+async fn handle_history(State(state): State<ApiState>) -> Json<Vec<crate::domain::PriceTick>> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let since = now - 24 * 3600; // Last 24 hours
+    let history = state
+        .database
+        .get_price_history(since)
+        .await
+        .unwrap_or_default();
+    Json(history)
 }
 
 async fn handle_control(

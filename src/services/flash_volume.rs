@@ -1,6 +1,6 @@
 use crate::infra::{SolanaProvider, WalletManager};
 use crate::utils::BotSettings;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
@@ -67,9 +67,22 @@ impl FlashVolumeModule {
             .to_i64()
             .unwrap_or(0);
 
-        let base_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.token_mint)?;
-        let quote_mint =
-            solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)?;
+        let base_mint =
+            solana_sdk::pubkey::Pubkey::from_str(&self.settings.token_mint).map_err(|e| {
+                anyhow!(
+                    "Failed to parse token_mint in flash_volume '{}': {}",
+                    self.settings.token_mint,
+                    e
+                )
+            })?;
+        let quote_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
+            .map_err(|e| {
+                anyhow!(
+                    "Failed to parse usdc_wallet_3 in flash_volume '{}': {}",
+                    self.settings.wallets.usdc_wallet_3,
+                    e
+                )
+            })?;
 
         info!(
             wallet_a = %wallet_a.pubkey(),
@@ -113,7 +126,7 @@ mod tests {
     #[tokio::test]
     async fn test_flash_volume_wallet_requirement() {
         let settings = BotSettings::default();
-        let mut mock_solana = MockSolanaProvider::new();
+        let mock_solana = MockSolanaProvider::new();
 
         // Mock Solana but shouldn't be called if wallets are missing
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);

@@ -1,6 +1,7 @@
 use crate::domain::{MarketUpdate, Trade};
 use anyhow::Result;
 use async_trait::async_trait;
+use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 
@@ -51,6 +52,7 @@ pub trait SolanaProvider: Send + Sync {
         jito_api_url: &str,
         tip_lamports: u64,
     ) -> Result<String>;
+    #[allow(clippy::too_many_arguments)]
     async fn place_and_cancel_bundle(
         &self,
         market_id: &str,
@@ -91,4 +93,6 @@ pub trait DatabaseProvider: Send + Sync {
     async fn set_state(&self, key: &str, value: &str) -> Result<()>;
     async fn get_recent_trades(&self, since_ts: i64) -> Result<Vec<Trade>>;
     async fn save_trade(&self, trade: &Trade) -> Result<()>;
+    async fn save_price_tick(&self, asset_price: Decimal, sol_price: Decimal) -> Result<()>;
+    async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>>;
 }

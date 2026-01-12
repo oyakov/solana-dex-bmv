@@ -1,5 +1,6 @@
 token_mint: "So11111111111111111111111111111111111111112"
-openbook_market_id: "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
+openbook_market_id: "8VMi93EEqSGCHGjRGNhEFBkGoNZTQxUfFYWDEX2e5u4f"
+sol_usdc_market_id: "8sLbNZoA1cfjY7Prrp2W6N6hYJ4BAdxJ1Y2xQn8jWvA7"
 
 order_grid:
   orders_per_side: 16
@@ -39,7 +40,9 @@ wallets:
   # Use WALLET_KEYPAIRS (comma-separated base58 or paths) and USDC_WALLET_3 env vars for production.
   multi_wallet:
     enabled: true
-    keypairs: [] # Recommended: Use WALLET_KEYPAIRS env var
+    keypairs: 
+      - "kbUi3EpXWmbFbmtFFjuhhiD5En3gS7mwQsPrwhVHcHM5x8NiRqBnc3iPfeb9sXF4zw1X4SomWat7m9CxQAQ17sq"
+      - "5jFbNkRn9qbqyWYWCsyoSqVCttMxCSx7RETzFrJN6Pxou84HKrKSmgqLQLaX3NYiQrmJu2MRkT6dDKvFXrFmYVFB"
   usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 risk_limits:
@@ -75,3 +78,19 @@ dry_run:
   enabled: true
   use_live_rpc: true
   simulate_fills: true
+
+flash_volume:
+  enabled: true
+  size_sol: 0.1
+  interval_min: 15
+  tip_sol: 0.001
+
+financial_manager:
+  min_sol_reserve_percent: 70.0
+  upper_usdc_ratio_max_percent: 30.0
+  lower_usdc_ratio_max_percent: 30.0
+  min_conversion_barrier_usd: 50.0
+
+target_control:
+  total_emission: 10000000.0
+  locked_tokens: 5000000.0

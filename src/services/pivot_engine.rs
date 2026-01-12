@@ -181,6 +181,10 @@ impl PivotEngine {
         *self.last_pivot.write().await = pivot;
         pivot
     }
+
+    pub async fn set_last_price(&self, price: Decimal) {
+        *self.last_pivot.write().await = price;
+    }
 }
 
 #[cfg(test)]

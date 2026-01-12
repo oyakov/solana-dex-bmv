@@ -225,7 +225,8 @@ impl SolanaClient {
     }
 
     pub async fn get_orderbook_impl(&self, market_id: &str) -> Result<Orderbook> {
-        let market_pubkey = Pubkey::from_str(market_id)?;
+        let market_pubkey = Pubkey::from_str(market_id)
+            .map_err(|e| anyhow!("Failed to parse market_id '{}': {}", market_id, e))?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
         let market_state = MarketStateV2::unpack(&market_data)?;
 
@@ -347,8 +348,20 @@ impl SolanaClient {
         market_id: &str,
         owner: &Pubkey,
     ) -> Result<Option<Pubkey>> {
-        let program_id = Pubkey::from_str(OPENBOOK_V2_PROGRAM_ID)?;
-        let market_pubkey = Pubkey::from_str(market_id)?;
+        let program_id = Pubkey::from_str(OPENBOOK_V2_PROGRAM_ID).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to parse program_id '{}': {}",
+                OPENBOOK_V2_PROGRAM_ID,
+                e
+            )
+        })?;
+        let market_pubkey = Pubkey::from_str(market_id).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to parse market_id '{}' in find_open_orders: {}",
+                market_id,
+                e
+            )
+        })?;
 
         let filters = vec![
             solana_client::rpc_filter::RpcFilterType::Memcmp(

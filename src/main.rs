@@ -1,4 +1,6 @@
-use solana_dex_bmv::infra::{Database, HealthChecker, SolanaClient, WalletManager};
+use solana_dex_bmv::infra::{
+    Database, HealthChecker, PriceAggregator, SolanaClient, WalletManager,
+};
 use solana_dex_bmv::services::{MarketDataService, PivotEngine, TradingService};
 use solana_dex_bmv::utils::BotSettings;
 
@@ -33,6 +35,7 @@ async fn main() -> Result<()> {
     ));
     let database = Arc::new(Database::connect(&settings.database.url).await?);
     let wallet_manager = Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
+    let price_aggregator = Arc::new(PriceAggregator::new());
 
     // Perform connectivity health checks
     let health_checker = HealthChecker::new(solana.clone(), database.clone(), settings.clone());
@@ -96,11 +99,37 @@ async fn main() -> Result<()> {
     });
 
     // Initialize orchestrator
-    let orchestrator =
-        TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
+    let orchestrator = TradingService::new(
+        settings,
+        solana,
+        database,
+        wallet_manager,
+        pivot_engine,
+        price_aggregator,
+    );
 
-    // Run the trading loop
-    orchestrator.run().await?;
+    // Setup signal handling for graceful shutdown
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl+C");
+        let _ = tx.send(()).await;
+    });
+
+    info!("Bot is running. Press Ctrl+C to stop.");
+
+    // Run the trading loop with select for signal
+    tokio::select! {
+        res = orchestrator.run() => {
+            if let Err(e) = res {
+                error!(error = ?e, "Trading loop failed");
+            }
+        }
+        _ = rx.recv() => {
+            info!("Shutdown signal received");
+        }
+    }
 
     info!("Solana DEX BMV bot shutting down gracefully");
     Ok(())

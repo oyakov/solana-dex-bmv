@@ -1,6 +1,6 @@
 use crate::infra::{SolanaProvider, WalletManager};
 use crate::utils::BotSettings;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
@@ -32,7 +32,14 @@ impl FinancialManager {
         let mut total_sol = Decimal::ZERO;
         let mut total_usdc = Decimal::ZERO;
         let wallets = self.wallet_manager.get_all_wallets();
-        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)?;
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
+            .map_err(|e| {
+                anyhow!(
+                    "Failed to parse usdc_wallet_3 in check_balances '{}': {}",
+                    self.settings.wallets.usdc_wallet_3,
+                    e
+                )
+            })?;
 
         for wallet in &wallets {
             let pubkey = wallet.pubkey();
@@ -78,8 +85,16 @@ impl FinancialManager {
         );
 
         let sol_mint =
-            solana_sdk::pubkey::Pubkey::from_str("So11111111111111111111111111111111111111112")?;
-        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)?;
+            solana_sdk::pubkey::Pubkey::from_str("So11111111111111111111111111111111111111112")
+                .map_err(|e| anyhow::anyhow!("Failed to parse SOL mint: {}", e))?;
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to parse usdc_wallet_3 '{}': {}",
+                    self.settings.wallets.usdc_wallet_3,
+                    e
+                )
+            })?;
         let main_wallet = self.wallet_manager.get_main_wallet()?;
 
         if current_price > pivot && (sell_bound - pivot) > Decimal::ZERO {

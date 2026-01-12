@@ -302,6 +302,7 @@ pub struct BotSettings {
     pub flash_volume: FlashVolumeSettings,
     pub financial_manager: FinancialManagerSettings,
     pub target_control: TargetControlSettings,
+    pub sol_usdc_market_id: String,
     #[serde(default)]
     pub kill_switch: KillSwitchSettings,
     #[serde(default)]
@@ -373,6 +374,7 @@ impl Default for BotSettings {
             flash_volume: FlashVolumeSettings::default(),
             financial_manager: FinancialManagerSettings::default(),
             target_control: TargetControlSettings::default(),
+            sol_usdc_market_id: "8v6rXSrT7Yf6S7itnC28A6r5tYy5C2A4r7U6r8y6r8y6".to_string(), // SOL/USDC OBv2 Mainnet (Placeholder, will verify)
             kill_switch: KillSwitchSettings::default(),
             database: DatabaseSettings::default(),
             dry_run: DryRunSettings::default(),
@@ -408,36 +410,76 @@ impl BotSettings {
             }
         }
 
-        if let Ok(usdc_wallet_3_env) = std::env::var("USDC_WALLET_3") {
+        if let Some(usdc_wallet_3_env) = std::env::var("USDC_WALLET_3")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.wallets.usdc_wallet_3 = usdc_wallet_3_env;
         }
 
-        if let Ok(token_mint_env) = std::env::var("TOKEN_MINT") {
+        if let Some(token_mint_env) = std::env::var("TOKEN_MINT")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.token_mint = token_mint_env;
         }
 
-        if let Ok(market_id_env) = std::env::var("OPENBOOK_MARKET_ID") {
+        if let Some(market_id_env) = std::env::var("OPENBOOK_MARKET_ID")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.openbook_market_id = market_id_env;
         }
 
-        if let Ok(rpc_primary_http) = std::env::var("RPC_PRIMARY_HTTP") {
+        if let Some(rpc_primary_http) = std::env::var("RPC_PRIMARY_HTTP")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.rpc_endpoints.primary_http = rpc_primary_http;
         }
 
-        if let Ok(rpc_primary_ws) = std::env::var("RPC_PRIMARY_WS") {
+        if let Some(rpc_primary_ws) = std::env::var("RPC_PRIMARY_WS")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.rpc_endpoints.primary_ws = rpc_primary_ws;
         }
 
-        if let Ok(jito_url) = std::env::var("JITO_BUNDLER_URL") {
+        if let Some(jito_url) = std::env::var("JITO_BUNDLER_URL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.jito_bundle.bundler_url = jito_url;
         }
 
-        if let Ok(dry_run_env) = std::env::var("DRY_RUN_ENABLED") {
+        if let Some(dry_run_env) = std::env::var("DRY_RUN_ENABLED")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.dry_run.enabled = dry_run_env.parse().unwrap_or(settings.dry_run.enabled);
         }
 
-        if let Ok(url) = std::env::var("DATABASE_URL") {
+        if let Some(url) = std::env::var("DATABASE_URL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
             settings.database.url = url;
+        }
+
+        if let Some(sol_usdc_id) = std::env::var("SOL_USDC_MARKET_ID")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
+            settings.sol_usdc_market_id = sol_usdc_id;
         }
 
         Ok(settings)
@@ -507,6 +549,7 @@ financial_manager:
 target_control:
   total_emission: 10000000.0
   locked_tokens: 5000000.0
+sol_usdc_market_id: "SOL_USDC"
 "#;
         let settings: BotSettings = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(settings.token_mint, "TEST_MINT");

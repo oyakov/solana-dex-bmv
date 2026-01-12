@@ -73,7 +73,7 @@ impl RebalanceService {
             }
         }
 
-        // 3. Proximity-based rebalance (v2.7 Requirement)
+        // 3. Proximity-based rebalance (v0.3.0 Requirement)
         // If orders are too close to market price ( < 3%)
         let _current_price = current_pivot; // Assuming pivot is market-near
         let _proximity_threshold = Decimal::new(3, 2); // 3%

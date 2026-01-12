@@ -1,7 +1,9 @@
 # Lab Data
 
-Login with ssh key with password:
+Login with ssh key
 ssh root@146.103.42.174
+
+folder /opt/solana-dex-bmv
 
 ## Security Hardening (Recommendations)
 

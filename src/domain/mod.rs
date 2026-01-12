@@ -105,6 +105,13 @@ impl Orderbook {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceTick {
+    pub timestamp: i64,
+    pub asset_price: Decimal,
+    pub sol_price: Decimal,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {

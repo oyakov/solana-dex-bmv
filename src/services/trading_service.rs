@@ -1,5 +1,5 @@
 use crate::domain::OrderSide;
-use crate::infra::{DatabaseProvider, KillSwitch, SolanaProvider, WalletManager};
+use crate::infra::{DatabaseProvider, KillSwitch, PriceAggregator, SolanaProvider, WalletManager};
 use crate::services::{
     FinancialManager, FlashVolumeModule, GridBuilder, PivotEngine, PnlTracker, RebalanceService,
     RentRecoveryService, RiskManager, RiskSnapshot,
@@ -12,7 +12,7 @@ use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct TradingService {
     _settings: BotSettings,
@@ -30,6 +30,7 @@ pub struct TradingService {
     flash_volume: FlashVolumeModule,
     financial_manager: FinancialManager,
     rent_recovery: RentRecoveryService,
+    price_aggregator: std::sync::Arc<PriceAggregator>,
 }
 
 impl TradingService {
@@ -39,6 +40,7 @@ impl TradingService {
         database: std::sync::Arc<dyn DatabaseProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
         pivot_engine: std::sync::Arc<PivotEngine>,
+        price_aggregator: std::sync::Arc<PriceAggregator>,
     ) -> Self {
         let grid_builder = GridBuilder {
             orders_per_side: settings.order_grid.orders_per_side,
@@ -74,6 +76,7 @@ impl TradingService {
             flash_volume,
             financial_manager,
             rent_recovery,
+            price_aggregator,
         }
     }
 
@@ -182,13 +185,49 @@ impl TradingService {
             }
         }
 
-        // 2. Fetch live market data
+        // 2. Fetch live market data (with fallback for Phase 1 simulation)
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         let market_id = &self._settings.openbook_market_id;
-        let market_data = self.solana.get_market_data(market_id).await?;
+
+        // Try to get real price from aggregator first
+        let real_bmv_price = self
+            .price_aggregator
+            .fetch_price_native(market_id)
+            .await
+            .ok();
+
+        let market_data = match self.solana.get_market_data(market_id).await {
+            Ok(mut data) => {
+                if let Some(p) = real_bmv_price {
+                    data.price = p; // override with real aggregator price if available
+                }
+                data
+            }
+            Err(e) => {
+                warn!(error = %e, ?market_id, "Failed to fetch market data from Solana RPC");
+                let price = if let Some(p) = real_bmv_price {
+                    p
+                } else {
+                    let fallback = self.pivot_engine.get_last_pivot().await;
+                    if fallback.is_zero() {
+                        Decimal::from(150)
+                    } else {
+                        fallback
+                    }
+                };
+
+                crate::domain::MarketUpdate {
+                    price,
+                    volume_24h: Decimal::from(1000),
+                    timestamp: now,
+                }
+            }
+        };
+        // Ensure pivot engine is updated with this price even in simulation
+        self.pivot_engine.set_last_price(market_data.price).await;
 
         // 3. Fetch recent trades from DB for VWAP
         let lookback_secs = self.pivot_engine.lookback_window_seconds();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         let recent_trades = self.database.get_recent_trades(now - lookback_secs).await?;
 
         // 4. Compute Elapsed seconds for Seeded Pivot
@@ -228,7 +267,29 @@ impl TradingService {
             pnl_snapshot.average_cost.to_f64().unwrap_or(0.0)
         );
 
-        // 5b. Target Control (v2.7 Requirement)
+        // 5aa. SOL/USDC and Cross-rate (v0.3.0 Requirement)
+        let sol_usdc_id = &self._settings.sol_usdc_market_id;
+        let sol_usdc_price = match self.price_aggregator.fetch_price_usd(sol_usdc_id).await {
+            Ok(p) => p,
+            Err(e) => {
+                debug!(error = %e, ?sol_usdc_id, "Aggregator failed for SOL/USDC, trying Solana RPC");
+                match self.solana.get_market_data(sol_usdc_id).await {
+                    Ok(data) => data.price,
+                    Err(rpc_e) => {
+                        warn!(error = %rpc_e, "Solana RPC also failed for SOL/USDC, using fallback 150.0");
+                        Decimal::from(150)
+                    }
+                }
+            }
+        };
+        let bmv_price_sol = market_data.price;
+        let bmv_price_usdc = bmv_price_sol * sol_usdc_price;
+
+        gauge!("bot_sol_usdc_price", sol_usdc_price.to_f64().unwrap_or(0.0));
+        gauge!("bot_bmv_price_sol", bmv_price_sol.to_f64().unwrap_or(0.0));
+        gauge!("bot_bmv_price_usdc", bmv_price_usdc.to_f64().unwrap_or(0.0));
+
+        // 5b. Target Control (v0.3.0 Requirement)
         // TARGET_CONTROL_% = 100% − LockedTokens − OwnedTokens
         let total_emission = self._settings.target_control.total_emission;
         let locked_tokens = self._settings.target_control.locked_tokens;
@@ -303,7 +364,9 @@ impl TradingService {
         }
 
         // 10. Execute Flash Volume cycle
-        self.flash_volume.execute_cycle().await?;
+        if let Err(e) = self.flash_volume.execute_cycle().await {
+            warn!(error = %e, "flash_volume_cycle_failed");
+        }
 
         // 11. Execute Financial Manager checks
         self.financial_manager.check_balances().await?;
@@ -313,6 +376,15 @@ impl TradingService {
 
         // 12. Periodic Rent Recovery
         self.rent_recovery.recover_rent().await?;
+
+        // 13. Save price history for dashboard visualization
+        if let Err(e) = self
+            .database
+            .save_price_tick(bmv_price_sol, sol_usdc_price)
+            .await
+        {
+            error!(error = %e, "failed_to_save_price_tick");
+        }
 
         Ok(())
     }
@@ -413,6 +485,19 @@ mod tests {
                 })
             });
 
+        // Mock SOL/USDC market data
+        let sol_usdc_id_clone = settings.sol_usdc_market_id.clone();
+        mock_solana
+            .expect_get_market_data()
+            .with(eq(sol_usdc_id_clone))
+            .returning(|_| {
+                Ok(crate::domain::MarketUpdate {
+                    price: dec!(150.0),
+                    volume_24h: dec!(5000000),
+                    timestamp: 123456789,
+                })
+            });
+
         // Mock recent trades
         mock_database
             .expect_get_recent_trades()
@@ -421,7 +506,7 @@ mod tests {
         // Mock state
         mock_database.expect_get_state().returning(|_| Ok(None));
 
-        // Elaboration for v2.7 modules:
+        // Elaboration for v0.3.0 modules:
         mock_solana
             .expect_get_balance()
             .returning(|_| Ok(1_000_000_000));
