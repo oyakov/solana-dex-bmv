@@ -1,7 +1,8 @@
 use crate::domain::OrderSide;
 use crate::infra::{DatabaseProvider, KillSwitch, SolanaProvider, WalletManager};
 use crate::services::{
-    GridBuilder, PivotEngine, PnlTracker, RebalanceService, RiskManager, RiskSnapshot,
+    FinancialManager, FlashVolumeModule, GridBuilder, PivotEngine, PnlTracker, RebalanceService,
+    RentRecoveryService, RiskManager, RiskSnapshot,
 };
 use crate::utils::BotSettings;
 use anyhow::Result;
@@ -25,6 +26,10 @@ pub struct TradingService {
     rebalance_service: RebalanceService,
     risk_manager: RiskManager,
     pnl_tracker: tokio::sync::Mutex<PnlTracker>,
+
+    flash_volume: FlashVolumeModule,
+    financial_manager: FinancialManager,
+    rent_recovery: RentRecoveryService,
 }
 
 impl TradingService {
@@ -48,6 +53,13 @@ impl TradingService {
         let kill_switch = std::sync::Arc::new(KillSwitch::from_settings(&settings.kill_switch));
         let risk_manager = RiskManager::new(settings.risk_limits.clone());
 
+        let flash_volume =
+            FlashVolumeModule::new(solana.clone(), wallet_manager.clone(), settings.clone());
+        let financial_manager =
+            FinancialManager::new(solana.clone(), wallet_manager.clone(), settings.clone());
+        let rent_recovery =
+            RentRecoveryService::new(solana.clone(), wallet_manager.clone(), settings.clone());
+
         Self {
             _settings: settings,
             solana,
@@ -59,6 +71,9 @@ impl TradingService {
             rebalance_service,
             risk_manager,
             pnl_tracker: tokio::sync::Mutex::new(PnlTracker::default()),
+            flash_volume,
+            financial_manager,
+            rent_recovery,
         }
     }
 
@@ -213,6 +228,31 @@ impl TradingService {
             pnl_snapshot.average_cost.to_f64().unwrap_or(0.0)
         );
 
+        // 5b. Target Control (v2.7 Requirement)
+        // TARGET_CONTROL_% = 100% − LockedTokens − OwnedTokens
+        let total_emission = self._settings.target_control.total_emission;
+        let locked_tokens = self._settings.target_control.locked_tokens;
+        let owned_tokens = pnl_snapshot.net_position; // Owned by bot (realized + unrealized)
+
+        let free_emission = total_emission - locked_tokens - owned_tokens;
+        let target_control_percent = if total_emission.is_zero() {
+            Decimal::ZERO
+        } else {
+            (free_emission / total_emission) * Decimal::from(100)
+        };
+
+        gauge!(
+            "bot_target_control_percent",
+            target_control_percent.to_f64().unwrap_or(0.0)
+        );
+        gauge!("bot_free_emission", free_emission.to_f64().unwrap_or(0.0));
+
+        info!(
+            %target_control_percent,
+            %free_emission,
+            "Target Control: emission status computed"
+        );
+
         // 6. Check if we need to rebuild the grid
         if self.rebalance_service.should_rebuild(pivot) {
             info!(?pivot, "Rebuilding grid...");
@@ -261,6 +301,16 @@ impl TradingService {
         } else {
             info!("Pivot stable, no rebalance needed");
         }
+
+        // 10. Execute Flash Volume cycle
+        self.flash_volume.execute_cycle().await?;
+
+        // 11. Execute Financial Manager checks
+        self.financial_manager.check_balances().await?;
+
+        // 12. Periodic Rent Recovery (placeholder for background task in Phase 2)
+        // For Phase 1, we can call it here or keep it as a scheduled task.
+        self.rent_recovery.recover_rent().await?;
 
         Ok(())
     }

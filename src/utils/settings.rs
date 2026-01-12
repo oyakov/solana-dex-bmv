@@ -152,7 +152,60 @@ impl Default for WalletsSettings {
     fn default() -> Self {
         Self {
             multi_wallet: MultiWalletSettings::default(),
-            usdc_wallet_3: "CHANGE_ME".to_string(),
+            usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlashVolumeSettings {
+    pub enabled: bool,
+    pub size_sol: Decimal,
+    pub interval_min: u32,
+    pub tip_sol: Decimal,
+}
+
+impl Default for FlashVolumeSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            size_sol: Decimal::new(1, 1), // 0.1 SOL
+            interval_min: 15,
+            tip_sol: Decimal::new(1, 3), // 0.001 SOL
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FinancialManagerSettings {
+    pub min_sol_reserve_percent: Decimal,
+    pub upper_usdc_ratio_max_percent: Decimal,
+    pub lower_usdc_ratio_max_percent: Decimal,
+    pub min_conversion_barrier_usd: Decimal,
+}
+
+impl Default for FinancialManagerSettings {
+    fn default() -> Self {
+        Self {
+            min_sol_reserve_percent: Decimal::new(70, 0),
+            upper_usdc_ratio_max_percent: Decimal::new(30, 0),
+            lower_usdc_ratio_max_percent: Decimal::new(30, 0),
+            min_conversion_barrier_usd: Decimal::new(50, 0),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TargetControlSettings {
+    pub total_emission: Decimal,
+    pub locked_tokens: Decimal,
+}
+
+impl Default for TargetControlSettings {
+    fn default() -> Self {
+        Self {
+            total_emission: Decimal::from(10_000_000),
+            locked_tokens: Decimal::from(5_000_000),
         }
     }
 }
@@ -246,6 +299,9 @@ pub struct BotSettings {
     pub rpc_endpoints: RpcSettings,
     pub wallets: WalletsSettings,
     pub risk_limits: RiskLimitsSettings,
+    pub flash_volume: FlashVolumeSettings,
+    pub financial_manager: FinancialManagerSettings,
+    pub target_control: TargetControlSettings,
     #[serde(default)]
     pub kill_switch: KillSwitchSettings,
     #[serde(default)]
@@ -271,6 +327,9 @@ impl std::fmt::Debug for BotSettings {
             .field("rpc_endpoints", &self.rpc_endpoints)
             .field("wallets", &self.wallets)
             .field("risk_limits", &self.risk_limits)
+            .field("flash_volume", &self.flash_volume)
+            .field("financial_manager", &self.financial_manager)
+            .field("target_control", &self.target_control)
             .field("kill_switch", &self.kill_switch)
             .field("database", &self.database)
             .field("dry_run", &self.dry_run)
@@ -311,6 +370,9 @@ impl Default for BotSettings {
             rpc_endpoints: RpcSettings::default(),
             wallets: WalletsSettings::default(),
             risk_limits: RiskLimitsSettings::default(),
+            flash_volume: FlashVolumeSettings::default(),
+            financial_manager: FinancialManagerSettings::default(),
+            target_control: TargetControlSettings::default(),
             kill_switch: KillSwitchSettings::default(),
             database: DatabaseSettings::default(),
             dry_run: DryRunSettings::default(),

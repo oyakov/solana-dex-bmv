@@ -158,24 +158,7 @@ impl PivotEngine {
             );
         }
 
-        let cost_sol = self.market_id_rent_sol + self.account_rent_sol + self.jito_tip_sol;
-        let reference_price = if !total_volume.is_zero() {
-            total_value / total_volume
-        } else if let Some(update) = market_update {
-            update.price
-        } else if !self.seed_price.is_zero() {
-            self.seed_price
-        } else {
-            Decimal::ZERO
-        };
-
-        let cost_value = cost_sol * reference_price;
-        let fee_rate = self.fee_bps / Decimal::from(10_000);
-        let fee_volume = total_volume * fee_rate;
-        let adjusted_volume = total_volume - fee_volume;
-        let adjusted_value = total_value + cost_value;
-
-        let pivot = if adjusted_volume <= Decimal::ZERO {
+        let pivot = if total_volume.is_zero() {
             warn!("no_volume_detected_falling_back_to_seed_or_market");
             if !self.seed_price.is_zero() {
                 self.seed_price
@@ -183,17 +166,16 @@ impl PivotEngine {
                 market_update.map(|m| m.price).unwrap_or(Decimal::ZERO)
             }
         } else {
-            adjusted_value / adjusted_volume
+            total_value / total_volume
         };
 
         let current_price = market_update.map(|m| m.price).unwrap_or(Decimal::ZERO);
         info!(
-            ?pivot,
-            current = ?current_price,
             ?total_volume,
-            ?fee_volume,
-            ?cost_value,
-            "pivot_computed"
+            ?total_value,
+            ?pivot,
+            ?current_price,
+            "Pivot computed (Pure VWAP)"
         );
 
         *self.last_pivot.write().await = pivot;
