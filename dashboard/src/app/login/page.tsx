@@ -17,10 +17,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-      
-      const response = await fetch(`http://${host}:8080/api/login`, {
+      const response = await fetch(`/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

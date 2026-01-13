@@ -39,9 +39,7 @@ export default function LatencyDashboard() {
         const fetchData = async () => {
             try {
                 // Try 127.0.0.1 explicitly if hostname is localhost to avoid IPv6 issues
-                const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-                const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-                const res = await fetch(`http://${host}:8080/api/latency`, {
+                const res = await fetch(`/api/latency`, {
                     headers: getAuthHeaders(),
                 });
 

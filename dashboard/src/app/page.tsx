@@ -108,9 +108,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         // In local dev, we might need to point to the server IP or use a proxy
-        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-        const statsRes = await fetch(`http://${host}:8080/api/stats`, {
+        const statsRes = await fetch(`/api/stats`, {
           headers: getAuthHeaders(),
         });
 
@@ -119,7 +117,7 @@ export default function Dashboard() {
           setStats(prev => ({ ...prev, ...data }));
         }
 
-        const historyRes = await fetch(`http://${host}:8080/api/history`, {
+        const historyRes = await fetch(`/api/history`, {
           headers: getAuthHeaders(),
         });
 
@@ -141,8 +139,7 @@ export default function Dashboard() {
 
   const handleControl = async (action: string) => {
     try {
-      const host = window.location.hostname;
-      await fetch(`http://${host}:8080/api/control`, {
+      await fetch(`/api/control`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({ action }),

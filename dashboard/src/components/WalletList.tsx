@@ -24,14 +24,12 @@ export default function WalletList() {
     const fetchWallets = async () => {
         setRefreshing(true);
         try {
-            const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-            const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-            const res = await fetch(`http://${host}:8080/api/wallets`, {
+            const response = await fetch(`/api/wallets`, {
                 headers: getAuthHeaders(),
             });
 
-            if (res.ok) {
-                const data = await res.json();
+            if (response.ok) {
+                const data = await response.json();
                 setWallets(data);
             }
         } catch (err) {
@@ -53,9 +51,7 @@ export default function WalletList() {
         setIsAdding(true);
         setError("");
         try {
-            const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-            const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-            const res = await fetch(`http://${host}:8080/api/wallets/add`, {
+            const res = await fetch(`/api/wallets/add`, {
                 method: "POST",
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ secret }),
