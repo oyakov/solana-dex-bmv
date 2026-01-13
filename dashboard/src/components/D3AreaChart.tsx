@@ -15,7 +15,8 @@ interface D3AreaChartProps {
     gradientId: string;
     name: string;
     pivotPrice?: number;
-    channelWidth?: number;
+    buyChannelWidth?: number;
+    sellChannelWidth?: number;
 }
 
 export default function D3AreaChart({
@@ -25,7 +26,8 @@ export default function D3AreaChart({
     gradientId,
     name,
     pivotPrice,
-    channelWidth
+    buyChannelWidth,
+    sellChannelWidth
 }: D3AreaChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
@@ -69,31 +71,63 @@ export default function D3AreaChart({
 
         const y = d3.scaleLinear()
             .domain([
-                d3.min(data, (d) => Number(d[dataKey]))! * 0.999,
-                d3.max(data, (d) => Number(d[dataKey]))! * 1.001
+                d3.min(data, (d) => Number(d[dataKey]))! * 0.98,
+                d3.max(data, (d) => Number(d[dataKey]))! * 1.02
             ])
             .range([height, 0]);
 
-        if (pivotPrice && channelWidth) {
-            const lower = pivotPrice * (1 - channelWidth / 100);
-            const upper = pivotPrice * (1 + channelWidth / 100);
+        const effectivePivot = (pivotPrice && pivotPrice > 0)
+            ? pivotPrice
+            : Number(data[data.length - 1][dataKey]);
 
-            // Ensure channel is within y scale
-            const yMin = Math.min(y.domain()[0], lower);
-            const yMax = Math.max(y.domain()[1], upper);
+        if (effectivePivot && effectivePivot > 0 && buyChannelWidth && sellChannelWidth) {
+            const lower = effectivePivot * (1 - buyChannelWidth / 100);
+            const upper = effectivePivot * (1 + sellChannelWidth / 100);
+
+            // Ensure channel is within y scale with a buffer
+            const currentDomain = y.domain();
+            const yMin = Math.min(currentDomain[0], lower * 0.95);
+            const yMax = Math.max(currentDomain[1], upper * 1.05);
             y.domain([yMin, yMax]);
 
-            // Draw Reference Area (Channel)
+            const yPivot = y(effectivePivot);
+            const yUpper = y(upper);
+            const yLower = y(lower);
+
+            // Draw Sell Zone (Red) - Above Pivot
             g.append("rect")
                 .attr("x", 0)
-                .attr("y", y(upper))
+                .attr("y", yUpper)
                 .attr("width", width)
-                .attr("height", y(lower) - y(upper))
-                .attr("fill", color)
-                .attr("fill-opacity", 0.05)
-                .attr("stroke", color)
-                .attr("stroke-opacity", 0.2)
+                .attr("height", Math.max(0, yPivot - yUpper))
+                .attr("fill", "#f43f5e") // Rose/Red 500
+                .attr("fill-opacity", 0.12)
+                .attr("stroke", "#f43f5e")
+                .attr("stroke-opacity", 0.3)
                 .attr("stroke-dasharray", "3 3");
+
+            // Draw Buy Zone (Green) - Below Pivot
+            g.append("rect")
+                .attr("x", 0)
+                .attr("y", yPivot)
+                .attr("width", width)
+                .attr("height", Math.max(0, yLower - yPivot))
+                .attr("fill", "#10b981") // Emerald/Green 500
+                .attr("fill-opacity", 0.12)
+                .attr("stroke", "#10b981")
+                .attr("stroke-opacity", 0.3)
+                .attr("stroke-dasharray", "3 3");
+
+            // Draw Pivot Line (Dashed Orange)
+            g.append("line")
+                .attr("x1", 0)
+                .attr("y1", yPivot)
+                .attr("x2", width)
+                .attr("y2", yPivot)
+                .attr("stroke", "#f59e0b") // Amber/Orange 500
+                .attr("stroke-width", 1.5)
+                .attr("stroke-dasharray", "5 5")
+                .attr("stroke-opacity", 0.6);
         }
 
         // Grid lines
@@ -115,10 +149,16 @@ export default function D3AreaChart({
             .attr("font-size", "12px")
             .select(".domain").remove();
 
+        const yAxisFormatter = (v: number) => {
+            if (v === 0) return "0";
+            if (v < 1) return v.toFixed(8);
+            return v.toFixed(2);
+        };
+
         g.append("g")
-            .call(d3.axisLeft(y).ticks(5))
+            .call(d3.axisLeft(y).ticks(5).tickFormat((d) => yAxisFormatter(d as number)))
             .attr("color", "#ffffff66")
-            .attr("font-size", "12px")
+            .attr("font-size", "10px")
             .select(".domain").remove();
 
         // Gradient
@@ -219,7 +259,7 @@ export default function D3AreaChart({
                 tooltip.style("visibility", "visible")
                     .html(`
                     <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
-                    <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toFixed(6)}</div>
+                    <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</div>
                 `)
                     .style("top", `${cy - 120}px`)
                     .style("left", `${cx + 20}px`);
@@ -231,7 +271,7 @@ export default function D3AreaChart({
             tooltip.style("visibility", "hidden");
         });
 
-    }, [data, dimensions, color, dataKey, gradientId, name, pivotPrice, channelWidth]);
+    }, [data, dimensions, color, dataKey, gradientId, name, pivotPrice, buyChannelWidth, sellChannelWidth]);
 
     return (
         <div ref={containerRef} className="w-full h-full relative">

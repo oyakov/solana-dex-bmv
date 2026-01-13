@@ -44,6 +44,15 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState("");
 
+  const formatPrice = (val: string | number) => {
+    const num = Number(val);
+    if (isNaN(num)) return "0.00";
+    if (num < 1 && num > 0) {
+      return num.toFixed(8);
+    }
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  };
+
   useEffect(() => {
     setMounted(true);
     const updateTime = () => {
@@ -133,7 +142,7 @@ export default function Dashboard() {
           <NavItem icon={<Clock size={18} />} label="Latency" href="/latency" />
           <NavItem icon={<Activity size={18} />} label="Strategy Logs" />
           <NavItem icon={<BarChart3 size={18} />} label="Performance" />
-          <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" />
+          <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" href="/wallets" />
           <NavItem icon={<Database size={18} />} label="API Docs" />
         </nav>
 
@@ -184,7 +193,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               label="Asset Pivot"
-              value={`${stats.pivot_price} SOL`}
+              value={`${formatPrice(stats.pivot_price)} SOL`}
               subValue="Seeded VWAP Strategy"
               icon={<TrendingUp className="text-cyan-400" />}
               trend="+1.2%"
@@ -217,13 +226,17 @@ export default function Dashboard() {
             {/* Primary Chart Area */}
             <div className="lg:col-span-3 space-y-8">
               <div className="glass-panel rounded-[2rem] p-8 border border-white/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8">
+                <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-4">
                   <div className="flex gap-1.5 p-1 bg-[#0f172a] rounded-lg border border-white/5">
                     {['1H', '1D', '1W', 'ALL'].map((tf) => (
                       <button key={tf} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${tf === '1D' ? 'bg-cyan-500 text-black' : 'text-slate-500 hover:text-white'}`}>
                         {tf}
                       </button>
                     ))}
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">Dry Run Mode</span>
                   </div>
                 </div>
 
@@ -241,7 +254,8 @@ export default function Dashboard() {
                       gradientId="colorAsset"
                       name="BMV Base Price"
                       pivotPrice={parseFloat(stats.pivot_price)}
-                      channelWidth={parseFloat(stats.buy_channel_width)}
+                      buyChannelWidth={parseFloat(stats.buy_channel_width)}
+                      sellChannelWidth={parseFloat(stats.sell_channel_width)}
                     />
                   )}
                 </div>

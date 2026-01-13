@@ -82,7 +82,7 @@ impl TradingService {
 
     pub async fn run(&self) -> Result<()> {
         info!(
-            wallet_count = self.wallet_manager.count(),
+            wallet_count = self.wallet_manager.count().await,
             "Starting TradingService main loop"
         );
 
@@ -411,7 +411,7 @@ impl TradingService {
 
         let market_id = &self._settings.openbook_market_id;
         let mut open_orders = 0u32;
-        for wallet in self.wallet_manager.get_all_wallets() {
+        for wallet in self.wallet_manager.get_all_wallets().await {
             if self
                 .solana
                 .find_open_orders(market_id, &(*wallet).pubkey())
@@ -444,7 +444,7 @@ impl TradingService {
         let tip_lamports = self._settings.jito_bundle.tip_lamports;
         let jito_url = &self._settings.jito_bundle.bundler_url;
 
-        for wallet in self.wallet_manager.get_all_wallets() {
+        for wallet in self.wallet_manager.get_all_wallets().await {
             let result = self
                 .solana
                 .cancel_all_orders(market_id, &wallet, jito_url, tip_lamports)

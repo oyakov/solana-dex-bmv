@@ -28,16 +28,13 @@ impl RentRecoveryService {
         info!("Rent Recovery Service: scanning for closed accounts");
 
         let market_id = &self._settings.openbook_market_id;
-        let wallets = self.wallet_manager.get_all_wallets();
+        let wallets = self.wallet_manager.get_all_wallets().await;
         let mut total_reclaimed = Decimal::ZERO;
 
         for wallet in wallets {
             // Find OpenOrders account for this market
-            if let Ok(Some(oo_pubkey)) = self
-                .solana
-                .find_open_orders(market_id, &wallet.pubkey())
-                .await
-            {
+            let owner: solana_sdk::pubkey::Pubkey = (*wallet).pubkey();
+            if let Ok(Some(oo_pubkey)) = self.solana.find_open_orders(market_id, &owner).await {
                 // In a production bot, we would check if it has 0 orders.
                 // For Phase 2, we implement the ability to close it.
                 // To avoid breaking the bot's current grid, we might only close it

@@ -108,7 +108,7 @@ export default function LatencyDashboard() {
                     <NavItem icon={<Clock size={18} />} label="Latency" href="/latency" />
                     <NavItem icon={<Activity size={18} />} label="Strategy Logs" />
                     <NavItem icon={<BarChart3 size={18} />} label="Performance" />
-                    <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" />
+                    <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" href="/wallets" />
                     <NavItem icon={<Database size={18} />} label="API Docs" />
                 </nav>
             </aside>

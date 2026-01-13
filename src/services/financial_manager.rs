@@ -31,7 +31,7 @@ impl FinancialManager {
 
         let mut total_sol = Decimal::ZERO;
         let mut total_usdc = Decimal::ZERO;
-        let wallets = self.wallet_manager.get_all_wallets();
+        let wallets = self.wallet_manager.get_all_wallets().await;
         let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
             .map_err(|e| {
                 anyhow!(
@@ -95,7 +95,7 @@ impl FinancialManager {
                     e
                 )
             })?;
-        let main_wallet = self.wallet_manager.get_main_wallet()?;
+        let main_wallet = self.wallet_manager.get_main_wallet().await?;
 
         if current_price > pivot && (sell_bound - pivot) > Decimal::ZERO {
             // In SELL zone: SOL -> USDC (Gradients: 100/0 at Pivot -> 70/30 at sell_bound)
@@ -184,8 +184,12 @@ mod tests {
             .returning(|_, _, _, _, _| Ok("sig".to_string()));
 
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
-        let wallet_manager =
-            Arc::new(WalletManager::new(&[Keypair::new().to_base58_string()]).unwrap());
+        let wallet_manager = Arc::new(
+            crate::infra::WalletManager::new(&[
+                solana_sdk::signature::Keypair::new().to_base58_string()
+            ])
+            .unwrap(),
+        );
 
         let manager = FinancialManager::new(solana, wallet_manager, settings);
 

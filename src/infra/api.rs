@@ -1,4 +1,6 @@
-use crate::infra::{Database, DatabaseProvider, HealthChecker, SolanaClient, WalletManager};
+use crate::infra::{
+    Database, DatabaseProvider, HealthChecker, SolanaClient, SolanaProvider, WalletManager,
+};
 use crate::services::PivotEngine;
 use crate::utils::BotSettings;
 use anyhow::Result;
@@ -8,7 +10,10 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signer::Signer;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tracing::info;
@@ -33,6 +38,18 @@ struct BotStats {
     sell_channel_width: rust_decimal::Decimal,
     active_wallets: usize,
     kill_switch_active: bool,
+}
+
+#[derive(Serialize)]
+struct WalletInfo {
+    pubkey: String,
+    sol_balance: f64,
+    usdc_balance: f64,
+}
+
+#[derive(Deserialize)]
+struct AddWalletRequest {
+    secret: String,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +84,8 @@ impl ApiServer {
             .route("/stats", get(handle_stats))
             .route("/history", get(handle_history))
             .route("/latency", get(handle_latency))
+            .route("/wallets", get(handle_list_wallets))
+            .route("/wallets/add", post(handle_add_wallet))
             .route("/control", post(handle_control))
             .layer(CorsLayer::permissive())
             .with_state(self.state);
@@ -87,15 +106,57 @@ async fn handle_health(State(state): State<ApiState>) -> Json<serde_json::Value>
 }
 
 async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
-    // In a real scenario, we'd fetch actual in-memory metrics.
-    // Here we provide a snapshot.
     Json(BotStats {
         pivot_price: state.pivot_engine.get_last_pivot().await,
         buy_channel_width: state.settings.channel_bounds.buy_percent,
         sell_channel_width: state.settings.channel_bounds.sell_percent,
-        active_wallets: state.wallet_manager.get_all_wallets().len(),
-        kill_switch_active: false, // Should check Redis/State
+        active_wallets: state.wallet_manager.count().await,
+        kill_switch_active: false,
     })
+}
+
+async fn handle_list_wallets(State(state): State<ApiState>) -> Json<Vec<WalletInfo>> {
+    let wallets = state.wallet_manager.get_all_wallets().await;
+    let mut info_list = Vec::new();
+
+    let usdc_mint = Pubkey::from_str(&state.settings.wallets.usdc_wallet_3).unwrap_or_default();
+
+    for wallet in wallets {
+        let pubkey = wallet.pubkey();
+        let pubkey_str = pubkey.to_string();
+        let sol_balance =
+            state.solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
+        let usdc_balance_raw: u64 = state
+            .solana
+            .get_token_balance(&pubkey, &usdc_mint)
+            .await
+            .unwrap_or(0);
+        let usdc_balance = usdc_balance_raw as f64 / 1_000_000.0;
+
+        info_list.push(WalletInfo {
+            pubkey: pubkey_str,
+            sol_balance,
+            usdc_balance,
+        });
+    }
+
+    Json(info_list)
+}
+
+async fn handle_add_wallet(
+    State(state): State<ApiState>,
+    Json(payload): Json<AddWalletRequest>,
+) -> Json<serde_json::Value> {
+    match state.wallet_manager.add_wallet(&payload.secret).await {
+        Ok(pubkey) => Json(serde_json::json!({
+            "status": "ok",
+            "pubkey": pubkey
+        })),
+        Err(e) => Json(serde_json::json!({
+            "status": "error",
+            "message": e.to_string()
+        })),
+    }
 }
 
 async fn handle_history(State(state): State<ApiState>) -> Json<Vec<crate::domain::PriceTick>> {

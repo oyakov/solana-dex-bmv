@@ -87,7 +87,7 @@ impl RebalanceService {
 
     pub async fn rebalance(&self) -> Result<()> {
         // This method can still be used for periodic wallet balance checks or other housekeeping
-        let wallets = self.wallet_manager.get_all_wallets();
+        let wallets = self.wallet_manager.get_all_wallets().await;
         for wallet in wallets {
             let balance_lamports = self
                 .solana
