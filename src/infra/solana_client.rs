@@ -1,5 +1,8 @@
 use crate::domain::{MarketUpdate, Orderbook};
-use crate::infra::openbook::{parse_book_side_v2, MarketStateV2, OPENBOOK_V2_PROGRAM_ID};
+use crate::infra::openbook::{
+    parse_book_side_v1, parse_book_side_v2, MarketStateV1, MarketStateV2, OPENBOOK_V1_PROGRAM_ID,
+    OPENBOOK_V2_PROGRAM_ID,
+};
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -228,42 +231,82 @@ impl SolanaClient {
         let market_pubkey = Pubkey::from_str(market_id)
             .map_err(|e| anyhow!("Failed to parse market_id '{}': {}", market_id, e))?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
-        let market_state = MarketStateV2::unpack(&market_data)?;
 
-        let bids_pubkey = market_state.bids;
-        let asks_pubkey = market_state.asks;
+        let (bids_pubkey, asks_pubkey, bids, asks) = if market_data.len() == 388 {
+            let market_state = MarketStateV1::unpack(&market_data)?;
+            let bids_pubkey = market_state.bids;
+            let asks_pubkey = market_state.asks;
 
-        let mut accounts = self
-            .client
-            .get_multiple_accounts(&[bids_pubkey, asks_pubkey])
-            .await?;
+            let mut accounts = self
+                .client
+                .get_multiple_accounts(&[bids_pubkey, asks_pubkey])
+                .await?;
 
-        let asks_account = accounts
-            .pop()
-            .ok_or_else(|| anyhow!("Missing asks account"))?;
-        let bids_account = accounts
-            .pop()
-            .ok_or_else(|| anyhow!("Missing bids account"))?;
+            let asks_account = accounts
+                .pop()
+                .ok_or_else(|| anyhow!("Missing asks account"))?;
+            let bids_account = accounts
+                .pop()
+                .ok_or_else(|| anyhow!("Missing bids account"))?;
 
-        let bids_data = bids_account.map(|a| a.data).unwrap_or_default();
-        let asks_data = asks_account.map(|a| a.data).unwrap_or_default();
+            let bids_data = bids_account.map(|a| a.data).unwrap_or_default();
+            let asks_data = asks_account.map(|a| a.data).unwrap_or_default();
 
-        let bids = parse_book_side_v2(
-            &bids_data,
-            true,
-            market_state.base_decimals,
-            market_state.quote_decimals,
-            market_state.base_lot_size,
-            market_state.quote_lot_size,
-        )?;
-        let asks = parse_book_side_v2(
-            &asks_data,
-            false,
-            market_state.base_decimals,
-            market_state.quote_decimals,
-            market_state.base_lot_size,
-            market_state.quote_lot_size,
-        )?;
+            let bids = parse_book_side_v1(
+                &bids_data,
+                true,
+                market_state.base_decimals,
+                market_state.quote_decimals,
+                market_state.base_lot_size,
+                market_state.quote_lot_size,
+            )?;
+            let asks = parse_book_side_v1(
+                &asks_data,
+                false,
+                market_state.base_decimals,
+                market_state.quote_decimals,
+                market_state.base_lot_size,
+                market_state.quote_lot_size,
+            )?;
+            (bids_pubkey, asks_pubkey, bids, asks)
+        } else {
+            let market_state = MarketStateV2::unpack(&market_data)?;
+            let bids_pubkey = market_state.bids;
+            let asks_pubkey = market_state.asks;
+
+            let mut accounts = self
+                .client
+                .get_multiple_accounts(&[bids_pubkey, asks_pubkey])
+                .await?;
+
+            let asks_account = accounts
+                .pop()
+                .ok_or_else(|| anyhow!("Missing asks account"))?;
+            let bids_account = accounts
+                .pop()
+                .ok_or_else(|| anyhow!("Missing bids account"))?;
+
+            let bids_data = bids_account.map(|a| a.data).unwrap_or_default();
+            let asks_data = asks_account.map(|a| a.data).unwrap_or_default();
+
+            let bids = parse_book_side_v2(
+                &bids_data,
+                true,
+                market_state.base_decimals,
+                market_state.quote_decimals,
+                market_state.base_lot_size,
+                market_state.quote_lot_size,
+            )?;
+            let asks = parse_book_side_v2(
+                &asks_data,
+                false,
+                market_state.base_decimals,
+                market_state.quote_decimals,
+                market_state.base_lot_size,
+                market_state.quote_lot_size,
+            )?;
+            (bids_pubkey, asks_pubkey, bids, asks)
+        };
 
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
 

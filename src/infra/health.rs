@@ -245,7 +245,8 @@ impl HealthChecker {
 
     pub async fn verify_critical_services(&self, reports: &[HealthReport]) -> Result<()> {
         for report in reports {
-            if (report.service_name == "Solana RPC" || report.service_name == "Database (SQLite)")
+            if (report.service_name == "Solana RPC"
+                || report.service_name == "Database (PostgreSQL)")
                 && report.status == ServiceStatus::Failed
             {
                 return Err(anyhow!(

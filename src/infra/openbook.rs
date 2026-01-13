@@ -4,7 +4,8 @@ use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
-// OpenBook V2 Constants
+// OpenBook V1/V2 Constants
+pub const OPENBOOK_V1_PROGRAM_ID: &str = "srmqPvSyc2u87R79RDMKW641X8vAnm83H26V7eTeg5t";
 pub const OPENBOOK_V2_PROGRAM_ID: &str = "opnb2LAfJYbRMAHHvqjCwQxanZn7ReEHp1k81EohpZb";
 
 // Account discriminators (Anchor style: sha256("account:<Name>")[0..8])
@@ -82,6 +83,48 @@ impl MarketStateV2 {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct MarketStateV1 {
+    pub base_mint: Pubkey,
+    pub quote_mint: Pubkey,
+    pub bids: Pubkey,
+    pub asks: Pubkey,
+    pub base_lot_size: u64,
+    pub quote_lot_size: u64,
+    pub base_decimals: u8,
+    pub quote_decimals: u8,
+}
+
+impl MarketStateV1 {
+    pub fn unpack(data: &[u8]) -> Result<Self> {
+        if data.len() < 388 {
+            return Err(anyhow!(
+                "V1 Market account data too short (need 388, got {})",
+                data.len()
+            ));
+        }
+
+        // Serum V3/OpenBook V1 layout offsets
+        let base_mint = Pubkey::new_from_array(data[53..85].try_into()?);
+        let quote_mint = Pubkey::new_from_array(data[165..197].try_into()?);
+        let bids = Pubkey::new_from_array(data[285..317].try_into()?);
+        let asks = Pubkey::new_from_array(data[317..349].try_into()?);
+        let base_lot_size = u64::from_le_bytes(data[349..357].try_into()?);
+        let quote_lot_size = u64::from_le_bytes(data[357..365].try_into()?);
+
+        Ok(Self {
+            base_mint,
+            quote_mint,
+            bids,
+            asks,
+            base_lot_size,
+            quote_lot_size,
+            base_decimals: 9,  // Default for SOL/BMV likely
+            quote_decimals: 6, // Default for USDC
+        })
+    }
+}
+
 pub fn parse_book_side_v2(
     data: &[u8],
     is_bids: bool,
@@ -124,6 +167,61 @@ pub fn parse_book_side_v2(
             let price = (Decimal::from(price_raw) * Decimal::from(quote_lot_size) * base_pow)
                 / (Decimal::from(base_lot_size) * quote_pow);
 
+            let size = Decimal::from(quantity) * Decimal::from(base_lot_size) / base_pow;
+
+            levels.push(OrderbookLevel { price, size });
+        }
+    }
+
+    if is_bids {
+        levels.sort_by(|a, b| b.price.cmp(&a.price));
+    } else {
+        levels.sort_by(|a, b| a.price.cmp(&b.price));
+    }
+
+    Ok(levels)
+}
+
+pub fn parse_book_side_v1(
+    data: &[u8],
+    is_bids: bool,
+    base_decimals: u8,
+    quote_decimals: u8,
+    base_lot_size: u64,
+    quote_lot_size: u64,
+) -> Result<Vec<OrderbookLevel>> {
+    if data.len() < 5 + 8 {
+        return Err(anyhow!("Slab data too short"));
+    }
+
+    let mut levels = Vec::new();
+    let node_size = 72;
+    let header_size = 40; // Approx Serum Slab header
+
+    if data.len() < header_size {
+        return Ok(vec![]);
+    }
+
+    let slot_count = (data.len() - header_size) / node_size;
+    for i in 0..slot_count.min(1024) {
+        let offset = header_size + i * node_size;
+        if offset + 40 > data.len() {
+            break;
+        }
+        let tag = u32::from_le_bytes(data[offset..offset + 4].try_into()?);
+
+        if tag == 2 {
+            // LeafNode
+            let key = u128::from_le_bytes(data[offset + 12..offset + 28].try_into()?);
+            let price_raw = (key >> 64) as u64;
+            let quantity = u64::from_le_bytes(data[offset + 28..offset + 36].try_into()?);
+
+            let base_pow = Decimal::from(10u64.pow(base_decimals as u32));
+            let quote_pow = Decimal::from(10u64.pow(quote_decimals as u32));
+
+            // V1 Price math: (price_lots * quote_lot_size * base_pow) / (base_lot_size * quote_pow)
+            let price = (Decimal::from(price_raw) * Decimal::from(quote_lot_size) * base_pow)
+                / (Decimal::from(base_lot_size) * quote_pow);
             let size = Decimal::from(quantity) * Decimal::from(base_lot_size) / base_pow;
 
             levels.push(OrderbookLevel { price, size });

@@ -168,7 +168,7 @@ async fn backfill_historical_data(
 
     // Use current BMV price for the backfill
     let bmv_price = aggregator
-        .fetch_price_native("HHBeMs1k6mV4bRztdr21vKRYxw6so32QCNkTMfGCR1H")
+        .fetch_price_native("B9coHrCxYv7xmPfSU7Z5VfugDqdTdZqZTpBGBdazq8AC")
         .await
         .unwrap_or(Decimal::new(11, 6)); // Fallback to 0.000011
 
