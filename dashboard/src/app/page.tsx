@@ -18,7 +18,8 @@ import {
   Users,
   Scale,
   ShieldCheck,
-  TrendingDown
+  TrendingDown,
+  LogOut
 } from "lucide-react";
 import {
   ReferenceArea
@@ -28,6 +29,8 @@ import D3DepthChart from "../components/D3DepthChart";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAuthHeaders, logout } from "../utils/auth";
+
 
 interface PriceTick {
   timestamp: number;
@@ -107,13 +110,19 @@ export default function Dashboard() {
         // In local dev, we might need to point to the server IP or use a proxy
         const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
         const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-        const statsRes = await fetch(`http://${host}:8080/stats`);
+        const statsRes = await fetch(`http://${host}:8080/api/stats`, {
+          headers: getAuthHeaders(),
+        });
+
         if (statsRes.ok) {
           const data = await statsRes.json();
           setStats(prev => ({ ...prev, ...data }));
         }
 
-        const historyRes = await fetch(`http://${host}:8080/history`);
+        const historyRes = await fetch(`http://${host}:8080/api/history`, {
+          headers: getAuthHeaders(),
+        });
+
         if (historyRes.ok) {
           const data = await historyRes.json();
           setHistory(data);
@@ -133,11 +142,12 @@ export default function Dashboard() {
   const handleControl = async (action: string) => {
     try {
       const host = window.location.hostname;
-      await fetch(`http://${host}:8080/control`, {
+      await fetch(`http://${host}:8080/api/control`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action }),
       });
+
       alert(`Action ${action} triggered successfully`);
     } catch (error) {
       console.error("Control action failed:", error);
@@ -183,7 +193,12 @@ export default function Dashboard() {
           <NavItem icon={<BarChart3 size={18} />} label="Performance" />
           <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" href="/wallets" />
           <NavItem icon={<Database size={18} />} label="API Docs" />
+          <div onClick={logout} className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
+            <LogOut size={18} />
+            <span className="font-bold text-sm tracking-tight relative z-10">Logout</span>
+          </div>
         </nav>
+
 
         <div className="mt-auto pt-6 border-t border-white/5">
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-3 active:scale-95 transition-transform cursor-pointer">

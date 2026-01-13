@@ -22,25 +22,28 @@
 - [x] Historical Price Backfill (Binance API).
 - [x] Graceful Shutdown handling.
 
-## Phase 3: Stealth & Protection (IN PROGRESS)
-- [ ] Wallet Rotation Logic.
-- [x] Randomized Delay obfuscation (Basic implementation).
-- [ ] Jittered execution timing.
+## Phase 3: Stealth & Protection (100% DONE)
+- [x] Wallet Rotation Logic [BMV-46].
+- [x] Randomized Delay obfuscation.
+- [x] Jittered execution timing.
+- [x] RugCheck Monitoring [BMV-14].
 
-## Phase 4: Strategy & Growth (PLANNED)
-- [ ] PnL Tracking (Enhanced).
-- [ ] Growth Model for profit reinvestment.
-- [ ] **v2.7 Compliance Adjustments**:
-    - [ ] Swarm Grid Segmentation (32-order limit) [BMV-50].
-    - [ ] Proximity-based Rebalance [BMV-51].
-    - [ ] L2 Orderbook Scan (Front-running protection) [BMV-52].
-    - [ ] SOL Auto-injection [BMV-53].
+## Phase 4: Strategy & Growth (IN PROGRESS)
+- [x] **v2.7 Compliance Adjustments**:
+    - [x] Swarm Grid Segmentation (32-order limit) [BMV-50].
+    - [x] Proximity-based Rebalance [BMV-51].
+    - [x] L2 Orderbook Scan (Front-running protection) [BMV-52].
+    - [x] SOL Auto-injection [BMV-53].
+- [ ] PnL Tracking (Enhanced) [BMV-31].
+- [ ] Growth Model for profit reinvestment [BMV-32].
 
-## Phase 5: Safety & Monitoring (DONE)
-- [x] Kill Switch (File/TUI) [BMV-33](https://linear.app/oleg-yakovlev/issue/BMV-33).
-- [x] Circuit Breaker [BMV-33](https://linear.app/oleg-yakovlev/issue/BMV-33).
-- [x] Target Control Percent logic (emission monitoring).
-- [x] Web Dashboard (Superseded TUI) [BMV-34](https://linear.app/oleg-yakovlev/issue/BMV-34).
+## Phase 5: Safety & Monitoring (100% DONE)
+- [x] Kill Switch (File/TUI) [BMV-33].
+- [x] Circuit Breaker [BMV-33].
+- [x] Target Control Percent logic.
+- [x] Web Dashboard (D3 Upgraded) [BMV-34].
+- [x] **Secure Dashboard Authentication** (JWT) [BMV-54].
 
-## Total Completion: ~70%
-Current focus is transitioning to Phase 3: Stealth and protection, while addressing critical compliance gaps identified during the v2.7 audit (BMV-50 to BMV-53).
+## Total Completion: ~92%
+Current focus is stabilizing v0.4.1 security features and implementing continuous PnL tracking and the profit growth model as part of the Financial Manager evolution.
+

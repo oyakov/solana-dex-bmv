@@ -21,7 +21,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 - [Order Grid Visualization](ORDER_GRID_VISUALIZATION.md): Theory and performance monitoring.
 
 ## Technical Documentation
-- [Main Requirements](requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования.md): Primary project requirements.
+- [Main Requirements](requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования%20—%202.7.md): Latest project requirements (v2.7).
 - [Technical Spec](customer/Technical%20Spec.md): Detailed technical specification from the customer.
 - [Trading Algorithm](requirements/old/Алгоритм%20динамического%20построения%20торговой%20сетки%20ордеров.md): Mathematical details of the grid builder.
 
@@ -38,7 +38,8 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 
 ## Core Practices
 1. **Jito-First**: Every transaction must be MEV-protected via Jito Bundles.
-2. **Tokio-Async**: All I/O operations must be asynchronous using the `tokio` runtime. No blocking calls in the main event threads.
-3. **Structured Tracing**: Use the `tracing` crate for all application events and logs.
-4. **Safety First**: Every action must pass through the Circuit Breaker and Risk Manager.
-5. **Multi-Wallet Rotation**: Never use a single wallet for all orders to avoid detection and limits.
+2. **Security-First**: Every engagement is preceded by a **RugCheck** scan.
+3. **Financial Autonomy**: The **FinancialManager** handles SOL auto-injection across the swarm.
+4. **Stealth**: Always use **Wallet Rotation** and randomized execution delays.
+5. **Tokio-Async**: All I/O operations must be asynchronous using the `tokio` runtime.
+6. **Structured Tracing**: Use the `tracing` crate for all events.

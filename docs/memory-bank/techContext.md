@@ -17,13 +17,16 @@
 - **Solana RPC**: High-performance HTTP/WS endpoints.
 - **Jito Block Engine**: Dedicated MEV-protected bundle submission.
 - **External APIs**:
+    - **RugCheck API**: Used for automated security scanning of token mints.
     - **Binance API**: Used for SOL/USDC historical price backfill.
 - **DEX Integrations**:
-    - **OpenBook V2**: Maker orders and Order Book depth.
-    - **Raydium V4**: AMM pool monitoring (planned).
+    - **OpenBook V1/V2**: Full support for Serum V3 and OpenBook V2 protocols.
+    - **Raydium V4**: AMM pool monitoring for liquidity analysis.
 
 ## Development & Operations
 - **Build System**: Cargo.
 - **Containerization**: Docker & Docker Compose (Non-root user).
-- **Testing**: Native Rust test runner (`cargo test`).
-- **Metrics**: Prometheus and Grafana (Live Dashboards for BMV and SOL/USDC).
+- **Frontend**: React-based dashboard with **D3.js** for high-performance market visualizations (Orderbook, Imbalance, Liquidity).
+- **Testing**: Native Rust test runner and browser automation for dashboard verification.
+- **Metrics**: Prometheus and Grafana (Enterprise-grade health monitoring).
+

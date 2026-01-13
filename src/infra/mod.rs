@@ -17,5 +17,7 @@ pub use kill_switch::KillSwitch;
 pub use price_aggregator::PriceAggregator;
 pub use solana_client::SolanaClient;
 pub use wallet_manager::WalletManager;
+pub mod auth;
+pub use auth::{auth_middleware, Auth};
 pub mod api;
 pub use api::ApiServer;

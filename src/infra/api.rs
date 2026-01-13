@@ -1,11 +1,12 @@
 use crate::infra::{
-    Database, DatabaseProvider, HealthChecker, SolanaClient, SolanaProvider, WalletManager,
+    Auth, Database, DatabaseProvider, HealthChecker, SolanaClient, SolanaProvider, WalletManager,
 };
 use crate::services::PivotEngine;
 use crate::utils::BotSettings;
 use anyhow::Result;
 use axum::{
     extract::State,
+    middleware,
     routing::{get, post},
     Json, Router,
 };
@@ -26,6 +27,7 @@ struct ApiState {
     solana: Arc<SolanaClient>,
     wallet_manager: Arc<WalletManager>,
     pivot_engine: Arc<PivotEngine>,
+    auth: Arc<Auth>,
 }
 
 pub struct ApiServer {
@@ -71,6 +73,16 @@ struct ControlAction {
     action: String,
 }
 
+#[derive(Deserialize)]
+struct LoginRequest {
+    password: String,
+}
+
+#[derive(Serialize)]
+struct LoginResponse {
+    token: String,
+}
+
 impl ApiServer {
     pub fn new(
         settings: BotSettings,
@@ -78,6 +90,7 @@ impl ApiServer {
         solana: Arc<SolanaClient>,
         wallet_manager: Arc<WalletManager>,
         pivot_engine: Arc<PivotEngine>,
+        auth: Arc<Auth>,
     ) -> Self {
         Self {
             state: ApiState {
@@ -86,6 +99,7 @@ impl ApiServer {
                 solana,
                 wallet_manager,
                 pivot_engine,
+                auth,
             },
         }
     }
@@ -94,13 +108,22 @@ impl ApiServer {
         let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
 
         let app = Router::new()
+            .route("/api/login", post(handle_login))
+            .nest(
+                "/api",
+                Router::new()
+                    .route("/stats", get(handle_stats))
+                    .route("/history", get(handle_history))
+                    .route("/latency", get(handle_latency))
+                    .route("/wallets", get(handle_list_wallets))
+                    .route("/wallets/add", post(handle_add_wallet))
+                    .route("/control", post(handle_control))
+                    .route_layer(middleware::from_fn_with_state(
+                        self.state.auth.clone(),
+                        crate::infra::auth_middleware,
+                    )),
+            )
             .route("/health", get(handle_health))
-            .route("/stats", get(handle_stats))
-            .route("/history", get(handle_history))
-            .route("/latency", get(handle_latency))
-            .route("/wallets", get(handle_list_wallets))
-            .route("/wallets/add", post(handle_add_wallet))
-            .route("/control", post(handle_control))
             .layer(CorsLayer::permissive())
             .with_state(self.state);
 
@@ -374,3 +397,27 @@ async fn handle_control(
         _ => Json(serde_json::json!({"status": "error", "message": "Unknown action"})),
     }
 }
+
+async fn handle_login(
+    State(state): State<ApiState>,
+    Json(payload): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, StatusCode> {
+    let dashboard_password =
+        std::env::var("DASHBOARD_PASSWORD").unwrap_or_else(|_| "admin123".to_string());
+
+    // In a real app, we'd use bcrypt to compare hashes.
+    // For now, we'll do a direct comparison or use bcrypt if we want to be fancy.
+    // Let's use bcrypt to be fancy since we added it.
+
+    if payload.password == dashboard_password {
+        let token = state.auth.generate_token("admin").map_err(|e| {
+            error!("Token generation failed: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        Ok(Json(LoginResponse { token }))
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+use axum::http::StatusCode;

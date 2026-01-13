@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Wallet, Plus, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2, Shield, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAuthHeaders } from "../utils/auth";
+
 
 interface WalletInfo {
     pubkey: string;
@@ -24,7 +26,10 @@ export default function WalletList() {
         try {
             const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
             const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-            const res = await fetch(`http://${host}:8080/wallets`);
+            const res = await fetch(`http://${host}:8080/api/wallets`, {
+                headers: getAuthHeaders(),
+            });
+
             if (res.ok) {
                 const data = await res.json();
                 setWallets(data);
@@ -50,11 +55,12 @@ export default function WalletList() {
         try {
             const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
             const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-            const res = await fetch(`http://${host}:8080/wallets/add`, {
+            const res = await fetch(`http://${host}:8080/api/wallets/add`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ secret }),
             });
+
             const data = await res.json();
             if (data.status === "ok") {
                 setShowAddModal(false);

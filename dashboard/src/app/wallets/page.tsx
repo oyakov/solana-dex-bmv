@@ -15,12 +15,15 @@ import {
     Database,
     BarChart3,
     Clock,
-    ArrowLeft
+    ArrowLeft,
+    LogOut
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import WalletList from "@/components/WalletList";
+import { logout } from "../../utils/auth";
+
 
 export default function WalletsPage() {
     const [mounted, setMounted] = useState(false);
@@ -64,7 +67,12 @@ export default function WalletsPage() {
                         <NavItem icon={<Wallet size={20} />} label="Wallet Swarm" active href="/wallets" />
                         <NavItem icon={<BarChart3 size={20} />} label="PnL Engine" />
                         <NavItem icon={<Settings size={20} />} label="Protocol Config" />
+                        <div onClick={logout} className="flex items-center gap-3 px-5 py-4 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
+                            <LogOut size={20} />
+                            <span className="font-bold text-sm tracking-tight relative z-10">Logout</span>
+                        </div>
                     </nav>
+
                 </div>
 
                 <div className="mt-auto p-10">

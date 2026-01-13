@@ -25,17 +25,24 @@ The system is built as a high-performance, asynchronous, event-driven trading en
 - **Bundle Composition**: `OpenBookDex` (infra) handles raw OpenBook instruction building.
 - **MEV Protection**: Transactions are bundled and submitted via Jito's Block Engine to prevent front-running and ensure atomicity.
 
-### 5. Safety & Risk Controls
-- **Circuit Breaker**: (Planned) Halts trading on excessive drawdown.
+### 5. Financial & Risk Management
+- **Financial Manager**: (New in v0.4.0) Automates SOL auto-injection, BMV rebalancing, and rent recovery across the swarm.
+- **RugCheck Integration**: Automated security scanning of tokens before trading to prevent engagement with malicious contracts.
+- **Circuit Breaker**: Halts trading on excessive drawdown or critical RPC failures.
 - **Graceful Shutdown**: Handles OS signals to cancel all open orders and close connections cleanly.
-- **Secret Masking**: Environment variables and masked logging for private keys.
+
+### 6. Swarm Orchestration
+- **Grid Segmentation**: Distributes the trading grid across multiple sub-wallets to bypass the 32-order limit per wallet/market.
+- **Wallet Rotation**: Periodic rotation of active sub-wallets to maintain stealth and minimize on-chain footprint.
 
 ## Design Patterns
 - **Orchestrator Pattern**: `TradingService` coordinates the overall flow.
-- **Service Pattern**: Domain logic is encapsulated in dedicated services (Pivot, Grid, MarketData).
+- **Manager Pattern**: specialized managers (`FinancialManager`, `WalletManager`) handle resource-specific logic.
+- **Service Pattern**: Domain logic is encapsulated in dedicated services.
 - **Singleton-like Infrastructure**: Core infrastructure components (`Database`, `SolanaClient`) are shared via `Arc`.
 - **Event-Driven**: WebSocket-based market data ingestion triggers updates.
 
-### 6. Resource Management
+### 7. Resource Management
 - **PostgreSQL Storage**: Efficiently stores high-frequency price history and trade logs.
-- **Memory Efficiency**: Minimal allocation in the hot path of the trading loop.
+- **Dynamic SOL Injection**: Ensures all sub-wallets have sufficient rent/fees for operation.
+

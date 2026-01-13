@@ -12,12 +12,15 @@ import {
     Wallet,
     Database,
     Flame,
-    Globe
+    Globe,
+    LogOut
 } from "lucide-react";
 import D3LineChart from "../../components/D3LineChart";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getAuthHeaders, logout } from "../../utils/auth";
+
 
 interface LatencyTick {
     timestamp: number;
@@ -38,7 +41,10 @@ export default function LatencyDashboard() {
                 // Try 127.0.0.1 explicitly if hostname is localhost to avoid IPv6 issues
                 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
                 const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
-                const res = await fetch(`http://${host}:8080/latency`);
+                const res = await fetch(`http://${host}:8080/api/latency`, {
+                    headers: getAuthHeaders(),
+                });
+
                 if (res.ok) {
                     const data = await res.json();
                     setLatencyData(data);
@@ -110,7 +116,12 @@ export default function LatencyDashboard() {
                     <NavItem icon={<BarChart3 size={18} />} label="Performance" />
                     <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" href="/wallets" />
                     <NavItem icon={<Database size={18} />} label="API Docs" />
+                    <div onClick={logout} className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
+                        <LogOut size={18} />
+                        <span className="font-bold text-sm tracking-tight relative z-10">Logout</span>
+                    </div>
                 </nav>
+
             </aside>
 
             {/* Main Content */}

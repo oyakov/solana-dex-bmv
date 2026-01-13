@@ -85,6 +85,11 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Initialize Auth
+    let auth_secret =
+        std::env::var("AUTH_SECRET").unwrap_or_else(|_| "super-secret-key-123".to_string());
+    let auth = Arc::new(solana_dex_bmv::infra::Auth::new(auth_secret));
+
     // Initialize and spawn API Server
     let api_server = solana_dex_bmv::infra::ApiServer::new(
         settings.clone(),
@@ -92,7 +97,9 @@ async fn main() -> Result<()> {
         solana.clone(),
         wallet_manager.clone(),
         pivot_engine.clone(),
+        auth.clone(),
     );
+
     tokio::spawn(async move {
         if let Err(e) = api_server.run().await {
             error!(error = ?e, "ApiServer failed");

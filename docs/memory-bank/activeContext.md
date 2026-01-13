@@ -1,44 +1,34 @@
 # Active Context: BMV Eco System Market Making Bot
 
 ## Current Focus
-Implementing Phase 3 features: Wallet Rotation and advanced Stealth mechanisms.
+Maintaining stability of v0.4.1 features and preparing for long-term multi-wallet observability.
 
 ## Recent Changes
-- **Version 0.3.5 (Planned)**:
-    - **Compliance Audit (v2.7)**: Completed comprehensive compliance audit. Identified gaps in Swarm Orchestration, Advanced Rebalancing, and Financial Autonomy.
+- **Version 0.4.1 (Current)**:
+    - **Dashboard Secure Login**: Implemented JWT-based authentication for the web dashboard (BMV-54).
+    - **Auth Middleware**: Added secure access control to all management API routes.
+    - **Premium Login Interface**: High-fidelity terminal-style login screen.
+- **Version 0.4.0**:
+    - **Backlog Implementation**: Completed all high-priority v2.7 requirements.
+    - **SOL Auto-injection**: Automated SOL balance management for trading wallets (BMV-53).
+    - **Proximity-based Rebalance**: Intelligent pivot rebalancing based on orderbook proximity (BMV-51).
+    - **Swarm Grid Segmentation**: Distributed grid across multiple wallets with 32-order limit enforcement (BMV-50).
+    - **L2 Orderbook Scan**: Real-time front-running protection and depth monitoring (BMV-52).
+    - **Dynamic Wallet Rotation**: Stealth rotation logic to minimize wallet detection (BMV-46).
+    - **RugCheck Monitoring**: Integration for automated security scanning of assets (BMV-14).
+    - **Advanced Market Metrics**: Real-time dashboard upgrades with D3 charts for L2 depth and imbalance indices.
+- **Version 0.3.5**:
+    - **Compliance Audit (v2.7)**: Completed comprehensive compliance audit.
 - **Version 0.3.4**:
-    - **Target Control**: Implemented `target_control_percent` logic to monitor free emission versus bot holdings.
-    - **Jito Hardening**: Refined connection pooling and error recovery in `SolanaClient`.
-    - **Health Monitoring**: Added Jito-specific reliability checks to `HealthChecker`.
-- **Version 0.3.2**:
-    - **CI/Lint Fixes**: Resolved Clippy warnings (`new_without_default`) and fixed compilation errors in tests and `main.rs`.
-    - **Infrastructure Enhancement**: Implemented `Default` for `PriceAggregator` and refined module imports.
-- **Version 0.3.1**:
-    - **Pivot Engine**: Full implementation of VWAP-based pivot calculation.
-    - **Asymmetric Grid**: Implemented asymmetric grid builder with exponential volume distribution (15% buy, 30% sell).
-    - **Rebalance Service**: Automated grid rebalancing with 1% threshold.
-    - **Historical Backfill**: Integrated Binance API for SOL/USDC price history backfill.
-    - **Jito Optimization**: Fixed Jito Bundler endpoint and improved bundle success rates.
-    - **Graceful Shutdown**: Implemented CTRL+C handling for clean termination and order cancellation.
-    - **Observability**: Added live price graphs for BMV and SOL/USDC to Grafana.
-- **Project Structure**: Consolidated documentation into `/docs`.
-- **Pure Rust Migration**: Successfully moved from Python to a 100% Rust implementation.
-
+    - **Target Control**: Implemented `target_control_percent` logic.
 
 ## In Progress
-- [ ] Wallet Rotation Logic (Stealth).
-- [/] Randomized Delay obfuscation refinement.
-- [x] Target Control emission monitoring.
-- [x] Jito infrastructure hardening.
+- [ ] Multi-wallet PnL view consolidation on the dashboard.
+- [ ] Jito tip dynamics optimization versus network congestion.
+- [ ] Fine-tuning swarm orchestration for maximum stealth.
 
 ## Known Issues / Tasks
-- [ ] Implement Swarm Grid Segmentation and 32-Order Limit (BMV-50).
-- [x] SOL Auto-injection Implementation (BMV-53)
-- [x] Proximity-based Rebalance (BMV-51)
-- [x] Swarm Grid Segmentation (BMV-50)
-- [x] L2 Orderbook Scan & Front-running (BMV-52)
-- [x] Dynamic Wallet Rotation (BMV-46)
-- [x] RugCheck Monitoring (BMV-14)
-- [ ] Finalize SOL Auto-injection in Financial Manager (BMV-53).
-- [ ] Multi-wallet PnL view consolidation.
+- [ ] Implement enhanced PnL tracking (BMV-31).
+- [ ] Growth Model for profit reinvestment (BMV-32).
 - [ ] Review Jito tip dynamics versus network congestion.
+
