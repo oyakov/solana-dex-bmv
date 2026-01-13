@@ -23,7 +23,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   AreaChart,
-  Area
+  Area,
+  Legend
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -173,7 +174,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               label="Asset Pivot"
-              value={`$${stats.pivot_price}`}
+              value={`${stats.pivot_price} SOL`}
               subValue="Seeded VWAP Strategy"
               icon={<TrendingUp className="text-cyan-400" />}
               trend="+1.2%"
@@ -230,15 +231,22 @@ export default function Dashboard() {
                           <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
-                      <XAxis dataKey="time" stroke="#ffffff22" fontSize={10} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#ffffff22" fontSize={10} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
+                      <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff11', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                        itemStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
-                        labelStyle={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
+                        itemStyle={{ color: '#22d3ee', fontWeight: 'bold', fontSize: '12px' }}
+                        labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
                       />
-                      <Area type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={4} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
+                      <Legend
+                        verticalAlign="top"
+                        align="right"
+                        height={36}
+                        iconType="circle"
+                        formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
+                      />
+                      <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={4} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -255,11 +263,26 @@ export default function Dashboard() {
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="colorSol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
+                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
                           <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <Area type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorSol)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
+                      <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
+                        itemStyle={{ color: '#a855f7', fontWeight: 'bold', fontSize: '12px' }}
+                        labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                      />
+                      <Legend
+                        verticalAlign="top"
+                        align="right"
+                        height={36}
+                        iconType="circle"
+                        formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
+                      />
+                      <Area name="SOL/USDC Pair" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorSol)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

@@ -1,6 +1,6 @@
 token_mint: "So11111111111111111111111111111111111111112"
-openbook_market_id: "8VMi93EEqSGCHGjRGNhEFBkGoNZTQxUfFYWDEX2e5u4f"
-sol_usdc_market_id: "8sLbNZoA1cfjY7Prrp2W6N6hYJ4BAdxJ1Y2xQn8jWvA7"
+openbook_market_id: "HHBeMs1k6mV4bRztdr21vKRYxw6so32QCNkTMfGCR1H"
+sol_usdc_market_id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2"
 
 order_grid:
   orders_per_side: 16
