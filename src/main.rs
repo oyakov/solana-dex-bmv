@@ -86,8 +86,8 @@ async fn main() -> Result<()> {
     });
 
     // Initialize Auth
-    let auth_secret =
-        std::env::var("AUTH_SECRET").unwrap_or_else(|_| "super-secret-key-123".to_string());
+    let auth_secret = std::env::var("AUTH_SECRET")
+        .context("AUTH_SECRET environment variable must be set for security")?;
     let auth = Arc::new(solana_dex_bmv::infra::Auth::new(auth_secret));
 
     // Initialize and spawn API Server

@@ -41,8 +41,8 @@ wallets:
   multi_wallet:
     enabled: true
     keypairs: 
-      - "kbUi3EpXWmbFbmtFFjuhhiD5En3gS7mwQsPrwhVHcHM5x8NiRqBnc3iPfeb9sXF4zw1X4SomWat7m9CxQAQ17sq"
-      - "5jFbNkRn9qbqyWYWCsyoSqVCttMxCSx7RETzFrJN6Pxou84HKrKSmgqLQLaX3NYiQrmJu2MRkT6dDKvFXrFmYVFB"
+      - "PASTE_KEYPAIR_1_HERE"
+      - "PASTE_KEYPAIR_2_HERE"
   usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 risk_limits:

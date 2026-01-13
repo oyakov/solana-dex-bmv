@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=botuser
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-BmVEcoSystem_Secure_2026_!}
+      - POSTGRES_PASSWORD=${DB_PASSWORD?DB_PASSWORD must be set}
       - POSTGRES_DB=solana_dex
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -24,7 +24,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgres://botuser:${DB_PASSWORD:-BmVEcoSystem_Secure_2026_!}@db:5432/solana_dex
+      - DATABASE_URL=postgres://botuser:${DB_PASSWORD?DB_PASSWORD must be set}@db:5432/solana_dex
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml

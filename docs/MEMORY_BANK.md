@@ -42,4 +42,5 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 3. **Financial Autonomy**: The **FinancialManager** handles SOL auto-injection across the swarm.
 4. **Stealth**: Always use **Wallet Rotation** and randomized execution delays.
 5. **Tokio-Async**: All I/O operations must be asynchronous using the `tokio` runtime.
-6. **Structured Tracing**: Use the `tracing` crate for all events.
+6. **Hardening**: Mandatory environment variables for secrets, masked configs, and no hardcoded fallbacks for production credentials.
+7. **Structured Tracing**: Use the `tracing` crate for all events.

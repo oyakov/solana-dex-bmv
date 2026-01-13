@@ -11,6 +11,7 @@
 - **Database**: `sqlx` with **PostgreSQL** for persisting bot state, trades, and price history.
 - **Configuration**: `serde_yaml` and `dotenvy`.
 - **Logging**: `tracing` and `tracing-subscriber` for structured logging.
+- **Security**: `argon2` for password hashing and `jsonwebtoken` for API authentication.
 - **Error Handling**: `anyhow`.
 
 ## Infrastructure & APIs

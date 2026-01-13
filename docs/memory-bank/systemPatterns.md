@@ -28,8 +28,8 @@ The system is built as a high-performance, asynchronous, event-driven trading en
 ### 5. Financial & Risk Management
 - **Financial Manager**: (New in v0.4.0) Automates SOL auto-injection, BMV rebalancing, and rent recovery across the swarm.
 - **RugCheck Integration**: Automated security scanning of tokens before trading to prevent engagement with malicious contracts.
-- **Circuit Breaker**: Halts trading on excessive drawdown or critical RPC failures.
 - **Graceful Shutdown**: Handles OS signals to cancel all open orders and close connections cleanly.
+- **API Hardening**: JWT-based authentication, Argon2id password hashing, and restrictive CORS policies on the `ApiServer`.
 
 ### 6. Swarm Orchestration
 - **Grid Segmentation**: Distributes the trading grid across multiple sub-wallets to bypass the 32-order limit per wallet/market.

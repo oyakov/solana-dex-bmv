@@ -4,6 +4,11 @@ use crate::infra::{
 use crate::services::PivotEngine;
 use crate::utils::BotSettings;
 use anyhow::Result;
+use argon2::{
+    password_hash::{PasswordHash, PasswordVerifier},
+    Argon2,
+};
+use axum::http::{header, Method, StatusCode};
 use axum::{
     extract::State,
     middleware,
@@ -107,6 +112,21 @@ impl ApiServer {
     pub async fn run(self) -> Result<()> {
         let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
 
+        let allowed_origins = std::env::var("ALLOWED_ORIGINS")
+            .unwrap_or_else(|_| "http://localhost:3000,http://127.0.0.1:3000".to_string());
+
+        let mut origins = Vec::new();
+        for s in allowed_origins.split(',') {
+            if let Ok(value) = s.trim().parse() {
+                origins.push(value);
+            }
+        }
+
+        let cors = CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([Method::GET, Method::POST])
+            .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]);
+
         let app = Router::new()
             .route("/api/login", post(handle_login))
             .nest(
@@ -124,7 +144,7 @@ impl ApiServer {
                     )),
             )
             .route("/health", get(handle_health))
-            .layer(CorsLayer::permissive())
+            .layer(cors)
             .with_state(self.state);
 
         info!("API Server starting on http://{}", addr);
@@ -402,22 +422,29 @@ async fn handle_login(
     State(state): State<ApiState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
-    let dashboard_password =
-        std::env::var("DASHBOARD_PASSWORD").unwrap_or_else(|_| "admin123".to_string());
+    let dashboard_password_hash = std::env::var("DASHBOARD_PASSWORD_HASH").map_err(|_| {
+        error!("DASHBOARD_PASSWORD_HASH environment variable must be set");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    // In a real app, we'd use bcrypt to compare hashes.
-    // For now, we'll do a direct comparison or use bcrypt if we want to be fancy.
-    // Let's use bcrypt to be fancy since we added it.
+    let parsed_hash = PasswordHash::new(&dashboard_password_hash).map_err(|e| {
+        error!("Invalid password hash format: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    if payload.password == dashboard_password {
+    if Argon2::default()
+        .verify_password(payload.password.as_bytes(), &parsed_hash)
+        .is_ok()
+    {
         let token = state.auth.generate_token("admin").map_err(|e| {
             error!("Token generation failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
         Ok(Json(LoginResponse { token }))
     } else {
+        warn!("Unauthorized login attempt");
         Err(StatusCode::UNAUTHORIZED)
     }
 }
 
-use axum::http::StatusCode;
+use tracing::warn;

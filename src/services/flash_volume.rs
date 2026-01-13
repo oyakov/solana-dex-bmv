@@ -117,10 +117,8 @@ mod tests {
     use super::*;
     use crate::domain::MarketUpdate;
     use crate::infra::mocks::MockSolanaProvider;
-    use crate::infra::WalletManager;
     use rust_decimal_macros::dec;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::signature::Keypair;
     use std::sync::Arc;
 
     #[tokio::test]
