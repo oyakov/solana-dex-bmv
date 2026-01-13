@@ -378,12 +378,16 @@ impl TradingService {
         self.rent_recovery.recover_rent().await?;
 
         // 13. Save price history for dashboard visualization
-        if let Err(e) = self
-            .database
-            .save_price_tick(bmv_price_sol, sol_usdc_price)
-            .await
-        {
-            error!(error = %e, "failed_to_save_price_tick");
+        if !bmv_price_sol.is_zero() && !sol_usdc_price.is_zero() {
+            if let Err(e) = self
+                .database
+                .save_price_tick(bmv_price_sol, sol_usdc_price)
+                .await
+            {
+                error!(error = %e, "failed_to_save_price_tick");
+            }
+        } else {
+            warn!(%bmv_price_sol, %sol_usdc_price, "Skipping price tick save due to zero value");
         }
 
         Ok(())

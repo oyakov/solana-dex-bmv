@@ -17,6 +17,8 @@ interface D3AreaChartProps {
     pivotPrice?: number;
     buyChannelWidth?: number;
     sellChannelWidth?: number;
+    yAxisFormatter?: (v: number) => string;
+    margin?: { top: number, right: number, bottom: number, left: number };
 }
 
 export default function D3AreaChart({
@@ -27,7 +29,9 @@ export default function D3AreaChart({
     name,
     pivotPrice,
     buyChannelWidth,
-    sellChannelWidth
+    sellChannelWidth,
+    yAxisFormatter,
+    margin: customMargin
 }: D3AreaChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
@@ -60,7 +64,7 @@ export default function D3AreaChart({
         svg.selectAll("*").remove();
 
         // ... (rest of setup)
-        const margin = { top: 40, right: 30, bottom: 40, left: 60 };
+        const margin = customMargin || { top: 40, right: 30, bottom: 40, left: 60 };
         const width = dimensions.width - margin.left - margin.right;
         const height = dimensions.height - margin.top - margin.bottom;
 
@@ -155,14 +159,16 @@ export default function D3AreaChart({
             .attr("font-size", "12px")
             .select(".domain").remove();
 
-        const yAxisFormatter = (v: number) => {
+        const defaultFormatter = (v: number) => {
             if (v === 0) return "0";
             if (v < 1) return v.toFixed(9);
             return v.toFixed(6);
         };
 
+        const activeFormatter = yAxisFormatter || defaultFormatter;
+
         g.append("g")
-            .call(d3.axisLeft(y).ticks(5).tickFormat((d) => yAxisFormatter(d as number)))
+            .call(d3.axisLeft(y).ticks(5).tickFormat((d) => activeFormatter(d as number)))
             .attr("color", "#ffffff66")
             .attr("font-size", "10px")
             .select(".domain").remove();

@@ -38,6 +38,8 @@ struct BotStats {
     sell_channel_width: rust_decimal::Decimal,
     active_wallets: usize,
     kill_switch_active: bool,
+    total_sol_balance: f64,
+    total_usdc_balance: f64,
 }
 
 #[derive(Serialize)]
@@ -106,12 +108,37 @@ async fn handle_health(State(state): State<ApiState>) -> Json<serde_json::Value>
 }
 
 async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
+    let wallets = state.wallet_manager.get_all_wallets().await;
+    let usdc_mint = Pubkey::from_str(&state.settings.wallets.usdc_wallet_3).unwrap_or_default();
+
+    let mut total_sol = 0.0;
+    let mut total_usdc = 0.0;
+
+    for wallet in &wallets {
+        let pubkey = wallet.pubkey();
+        let pubkey_str = pubkey.to_string();
+
+        let sol_balance =
+            state.solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
+        let usdc_balance_raw = state
+            .solana
+            .get_token_balance(&pubkey, &usdc_mint)
+            .await
+            .unwrap_or(0);
+        let usdc_balance = usdc_balance_raw as f64 / 1_000_000.0;
+
+        total_sol += sol_balance;
+        total_usdc += usdc_balance;
+    }
+
     Json(BotStats {
         pivot_price: state.pivot_engine.get_last_pivot().await,
         buy_channel_width: state.settings.channel_bounds.buy_percent,
         sell_channel_width: state.settings.channel_bounds.sell_percent,
-        active_wallets: state.wallet_manager.count().await,
+        active_wallets: wallets.len(),
         kill_switch_active: false,
+        total_sol_balance: total_sol,
+        total_usdc_balance: total_usdc,
     })
 }
 

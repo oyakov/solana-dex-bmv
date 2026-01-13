@@ -37,6 +37,8 @@ export default function Dashboard() {
     sell_channel_width: "0.00",
     active_wallets: 0,
     kill_switch_active: false,
+    total_sol_balance: 0,
+    total_usdc_balance: 0,
   });
   const [history, setHistory] = useState<PriceTick[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,14 +46,33 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState("");
 
+  const chartData = useMemo(() => {
+    if (history.length === 0) return [];
+    return history
+      .filter(tick => parseFloat(tick.asset_price) > 0) // Filter out zero prices
+      .map(tick => ({
+        time: new Date(tick.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        asset: parseFloat(tick.asset_price),
+        sol: parseFloat(tick.sol_price),
+      }));
+  }, [history]);
+
   const formatPrice = (val: string | number) => {
+    if (!mounted) return "0.000000";
     const num = Number(val);
-    if (isNaN(num)) return "0.000000";
-    if (num < 1) {
-      // If it's extremely small, show up to 9 decimals
-      return num.toFixed(9);
+
+    // If stats price is 0, attempt to fallback to last history price
+    let displayNum = num;
+    if (displayNum === 0 && chartData.length > 0) {
+      displayNum = chartData[chartData.length - 1].asset;
     }
-    return num.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 });
+
+    if (isNaN(displayNum) || displayNum === 0) return "0.000000";
+
+    if (displayNum < 0.1) {
+      return displayNum.toFixed(9);
+    }
+    return displayNum.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 });
   };
 
   useEffect(() => {
@@ -89,18 +110,9 @@ export default function Dashboard() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const chartData = useMemo(() => {
-    if (history.length === 0) return [];
-    return history.map(tick => ({
-      time: new Date(tick.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      asset: parseFloat(tick.asset_price),
-      sol: parseFloat(tick.sol_price),
-    }));
-  }, [history]);
 
   const handleControl = async (action: string) => {
     try {
@@ -115,6 +127,13 @@ export default function Dashboard() {
       console.error("Control action failed:", error);
     }
   };
+
+  const yAxisFormatter = (v: number) => {
+    if (v === 0) return "0.00";
+    if (v < 0.1) return v.toFixed(9);
+    return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  };
+  const chartMargin = { top: 40, right: 30, bottom: 40, left: 100 };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#020617] text-slate-100 font-sans selection:bg-cyan-500/30">
@@ -195,10 +214,24 @@ export default function Dashboard() {
             <StatCard
               label="Asset Pivot"
               value={`${formatPrice(stats.pivot_price)} SOL`}
-              subValue="Seeded VWAP Strategy"
+              subValue="Seeded VWAP Mid-Point"
               icon={<TrendingUp className="text-cyan-400" />}
               trend="+1.2%"
               isNeon
+            />
+            <StatCard
+              label="SOL Balance"
+              value={`${(stats.total_sol_balance ?? 0).toFixed(4)} SOL`}
+              subValue="Total Swarm Reserve"
+              icon={<Wallet className="text-emerald-400" />}
+              status="Liquid"
+            />
+            <StatCard
+              label="USDC Balance"
+              value={`$${(stats.total_usdc_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              subValue="Stablecoin Liquidity"
+              icon={<Database className="text-blue-400" />}
+              status="Ready"
             />
             <StatCard
               label="SOL/USDC"
@@ -211,7 +244,7 @@ export default function Dashboard() {
               label="Node Status"
               value={`${stats.active_wallets} Active`}
               subValue="Multi-Wallet Rotation"
-              icon={<Wallet className="text-blue-400" />}
+              icon={<Activity className="text-blue-400" />}
               status="Online"
             />
             <StatCard
@@ -257,6 +290,8 @@ export default function Dashboard() {
                       pivotPrice={parseFloat(stats.pivot_price)}
                       buyChannelWidth={parseFloat(stats.buy_channel_width)}
                       sellChannelWidth={parseFloat(stats.sell_channel_width)}
+                      yAxisFormatter={yAxisFormatter}
+                      margin={chartMargin}
                     />
                   )}
                 </div>
@@ -276,6 +311,8 @@ export default function Dashboard() {
                       color="#a855f7"
                       gradientId="colorSol"
                       name="SOL Correlation"
+                      yAxisFormatter={yAxisFormatter}
+                      margin={chartMargin}
                     />
                   )}
                 </div>

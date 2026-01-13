@@ -318,25 +318,16 @@ impl SolanaClient {
     }
 
     pub async fn get_market_data_impl(&self, market_id: &str) -> Result<MarketUpdate> {
-        match self.get_orderbook_impl(market_id).await {
-            Ok(ob) => {
-                let mid_price = ob.get_mid_price().unwrap_or(Decimal::ZERO);
-                Ok(MarketUpdate {
-                    timestamp: ob.timestamp,
-                    price: mid_price,
-                    volume_24h: Decimal::from(5000),
-                })
-            }
-            Err(e) => {
-                warn!(?e, "failed_to_fetch_orderbook_falling_back_to_sim");
-                let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
-                Ok(MarketUpdate {
-                    timestamp: now,
-                    price: Decimal::from(150),
-                    volume_24h: Decimal::from(5000),
-                })
-            }
-        }
+        let ob = self.get_orderbook_impl(market_id).await?;
+        let mid_price = ob
+            .get_mid_price()
+            .ok_or_else(|| anyhow!("Orderbook is empty, cannot compute mid price"))?;
+
+        Ok(MarketUpdate {
+            timestamp: ob.timestamp,
+            price: mid_price,
+            volume_24h: Decimal::from(5000),
+        })
     }
 
     pub async fn health_impl(&self) -> bool {
