@@ -287,12 +287,17 @@ export default function D3AreaChart({
                     // Adjust ruler relative to translated focus group
                     ruler.attr("y1", -yPos).attr("y2", height - yPos);
 
+                    const val = Number(d[dataKey]);
+                    const formattedVal = val < 0.1
+                        ? parseFloat(val.toFixed(9)).toString()
+                        : val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+
                     const [cx, cy] = d3.pointer(event, containerRef.current);
                     tooltip.style("visibility", "visible")
                         .html(`
-                        <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
-                        <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 })}</div>
-                    `)
+                    <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
+                    <div style="font-weight: bold; color: ${color};">${name}: ${formattedVal}</div>
+                `)
                         .style("top", `${cy - 120}px`)
                         .style("left", `${cx + 20}px`);
                 }

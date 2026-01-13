@@ -70,9 +70,10 @@ export default function Dashboard() {
     if (isNaN(displayNum) || displayNum === 0) return "0.000000";
 
     if (displayNum < 0.1) {
-      return displayNum.toFixed(9);
+      // Use toFixed(9) and parseFloat to trim trailing zeros
+      return parseFloat(displayNum.toFixed(9)).toString();
     }
-    return displayNum.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 });
+    return displayNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
   };
 
   useEffect(() => {
@@ -129,8 +130,11 @@ export default function Dashboard() {
   };
 
   const yAxisFormatter = (v: number) => {
-    if (v === 0) return "0.00";
-    if (v < 0.1) return v.toFixed(9);
+    if (v === 0) return "0.0";
+    if (v < 0.1) {
+      // Remove trailing zeros for high-precision small prices
+      return parseFloat(v.toFixed(9)).toString();
+    }
     return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   };
   const chartMargin = { top: 40, right: 30, bottom: 40, left: 100 };
