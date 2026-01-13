@@ -11,6 +11,8 @@ pub struct OrderGridSettings {
     pub buy_volume_multiplier: Decimal,
     pub sell_volume_multiplier: Decimal,
     pub rebalance_threshold_percent: Decimal,
+    pub large_order_threshold_sol: Decimal,
+    pub front_run_tick_size_sol: Decimal,
 }
 
 impl Default for OrderGridSettings {
@@ -20,6 +22,8 @@ impl Default for OrderGridSettings {
             buy_volume_multiplier: Decimal::new(12, 1), // 1.2
             sell_volume_multiplier: Decimal::ONE,       // 1.0 (equal)
             rebalance_threshold_percent: Decimal::ONE,  // 1.0%
+            large_order_threshold_sol: Decimal::from(50), // 50 SOL
+            front_run_tick_size_sol: Decimal::new(1, 6), // 0.000001 SOL
         }
     }
 }
@@ -184,6 +188,21 @@ pub struct FinancialManagerSettings {
     pub min_conversion_barrier_usd: Decimal,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RugCheckSettings {
+    pub enabled: bool,
+    pub check_interval_secs: u64,
+}
+
+impl Default for RugCheckSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            check_interval_secs: 300, // 5 minutes
+        }
+    }
+}
+
 impl Default for FinancialManagerSettings {
     fn default() -> Self {
         Self {
@@ -301,6 +320,7 @@ pub struct BotSettings {
     pub risk_limits: RiskLimitsSettings,
     pub flash_volume: FlashVolumeSettings,
     pub financial_manager: FinancialManagerSettings,
+    pub rugcheck: RugCheckSettings,
     pub target_control: TargetControlSettings,
     pub sol_usdc_market_id: String,
     #[serde(default)]
@@ -373,6 +393,7 @@ impl Default for BotSettings {
             risk_limits: RiskLimitsSettings::default(),
             flash_volume: FlashVolumeSettings::default(),
             financial_manager: FinancialManagerSettings::default(),
+            rugcheck: RugCheckSettings::default(),
             target_control: TargetControlSettings::default(),
             sol_usdc_market_id: "8v6rXSrT7Yf6S7itnC28A6r5tYy5C2A4r7U6r8y6r8y6".to_string(), // SOL/USDC OBv2 Mainnet (Placeholder, will verify)
             kill_switch: KillSwitchSettings::default(),

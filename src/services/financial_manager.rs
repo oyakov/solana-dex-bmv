@@ -5,7 +5,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::signer::Signer;
 use std::str::FromStr;
-use tracing::info;
+use tracing::{info, warn};
 
 pub struct FinancialManager {
     solana: std::sync::Arc<dyn SolanaProvider>,
@@ -26,7 +26,7 @@ impl FinancialManager {
         }
     }
 
-    pub async fn check_balances(&self) -> Result<()> {
+    pub async fn check_balances(&self, current_price: Decimal) -> Result<()> {
         info!("Financial Manager: checking SOL/USDC balances across swarm");
 
         let mut total_sol = Decimal::ZERO;
@@ -51,23 +51,83 @@ impl FinancialManager {
             // Fetch USDC
             let usdc_raw = self.solana.get_token_balance(&pubkey, &usdc_mint).await?;
             total_usdc += Decimal::from(usdc_raw) / Decimal::from(1_000_000u64);
-            // USDC has 6 decimals
         }
+
+        let sol_value_usd = total_sol * current_price;
+        let total_value_usd = sol_value_usd + total_usdc;
+
+        let sol_reserve_percent = if total_value_usd.is_zero() {
+            Decimal::ZERO
+        } else {
+            (sol_value_usd / total_value_usd) * Decimal::from(100)
+        };
 
         info!(
             total_sol = %total_sol.round_dp(4),
             total_usdc = %total_usdc.round_dp(2),
+            sol_reserve = %sol_reserve_percent.round_dp(2),
             "Aggregated swarm balances"
         );
 
         // Emit metrics
         metrics::gauge!("bot_total_sol_balance", total_sol.to_f64().unwrap_or(0.0));
         metrics::gauge!("bot_total_usdc_balance", total_usdc.to_f64().unwrap_or(0.0));
+        metrics::gauge!(
+            "bot_sol_reserve_percent",
+            sol_reserve_percent.to_f64().unwrap_or(0.0)
+        );
 
         // 2. Check against MIN_SOL_RESERVE_%
-        // Example: Total $ Value = total_sol * price + total_usdc
-        // SOL share % = (total_sol * price) / Total $ Value
-        // For simplicity, we'll fetch the current price or pass it in.
+        if sol_reserve_percent < self.settings.financial_manager.min_sol_reserve_percent {
+            warn!(
+                %sol_reserve_percent,
+                threshold = %self.settings.financial_manager.min_sol_reserve_percent,
+                "SOL reserve below threshold! Triggering auto-injection."
+            );
+
+            // Calculate how much USD to convert to reach threshold + 5% buffer
+            let target_percent =
+                self.settings.financial_manager.min_sol_reserve_percent + Decimal::from(5);
+            let target_sol_value = total_value_usd * (target_percent / Decimal::from(100));
+            let usd_to_buy = (target_sol_value - sol_value_usd).max(Decimal::ZERO);
+
+            if usd_to_buy >= self.settings.financial_manager.min_conversion_barrier_usd {
+                let usdc_units = (usd_to_buy * Decimal::from(1_000_000u64))
+                    .to_u64()
+                    .unwrap_or(0);
+                if usdc_units > 0 {
+                    let sol_mint = solana_sdk::pubkey::Pubkey::from_str(
+                        "So11111111111111111111111111111111111111112",
+                    )
+                    .unwrap();
+                    let main_wallet = self.wallet_manager.get_main_wallet().await?;
+
+                    // Check if main wallet has enough USDC
+                    let main_usdc = self
+                        .solana
+                        .get_token_balance(&main_wallet.pubkey(), &usdc_mint)
+                        .await?;
+                    if main_usdc >= usdc_units {
+                        info!(%usd_to_buy, "SOL Auto-injection: executing USDC -> SOL swap");
+                        let sig = self
+                            .solana
+                            .jupiter_swap(
+                                &main_wallet,
+                                &usdc_mint,
+                                &sol_mint,
+                                usdc_units,
+                                50, // 0.5% slippage
+                            )
+                            .await?;
+                        info!(%sig, "Auto-injection swap successful");
+                    } else {
+                        warn!(%main_usdc, %usdc_units, "Main wallet lacks USDC for auto-injection; skipping");
+                    }
+                }
+            } else {
+                info!(%usd_to_buy, "USD amount to buy is below conversion barrier; skipping auto-injection");
+            }
+        }
 
         Ok(())
     }

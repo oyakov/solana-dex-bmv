@@ -33,8 +33,12 @@ Implementing Phase 3 features: Wallet Rotation and advanced Stealth mechanisms.
 
 ## Known Issues / Tasks
 - [ ] Implement Swarm Grid Segmentation and 32-Order Limit (BMV-50).
-- [ ] Implement Proximity-based Rebalance (< 3%) (BMV-51).
-- [ ] Implement L2 Orderbook Scan and 1-Tick Protection (BMV-52).
+- [x] SOL Auto-injection Implementation (BMV-53)
+- [x] Proximity-based Rebalance (BMV-51)
+- [x] Swarm Grid Segmentation (BMV-50)
+- [x] L2 Orderbook Scan & Front-running (BMV-52)
+- [x] Dynamic Wallet Rotation (BMV-46)
+- [x] RugCheck Monitoring (BMV-14)
 - [ ] Finalize SOL Auto-injection in Financial Manager (BMV-53).
 - [ ] Multi-wallet PnL view consolidation.
 - [ ] Review Jito tip dynamics versus network congestion.

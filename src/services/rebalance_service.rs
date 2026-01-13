@@ -11,6 +11,7 @@ pub struct RebalanceService {
     settings: BotSettings,
     last_pivot: std::sync::Mutex<Option<Decimal>>,
     last_rebuild: std::sync::Mutex<Option<std::time::Instant>>,
+    last_grid: std::sync::Mutex<Vec<crate::domain::GridLevel>>,
 }
 
 impl RebalanceService {
@@ -25,10 +26,16 @@ impl RebalanceService {
             settings,
             last_pivot: std::sync::Mutex::new(None),
             last_rebuild: std::sync::Mutex::new(None),
+            last_grid: std::sync::Mutex::new(Vec::new()),
         }
     }
 
-    pub fn should_rebuild(&self, current_pivot: Decimal) -> bool {
+    pub fn update_last_grid(&self, grid: Vec<crate::domain::GridLevel>) {
+        let mut last_grid_lock = self.last_grid.lock().unwrap();
+        *last_grid_lock = grid;
+    }
+
+    pub fn should_rebuild(&self, current_pivot: Decimal, current_price: Decimal) -> bool {
         let mut last_pivot_lock = self.last_pivot.lock().unwrap();
         let mut last_rebuild_lock = self.last_rebuild.lock().unwrap();
 
@@ -73,14 +80,32 @@ impl RebalanceService {
             }
         }
 
-        // 3. Proximity-based rebalance (v0.3.0 Requirement)
+        // 3. Proximity-based rebalance (v2.7 Requirement)
         // If orders are too close to market price ( < 3%)
-        let _current_price = current_pivot; // Assuming pivot is market-near
-        let _proximity_threshold = Decimal::new(3, 2); // 3%
+        let last_grid_lock = self.last_grid.lock().unwrap();
+        if !last_grid_lock.is_empty() {
+            let proximity_threshold = Decimal::new(3, 2); // 3%
 
-        // This is a simplified proximity check: if distance < 3% of pivot
-        // In a real implementation, we would check actual open order prices.
-        // For now, we trigger if the pivot itself moved significantly relative to the 3% band.
+            for level in last_grid_lock.iter() {
+                if level.price.is_zero() {
+                    continue;
+                }
+                let diff = (current_price - level.price).abs() / level.price;
+                if diff < proximity_threshold {
+                    info!(
+                        ?diff,
+                        ?proximity_threshold,
+                        ?current_price,
+                        order_price = ?level.price,
+                        side = ?level.side,
+                        "Proximity rebalance triggered (price too close to order)"
+                    );
+                    *last_pivot_lock = Some(current_pivot);
+                    *last_rebuild_lock = Some(now);
+                    return true;
+                }
+            }
+        }
 
         false
     }

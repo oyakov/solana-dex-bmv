@@ -103,6 +103,44 @@ impl GridBuilder {
 
         grid
     }
+
+    pub fn apply_front_running_protection(
+        &self,
+        levels: &mut [GridLevel],
+        orderbook: &crate::domain::Orderbook,
+        large_order_threshold: Decimal,
+        tick_size: Decimal,
+    ) {
+        for level in levels.iter_mut() {
+            match level.side {
+                OrderSide::Buy => {
+                    // Find the best bid that is >= large_order_threshold and slightly above or near our price
+                    // We want to be 1-tick ahead of the highest large competitor that is BELOW the mid-price
+                    if let Some(competitor) = orderbook.bids.iter().find(|b| {
+                        b.size >= large_order_threshold
+                            && b.price <= level.price * Decimal::from_str_radix("1.05", 10).unwrap()
+                    }) {
+                        let new_price = competitor.price + tick_size;
+                        if new_price < level.price * Decimal::from_str_radix("1.1", 10).unwrap() {
+                            level.price = new_price;
+                        }
+                    }
+                }
+                OrderSide::Sell => {
+                    // Find the best ask that is >= large_order_threshold and slightly below or near our price
+                    if let Some(competitor) = orderbook.asks.iter().find(|a| {
+                        a.size >= large_order_threshold
+                            && a.price >= level.price * Decimal::from_str_radix("0.95", 10).unwrap()
+                    }) {
+                        let new_price = competitor.price - tick_size;
+                        if new_price > level.price * Decimal::from_str_radix("0.9", 10).unwrap() {
+                            level.price = new_price;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

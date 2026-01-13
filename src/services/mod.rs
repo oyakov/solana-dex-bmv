@@ -7,6 +7,7 @@ pub mod pnl_tracker;
 pub mod rebalance_service;
 pub mod rent_recovery;
 pub mod risk_manager;
+pub mod rugcheck_service;
 pub mod trade_executor;
 pub mod trading_service;
 
@@ -19,5 +20,6 @@ pub use pnl_tracker::PnlTracker;
 pub use rebalance_service::RebalanceService;
 pub use rent_recovery::RentRecoveryService;
 pub use risk_manager::{RiskManager, RiskSnapshot};
+pub use rugcheck_service::RugCheckService;
 pub use trade_executor::TradeExecutor;
 pub use trading_service::TradingService;

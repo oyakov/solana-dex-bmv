@@ -2,7 +2,7 @@ use crate::domain::OrderSide;
 use crate::infra::{DatabaseProvider, KillSwitch, PriceAggregator, SolanaProvider, WalletManager};
 use crate::services::{
     FinancialManager, FlashVolumeModule, GridBuilder, PivotEngine, PnlTracker, RebalanceService,
-    RentRecoveryService, RiskManager, RiskSnapshot,
+    RentRecoveryService, RiskManager, RiskSnapshot, RugCheckService,
 };
 use crate::utils::BotSettings;
 use anyhow::Result;
@@ -15,7 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, error, info, warn};
 
 pub struct TradingService {
-    _settings: BotSettings,
     solana: std::sync::Arc<dyn SolanaProvider>,
     database: std::sync::Arc<dyn DatabaseProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
@@ -25,12 +24,14 @@ pub struct TradingService {
     grid_builder: GridBuilder,
     rebalance_service: RebalanceService,
     risk_manager: RiskManager,
-    pnl_tracker: tokio::sync::Mutex<PnlTracker>,
+    pnl_tracker: std::sync::Arc<tokio::sync::Mutex<PnlTracker>>,
 
-    flash_volume: FlashVolumeModule,
     financial_manager: FinancialManager,
+    flash_volume: FlashVolumeModule,
     rent_recovery: RentRecoveryService,
+    rugcheck: RugCheckService,
     price_aggregator: std::sync::Arc<PriceAggregator>,
+    _settings: BotSettings,
 }
 
 impl TradingService {
@@ -63,7 +64,6 @@ impl TradingService {
             RentRecoveryService::new(solana.clone(), wallet_manager.clone(), settings.clone());
 
         Self {
-            _settings: settings,
             solana,
             database,
             wallet_manager,
@@ -72,11 +72,13 @@ impl TradingService {
             grid_builder,
             rebalance_service,
             risk_manager,
-            pnl_tracker: tokio::sync::Mutex::new(PnlTracker::default()),
-            flash_volume,
+            pnl_tracker: std::sync::Arc::new(tokio::sync::Mutex::new(PnlTracker::default())),
             financial_manager,
+            flash_volume,
             rent_recovery,
+            rugcheck: RugCheckService::new(),
             price_aggregator,
+            _settings: settings,
         }
     }
 
@@ -314,45 +316,91 @@ impl TradingService {
             "Target Control: emission status computed"
         );
 
-        // 6. Check if we need to rebuild the grid
-        if self.rebalance_service.should_rebuild(pivot) {
-            info!(?pivot, "Rebuilding grid...");
+        // 7. Check for rebalance trigger
+        if self
+            .rebalance_service
+            .should_rebuild(pivot, market_data.price)
+        {
+            info!(?pivot, "Rebuilding order grid");
 
             // 7. Build Grid
-            let grid = self.grid_builder.build(pivot, Decimal::from(100)).await;
+            let mut grid = self.grid_builder.build(pivot, Decimal::from(100)).await;
+
+            // 7a. L2 Scan & Front-running Protection
+            if let Ok(ob) = self.solana.get_orderbook(market_id).await {
+                self.grid_builder.apply_front_running_protection(
+                    &mut grid,
+                    &ob,
+                    self._settings.order_grid.large_order_threshold_sol,
+                    self._settings.order_grid.front_run_tick_size_sol,
+                );
+            }
+
+            self.rebalance_service.update_last_grid(grid.clone());
 
             gauge!("bot_grid_levels_count", grid.len() as f64);
             info!(levels = grid.len(), "Grid constructed");
 
-            // 8. Execute Grid Update & Emit Metrics
+            // 8. Execute Grid Update & Emit Metrics (Swarm Segmentation)
+            let wallets = self.wallet_manager.get_all_wallets().await;
+            if wallets.is_empty() {
+                error!("No wallets available for grid placement!");
+                return Ok(());
+            }
+
+            let max_orders = wallets.len() * 32;
+            let final_grid = if grid.len() > max_orders {
+                warn!(
+                    orders = grid.len(),
+                    max_orders,
+                    wallets = wallets.len(),
+                    "Truncating grid levels to fit wallet capacity (32 per wallet max)"
+                );
+                grid[..max_orders].to_vec()
+            } else {
+                grid
+            };
+
             let mut total_depth = Decimal::ZERO;
-            for (idx, level) in grid.iter().enumerate() {
-                let side_str = match level.side {
-                    crate::domain::OrderSide::Buy => "BUY",
-                    crate::domain::OrderSide::Sell => "SELL",
-                };
+            let rotation_offset = (now % wallets.len() as i64) as usize;
 
-                gauge!(
-                    "bot_grid_level_price",
-                    level.price.to_f64().unwrap_or(0.0),
-                    "side" => side_str,
-                    "index" => idx.to_string()
-                );
-                gauge!(
-                    "bot_grid_level_size",
-                    level.size.to_f64().unwrap_or(0.0),
-                    "side" => side_str,
-                    "index" => idx.to_string()
-                );
+            for (segment_idx, segment) in final_grid.chunks(32).enumerate() {
+                let rotated_wallet_idx = (segment_idx + rotation_offset) % wallets.len();
+                let wallet = &wallets[rotated_wallet_idx];
+                let wallet_pub = wallet.pubkey();
 
-                total_depth += level.size * level.price;
+                for (idx, level) in segment.iter().enumerate() {
+                    let global_idx = (segment_idx * 32 + idx) as u32;
+                    let side_str = match level.side {
+                        crate::domain::OrderSide::Buy => "BUY",
+                        crate::domain::OrderSide::Sell => "SELL",
+                    };
 
-                info!(
-                    side = %side_str,
-                    price = %level.price,
-                    size = %level.size,
-                    "Scheduling grid order (Phase 1 simulation)"
-                );
+                    gauge!(
+                        "bot_grid_level_price",
+                        level.price.to_f64().unwrap_or(0.0),
+                        "side" => side_str,
+                        "index" => global_idx.to_string(),
+                        "wallet" => wallet_pub.to_string()
+                    );
+                    gauge!(
+                        "bot_grid_level_size",
+                        level.size.to_f64().unwrap_or(0.0),
+                        "side" => side_str,
+                        "index" => global_idx.to_string(),
+                        "wallet" => wallet_pub.to_string()
+                    );
+
+                    total_depth += level.size * level.price;
+
+                    info!(
+                        side = %side_str,
+                        price = %level.price,
+                        size = %level.size,
+                        wallet = %wallet_pub,
+                        "Scheduling grid order (Phase 1 simulation)"
+                    );
+                }
             }
 
             // 9. Performance Indicators
@@ -369,13 +417,35 @@ impl TradingService {
         }
 
         // 11. Execute Financial Manager checks
-        self.financial_manager.check_balances().await?;
+        self.financial_manager
+            .check_balances(market_data.price)
+            .await?;
         self.financial_manager
             .rebalance_fiat(market_data.price, pivot)
             .await?;
 
         // 12. Periodic Rent Recovery
         self.rent_recovery.recover_rent().await?;
+
+        // 12a. Periodic RugCheck (BMV-14)
+        if self._settings.rugcheck.enabled {
+            let last_rugcheck_ts = self
+                .database
+                .get_state("rugcheck_last_ts")
+                .await?
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(0);
+
+            if now - last_rugcheck_ts >= self._settings.rugcheck.check_interval_secs as i64 {
+                if let Err(e) = self.rugcheck.fetch_score(&self._settings.token_mint).await {
+                    warn!(error = %e, "rugcheck_failed");
+                } else {
+                    self.database
+                        .set_state("rugcheck_last_ts", &now.to_string())
+                        .await?;
+                }
+            }
+        }
 
         // 13. Save price history for dashboard visualization
         if !bmv_price_sol.is_zero() && !sol_usdc_price.is_zero() {
