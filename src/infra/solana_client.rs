@@ -1,7 +1,6 @@
 use crate::domain::{MarketUpdate, Orderbook};
 use crate::infra::openbook::{
-    parse_book_side_v1, parse_book_side_v2, MarketStateV1, MarketStateV2, OPENBOOK_V1_PROGRAM_ID,
-    OPENBOOK_V2_PROGRAM_ID,
+    parse_book_side_v1, parse_book_side_v2, MarketStateV1, MarketStateV2, OPENBOOK_V2_PROGRAM_ID,
 };
 use rust_decimal::Decimal;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -232,7 +231,7 @@ impl SolanaClient {
             .map_err(|e| anyhow!("Failed to parse market_id '{}': {}", market_id, e))?;
         let market_data = self.client.get_account_data(&market_pubkey).await?;
 
-        let (bids_pubkey, asks_pubkey, bids, asks) = if market_data.len() == 388 {
+        let (_bids_pubkey, _asks_pubkey, bids, asks) = if market_data.len() == 388 {
             let market_state = MarketStateV1::unpack(&market_data)?;
             let bids_pubkey = market_state.bids;
             let asks_pubkey = market_state.asks;
