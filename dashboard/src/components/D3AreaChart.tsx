@@ -215,13 +215,14 @@ export default function D3AreaChart({
                 focus.style("display", null)
                     .attr("transform", `translate(${x(d.time)},${y(Number(d[dataKey]))})`);
 
+                const [cx, cy] = d3.pointer(event, containerRef.current);
                 tooltip.style("visibility", "visible")
                     .html(`
                     <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
                     <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toFixed(6)}</div>
                 `)
-                    .style("top", `${event.pageY - 100}px`)
-                    .style("left", `${event.pageX + 10}px`);
+                    .style("top", `${cy - 120}px`)
+                    .style("left", `${cx + 20}px`);
             }
         });
 

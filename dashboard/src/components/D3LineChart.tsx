@@ -49,10 +49,12 @@ export default function D3LineChart({ data, services }: D3LineChartProps) {
             .domain(data.map(d => d.time))
             .range([0, width]);
 
+        const yMax = d3.max(data, d => {
+            return Math.max(...services.map(s => d[s] || 0));
+        }) || 100;
+
         const y = d3.scaleLinear()
-            .domain([0, d3.max(data, d => {
-                return Math.max(...services.map(s => d[s] || 0));
-            }) * 1.1])
+            .domain([0, yMax * 1.1])
             .range([height, 0]);
 
         const color = d3.scaleOrdinal<string>()
@@ -177,10 +179,11 @@ export default function D3LineChart({ data, services }: D3LineChartProps) {
                     }
                 });
 
+                const [cx, cy] = d3.pointer(event, containerRef.current);
                 tooltip.style("visibility", "visible")
                     .html(tooltipHtml)
-                    .style("top", `${event.pageY - 120}px`)
-                    .style("left", `${event.pageX + 10}px`);
+                    .style("top", `${cy - 140}px`)
+                    .style("left", `${cx + 20}px`);
             }
         });
 
