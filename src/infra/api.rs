@@ -66,6 +66,7 @@ impl ApiServer {
             .route("/health", get(handle_health))
             .route("/stats", get(handle_stats))
             .route("/history", get(handle_history))
+            .route("/latency", get(handle_latency))
             .route("/control", post(handle_control))
             .layer(CorsLayer::permissive())
             .with_state(self.state);
@@ -109,6 +110,37 @@ async fn handle_history(State(state): State<ApiState>) -> Json<Vec<crate::domain
         .await
         .unwrap_or_default();
     Json(history)
+}
+
+async fn handle_latency(State(state): State<ApiState>) -> Json<serde_json::Value> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let since = now - 24 * 3600;
+
+    let services = [
+        "Solana RPC",
+        "Database (Postgres)",
+        "Database (PostgreSQL)",
+        "Jito Bundler",
+        "OpenBook DEX",
+    ];
+
+    let mut all_history = std::collections::HashMap::new();
+
+    for service in services {
+        let history = state
+            .database
+            .get_latency_history(service, since)
+            .await
+            .unwrap_or_default();
+        if !history.is_empty() {
+            all_history.insert(service, history);
+        }
+    }
+
+    Json(serde_json::to_value(all_history).unwrap_or_default())
 }
 
 async fn handle_control(

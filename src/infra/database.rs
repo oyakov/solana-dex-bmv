@@ -83,6 +83,52 @@ impl crate::infra::DatabaseProvider for Database {
 
         Ok(ticks)
     }
+
+    async fn save_latency_report(&self, report: &crate::infra::health::HealthReport) -> Result<()> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs() as i64;
+
+        sqlx::query(
+            "INSERT INTO latency_history (timestamp, service_name, status, latency_ms)
+            VALUES ($1, $2, $3, $4)",
+        )
+        .bind(timestamp)
+        .bind(&report.service_name)
+        .bind(report.status.to_status_string())
+        .bind(report.latency_ms as i64)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn get_latency_history(
+        &self,
+        service_name: &str,
+        since_ts: i64,
+    ) -> Result<Vec<crate::domain::LatencyTick>> {
+        let rows: Vec<(i64, String, String, i64)> = sqlx::query_as(
+            "SELECT timestamp, service_name, status, latency_ms FROM latency_history 
+             WHERE service_name = $1 AND timestamp >= $2 ORDER BY timestamp ASC",
+        )
+        .bind(service_name)
+        .bind(since_ts)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let ticks = rows
+            .into_iter()
+            .map(|r| crate::domain::LatencyTick {
+                timestamp: r.0,
+                service_name: r.1,
+                status: r.2,
+                latency_ms: r.3,
+            })
+            .collect();
+
+        Ok(ticks)
+    }
 }
 
 #[allow(dead_code)]
@@ -120,6 +166,25 @@ impl Database {
                 asset_price TEXT NOT NULL,
                 sol_price TEXT NOT NULL
             )",
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS latency_history (
+                id SERIAL PRIMARY KEY,
+                timestamp BIGINT NOT NULL,
+                service_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                latency_ms BIGINT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        // Add index on service_name and timestamp for faster queries
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_latency_history_service_time ON latency_history (service_name, timestamp)",
         )
         .execute(&pool)
         .await?;

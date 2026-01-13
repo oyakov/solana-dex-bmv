@@ -96,4 +96,10 @@ pub trait DatabaseProvider: Send + Sync {
     async fn save_price_tick(&self, asset_price: Decimal, sol_price: Decimal) -> Result<()>;
     async fn save_historical_price_ticks(&self, ticks: Vec<(i64, Decimal, Decimal)>) -> Result<()>;
     async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>>;
+    async fn save_latency_report(&self, report: &crate::infra::health::HealthReport) -> Result<()>;
+    async fn get_latency_history(
+        &self,
+        service_name: &str,
+        since_ts: i64,
+    ) -> Result<Vec<crate::domain::LatencyTick>>;
 }

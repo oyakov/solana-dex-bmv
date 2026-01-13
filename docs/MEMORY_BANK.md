@@ -11,6 +11,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 ## Runtime Status
 - [**Active Context**](memory-bank/activeContext.md): Current focus, recent changes, and immediate tasks.
 - [**Progress**](memory-bank/progress.md): Roadmap status and phase completion tracking.
+- **Network Observability**: In-system latency tracking for external dependencies (OpenBook, Jito, Solana).
 
 ## Operational Guides
 - [README](../README.md): Quick start and execution guide.

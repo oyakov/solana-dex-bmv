@@ -4248,7 +4248,7 @@ dependencies = [
 
 [[package]]
 name = "solana-dex-bmv"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-trait",

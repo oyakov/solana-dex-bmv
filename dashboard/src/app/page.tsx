@@ -24,8 +24,11 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  Legend
+  Legend,
+  ReferenceArea
 } from "recharts";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PriceTick {
@@ -45,11 +48,25 @@ export default function Dashboard() {
   const [history, setHistory] = useState<PriceTick[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [mounted, setMounted] = useState(false);
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+    const updateTime = () => {
+      setTime(new Date().toLocaleTimeString([], { hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         // In local dev, we might need to point to the server IP or use a proxy
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        const host = hostname === 'localhost' ? '127.0.0.1' : hostname;
         const statsRes = await fetch(`http://${host}:8080/stats`);
         if (statsRes.ok) {
           const data = await statsRes.json();
@@ -114,17 +131,17 @@ export default function Dashboard() {
             <h1 className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
               BMV ECO
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.1</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.3</p>
           </div>
         </div>
 
         <nav className="flex-1 space-y-1">
-          <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active />
+          <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active href="/" />
+          <NavItem icon={<Clock size={18} />} label="Latency" href="/latency" />
           <NavItem icon={<Activity size={18} />} label="Strategy Logs" />
           <NavItem icon={<BarChart3 size={18} />} label="Performance" />
           <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" />
           <NavItem icon={<Database size={18} />} label="API Docs" />
-          <NavItem icon={<Settings size={18} />} label="Settings" />
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/5">
@@ -161,7 +178,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/5">
                 <Clock size={14} className="text-slate-500" />
                 <span className="text-xs font-mono text-slate-300">
-                  {new Date().toLocaleTimeString([], { hour12: false })}
+                  {mounted ? time : "00:00:00"}
                 </span>
               </div>
               <button className="px-6 py-2 bg-cyan-500 text-black font-black text-xs uppercase tracking-widest rounded-full hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20">
@@ -223,32 +240,45 @@ export default function Dashboard() {
                 </h3>
 
                 <div className="h-[400px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorAsset" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
-                      <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                        itemStyle={{ color: '#22d3ee', fontWeight: 'bold', fontSize: '12px' }}
-                        labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                      />
-                      <Legend
-                        verticalAlign="top"
-                        align="right"
-                        height={36}
-                        iconType="circle"
-                        formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
-                      />
-                      <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {mounted && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorAsset" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
+                        <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
+                          itemStyle={{ color: '#22d3ee', fontWeight: 'bold', fontSize: '12px' }}
+                          labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                        />
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          height={36}
+                          iconType="circle"
+                          formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
+                        />
+                        <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
+                        {stats.pivot_price !== "0.00" && (
+                          <ReferenceArea
+                            y1={parseFloat(stats.pivot_price) * (1 - parseFloat(stats.buy_channel_width) / 100)}
+                            y2={parseFloat(stats.pivot_price) * (1 + parseFloat(stats.sell_channel_width) / 100)}
+                            fill="#22d3ee"
+                            fillOpacity={0.05}
+                            stroke="#22d3ee"
+                            strokeOpacity={0.2}
+                            strokeDasharray="3 3"
+                          />
+                        )}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
 
@@ -258,33 +288,35 @@ export default function Dashboard() {
                   <div className="w-1.5 h-6 bg-purple-400 rounded-full" />
                   SOL/USDC Correlation
                 </h3>
-                <div className="h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorSol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
-                      <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                        itemStyle={{ color: '#a855f7', fontWeight: 'bold', fontSize: '12px' }}
-                        labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                      />
-                      <Legend
-                        verticalAlign="top"
-                        align="right"
-                        height={36}
-                        iconType="circle"
-                        formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
-                      />
-                      <Area name="SOL/USDC Pair" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSol)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="h-[400px] w-full">
+                  {mounted && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorSol" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
+                        <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
+                          itemStyle={{ color: '#a855f7', fontWeight: 'bold', fontSize: '12px' }}
+                          labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                        />
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          height={36}
+                          iconType="circle"
+                          formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
+                        />
+                        <Area name="SOL/USDC Correlation" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSol)" animationDuration={1000} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </div>
@@ -334,8 +366,11 @@ export default function Dashboard() {
   );
 }
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
-  return (
+function NavItem({ icon, label, active: propActive = false, href }: { icon: React.ReactNode, label: string, active?: boolean, href?: string }) {
+  const pathname = usePathname();
+  const active = href ? pathname === href : propActive;
+
+  const content = (
     <div className={`
       flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all cursor-pointer group relative
       ${active ? 'bg-cyan-500/10 text-cyan-400 shadow-inner' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}
@@ -346,6 +381,12 @@ function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label
       {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />}
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
 }
 
 function StatCard({ label, value, subValue, icon, isNeon = false, trend, status }: any) {

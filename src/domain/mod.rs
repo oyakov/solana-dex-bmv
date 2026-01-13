@@ -112,6 +112,14 @@ pub struct PriceTick {
     pub sol_price: Decimal,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyTick {
+    pub timestamp: i64,
+    pub service_name: String,
+    pub status: String,
+    pub latency_ms: i64,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {

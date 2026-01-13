@@ -182,6 +182,13 @@ impl HealthChecker {
 
         self.emit_metrics(&reports);
 
+        // Save reports to database for historical tracking
+        for report in &reports {
+            if let Err(e) = self.database.save_latency_report(report).await {
+                info!("Failed to save latency report: {}", e);
+            }
+        }
+
         reports
     }
 
