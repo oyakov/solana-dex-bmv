@@ -9,6 +9,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
@@ -16,7 +17,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tracing::info;
+use tracing::{error, info};
 
 #[derive(Clone)]
 struct ApiState {
@@ -40,6 +41,17 @@ struct BotStats {
     kill_switch_active: bool,
     total_sol_balance: f64,
     total_usdc_balance: f64,
+    // Ecosystem & Orderbook Metrics
+    spread_bps: f64,
+    imbalance_index: f64,
+    top_holders_percent: f64,
+    safe_haven_index: f64,
+    support_50: rust_decimal::Decimal,
+    support_90: rust_decimal::Decimal,
+    resistance_50: rust_decimal::Decimal,
+    resistance_90: rust_decimal::Decimal,
+    bids: Vec<crate::domain::OrderbookLevel>,
+    asks: Vec<crate::domain::OrderbookLevel>,
 }
 
 #[derive(Serialize)]
@@ -131,6 +143,112 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         total_usdc += usdc_balance;
     }
 
+    // 1. Orderbook Metrics (V1)
+    let market_id = &state.settings.openbook_market_id;
+    let orderbook = state.solana.get_orderbook(market_id).await.ok();
+
+    let mut spread_bps = 0.0;
+    let mut imbalance_index = 0.0;
+    let mut bids = Vec::new();
+    let mut asks = Vec::new();
+
+    let mut support_50 = rust_decimal::Decimal::ZERO;
+    let mut support_90 = rust_decimal::Decimal::ZERO;
+    let mut resistance_50 = rust_decimal::Decimal::ZERO;
+    let mut resistance_90 = rust_decimal::Decimal::ZERO;
+
+    if let Some(ob) = orderbook {
+        bids = ob.bids;
+        asks = ob.asks;
+
+        if let (Some(best_bid), Some(best_ask)) = (bids.first(), asks.first()) {
+            let mid = (best_bid.price + best_ask.price) / rust_decimal::Decimal::from(2);
+            if mid > rust_decimal::Decimal::ZERO {
+                let spread = best_ask.price - best_bid.price;
+                spread_bps = (spread / mid).to_f64().unwrap_or(0.0) * 10000.0;
+            }
+        }
+
+        let bid_depth: f64 = bids.iter().map(|l| l.size.to_f64().unwrap_or(0.0)).sum();
+        let ask_depth: f64 = asks.iter().map(|l| l.size.to_f64().unwrap_or(0.0)).sum();
+        if (bid_depth + ask_depth) > 0.0 {
+            imbalance_index = (bid_depth - ask_depth) / (bid_depth + ask_depth);
+        }
+
+        // Calculate 50% and 90% liquidity levels
+        let find_level = |levels: &Vec<crate::domain::OrderbookLevel>,
+                          total_depth: f64,
+                          target_percent: f64|
+         -> rust_decimal::Decimal {
+            let target = total_depth * target_percent;
+            let mut current = 0.0;
+            for level in levels {
+                current += level.size.to_f64().unwrap_or(0.0);
+                if current >= target {
+                    return level.price;
+                }
+            }
+            levels
+                .last()
+                .map(|l| l.price)
+                .unwrap_or(rust_decimal::Decimal::ZERO)
+        };
+
+        support_50 = find_level(&bids, bid_depth, 0.5);
+        support_90 = find_level(&bids, bid_depth, 0.9);
+        resistance_50 = find_level(&asks, ask_depth, 0.5);
+        resistance_90 = find_level(&asks, ask_depth, 0.9);
+    }
+
+    // 2. Ecosystem Health (SPL Token)
+    let token_mint_str = &state.settings.token_mint;
+    let token_mint = Pubkey::from_str(token_mint_str).unwrap_or_default();
+
+    let mut top_holders_percent = 0.0;
+    if let (Ok(largest_accounts), Ok(supply)) = (
+        state.solana.get_token_largest_accounts(&token_mint).await,
+        state.solana.get_token_supply(&token_mint).await,
+    ) {
+        if supply > 0 {
+            let top_10_sum: u64 = largest_accounts.iter().take(10).map(|(_, amt)| amt).sum();
+            top_holders_percent = (top_10_sum as f64 / supply as f64) * 100.0;
+        }
+    }
+
+    // 3. Safe Haven Index (Correlation)
+    // For now, using a simplified 24h performance delta
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let since = now - 86400;
+    let mut safe_haven_index = 1.0;
+
+    if let Ok(history) = state.database.get_price_history(since).await {
+        if let (Some(first), Some(last)) = (history.first(), history.last()) {
+            let sol_change = if first.sol_price > rust_decimal::Decimal::ZERO {
+                (last.sol_price - first.sol_price) / first.sol_price
+            } else {
+                rust_decimal::Decimal::ZERO
+            };
+            let bmv_change = if first.asset_price > rust_decimal::Decimal::ZERO {
+                (last.asset_price - first.asset_price) / first.asset_price
+            } else {
+                rust_decimal::Decimal::ZERO
+            };
+
+            // If SOL drops and BMV is stable/up, index > 1
+            let sol_perf = sol_change.to_f64().unwrap_or(0.0);
+            let bmv_perf = bmv_change.to_f64().unwrap_or(0.0);
+
+            if sol_perf < 0.0 {
+                safe_haven_index = (1.0 + bmv_perf) / (1.0 + sol_perf);
+            } else {
+                safe_haven_index = (1.0 + bmv_perf) / (1.0 + sol_perf);
+            }
+        }
+    }
+
     Json(BotStats {
         pivot_price: state.pivot_engine.get_last_pivot().await,
         buy_channel_width: state.settings.channel_bounds.buy_percent,
@@ -139,6 +257,16 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         kill_switch_active: false,
         total_sol_balance: total_sol,
         total_usdc_balance: total_usdc,
+        spread_bps,
+        imbalance_index,
+        top_holders_percent,
+        safe_haven_index,
+        support_50,
+        support_90,
+        resistance_50,
+        resistance_90,
+        bids: bids.into_iter().take(20).collect(), // Send top 20 for depth chart
+        asks: asks.into_iter().take(20).collect(),
     })
 }
 

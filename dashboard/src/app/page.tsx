@@ -14,12 +14,17 @@ import {
   Globe,
   Database,
   BarChart3,
-  Clock
+  Clock,
+  Users,
+  Scale,
+  ShieldCheck,
+  TrendingDown
 } from "lucide-react";
 import {
   ReferenceArea
 } from "recharts";
 import D3AreaChart from "../components/D3AreaChart";
+import D3DepthChart from "../components/D3DepthChart";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +44,16 @@ export default function Dashboard() {
     kill_switch_active: false,
     total_sol_balance: 0,
     total_usdc_balance: 0,
+    spread_bps: 0,
+    imbalance_index: 0,
+    top_holders_percent: 0,
+    safe_haven_index: 1.0,
+    support_50: "0.00",
+    support_90: "0.00",
+    resistance_50: "0.00",
+    resistance_90: "0.00",
+    bids: [] as { price: number; size: number }[],
+    asks: [] as { price: number; size: number }[],
   });
   const [history, setHistory] = useState<PriceTick[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +110,7 @@ export default function Dashboard() {
         const statsRes = await fetch(`http://${host}:8080/stats`);
         if (statsRes.ok) {
           const data = await statsRes.json();
-          setStats(data);
+          setStats(prev => ({ ...prev, ...data }));
         }
 
         const historyRes = await fetch(`http://${host}:8080/history`);
@@ -244,6 +259,39 @@ export default function Dashboard() {
               icon={<Activity className="text-purple-400" />}
               trend="-0.4%"
             />
+          </div>
+
+          {/* Enhanced Analytics Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              label="Whale Index"
+              value={`${(stats.top_holders_percent ?? 0).toFixed(1)}%`}
+              subValue="Concentration in Top 10"
+              icon={<Users className="text-cyan-400" />}
+              status={(stats.top_holders_percent ?? 0) > 50 ? "Centralized" : "Healthy"}
+            />
+            <StatCard
+              label="Order Imbalance"
+              value={`${((stats.imbalance_index ?? 0) * 100).toFixed(1)}%`}
+              subValue={(stats.imbalance_index ?? 0) > 0 ? "Bid Dominance" : "Ask Dominance"}
+              icon={<Scale className={`${(stats.imbalance_index ?? 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`} />}
+            />
+            <StatCard
+              label="Safe Haven Index"
+              value={`${(stats.safe_haven_index ?? 1.0).toFixed(2)}x`}
+              subValue="Beta vs Solana Index"
+              icon={<ShieldCheck className="text-blue-400" />}
+            />
+            <StatCard
+              label="Market Spread"
+              value={`${(stats.spread_bps ?? 0).toFixed(2)} bps`}
+              subValue="Real-time Liquidity Gap"
+              icon={<Zap className="text-yellow-400" />}
+              status={(stats.spread_bps ?? 0) < 10 ? "Tight" : "Wide"}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               label="Node Status"
               value={`${stats.active_wallets} Active`}
@@ -347,15 +395,54 @@ export default function Dashboard() {
                   />
 
                   <div className="mt-10 pt-10 border-t border-white/5">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-6">Market Microstructure</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-6 font-mono flex items-center justify-between">
+                      <span>Order Book V1</span>
+                      <span className="text-cyan-400">Live</span>
+                    </h4>
                     <div className="space-y-3">
-                      <DepthBar side="sell" width="w-[30%]" price="100.4" size="1.4k" />
-                      <DepthBar side="sell" width="w-[15%]" price="100.2" size="0.8k" />
-                      <div className="py-2 text-center">
-                        <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full font-bold">100.1 MID</span>
+                      {stats.asks.slice(0, 3).reverse().map((ask, i) => (
+                        <DepthBar key={`ask-${i}`} side="sell" width={`w-[${Math.min(100, (ask.size / 100) * 100)}%]`} price={ask.price.toString()} size={ask.size.toFixed(1)} />
+                      ))}
+                      <div className="py-2 text-center relative">
+                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div className="w-full border-t border-white/5"></div>
+                        </div>
+                        <span className="relative z-10 text-[10px] bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full font-black tracking-tighter ring-1 ring-cyan-500/20">
+                          {formatPrice(stats.pivot_price)} MID
+                        </span>
                       </div>
-                      <DepthBar side="buy" width="w-[65%]" price="100.0" size="4.2k" />
-                      <DepthBar side="buy" width="w-[40%]" price="99.8" size="2.1k" />
+                      {stats.bids.slice(0, 3).map((bid, i) => (
+                        <DepthBar key={`bid-${i}`} side="buy" width={`w-[${Math.min(100, (bid.size / 100) * 100)}%]`} price={bid.price.toString()} size={bid.size.toFixed(1)} />
+                      ))}
+                    </div>
+
+                    <div className="mt-6 flex flex-col gap-2 p-4 glass-panel rounded-2xl border border-white/5 bg-cyan-500/5">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <span>Liquidity Concentr.</span>
+                        <span className="text-cyan-400">Target Level</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">RESIST (90%)</span>
+                          <span className="text-rose-400 font-bold">{formatPrice(stats.resistance_90)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">RESIST (50%)</span>
+                          <span className="text-rose-400/80">{formatPrice(stats.resistance_50)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-white/5">
+                          <span className="text-slate-400">SUPPORT (50%)</span>
+                          <span className="text-emerald-400/80">{formatPrice(stats.support_50)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">SUPPORT (90%)</span>
+                          <span className="text-emerald-400 font-bold">{formatPrice(stats.support_90)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 h-[120px] w-full glass-panel rounded-xl p-2 border border-white/5 overflow-hidden">
+                      <D3DepthChart bids={stats.bids} asks={stats.asks} />
                     </div>
                   </div>
                 </div>

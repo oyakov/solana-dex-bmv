@@ -196,6 +196,14 @@ impl crate::infra::SolanaProvider for SolanaClient {
         self.close_open_orders_account_impl(signer, open_orders)
             .await
     }
+
+    async fn get_token_largest_accounts(&self, mint: &Pubkey) -> Result<Vec<(Pubkey, u64)>> {
+        self.get_token_largest_accounts_impl(mint).await
+    }
+
+    async fn get_token_supply(&self, mint: &Pubkey) -> Result<u64> {
+        self.get_token_supply_impl(mint).await
+    }
 }
 
 impl SolanaClient {
@@ -783,14 +791,35 @@ impl SolanaClient {
             &signer.pubkey(),
             &signer.pubkey(),
         );
-        let bh = self.client.get_latest_blockhash().await?;
+        let blockhash = self.client.get_latest_blockhash().await?;
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&signer.pubkey()),
-            &[signer as &dyn Signer],
-            bh,
+            &[signer],
+            blockhash,
         );
-        let sig = self.client.send_and_confirm_transaction(&tx).await?;
-        Ok(sig.to_string())
+        let signature = self.client.send_and_confirm_transaction(&tx).await?;
+        Ok(signature.to_string())
+    }
+
+    pub async fn get_token_largest_accounts_impl(
+        &self,
+        mint: &Pubkey,
+    ) -> Result<Vec<(Pubkey, u64)>> {
+        let resp = self.client.get_token_largest_accounts(mint).await?;
+        let mut accounts = Vec::new();
+        for acc in resp {
+            if let Ok(pubkey) = Pubkey::from_str(&acc.address) {
+                let amount = acc.amount.amount.parse::<u64>().unwrap_or(0);
+                accounts.push((pubkey, amount));
+            }
+        }
+        Ok(accounts)
+    }
+
+    pub async fn get_token_supply_impl(&self, mint: &Pubkey) -> Result<u64> {
+        let resp = self.client.get_token_supply(mint).await?;
+        let amount = resp.amount.parse::<u64>().unwrap_or(0);
+        Ok(amount)
     }
 }
