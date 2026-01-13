@@ -30,6 +30,11 @@
 ## Phase 4: Strategy & Growth (PLANNED)
 - [ ] PnL Tracking (Enhanced).
 - [ ] Growth Model for profit reinvestment.
+- [ ] **v2.7 Compliance Adjustments**:
+    - [ ] Swarm Grid Segmentation (32-order limit) [BMV-50].
+    - [ ] Proximity-based Rebalance [BMV-51].
+    - [ ] L2 Orderbook Scan (Front-running protection) [BMV-52].
+    - [ ] SOL Auto-injection [BMV-53].
 
 ## Phase 5: Safety & Monitoring (DONE)
 - [x] Kill Switch (File/TUI) [BMV-33](https://linear.app/oleg-yakovlev/issue/BMV-33).
@@ -37,5 +42,5 @@
 - [x] Target Control Percent logic (emission monitoring).
 - [x] Web Dashboard (Superseded TUI) [BMV-34](https://linear.app/oleg-yakovlev/issue/BMV-34).
 
-## Total Completion: ~75%
-Current focus is transitioning to Phase 3: Stealth and protection, including wallet rotation and advanced randomized delay logic.
+## Total Completion: ~70%
+Current focus is transitioning to Phase 3: Stealth and protection, while addressing critical compliance gaps identified during the v2.7 audit (BMV-50 to BMV-53).

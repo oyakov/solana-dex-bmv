@@ -4,6 +4,8 @@
 Implementing Phase 3 features: Wallet Rotation and advanced Stealth mechanisms.
 
 ## Recent Changes
+- **Version 0.3.5 (Planned)**:
+    - **Compliance Audit (v2.7)**: Completed comprehensive compliance audit. Identified gaps in Swarm Orchestration, Advanced Rebalancing, and Financial Autonomy.
 - **Version 0.3.4**:
     - **Target Control**: Implemented `target_control_percent` logic to monitor free emission versus bot holdings.
     - **Jito Hardening**: Refined connection pooling and error recovery in `SolanaClient`.
@@ -30,6 +32,9 @@ Implementing Phase 3 features: Wallet Rotation and advanced Stealth mechanisms.
 - [x] Jito infrastructure hardening.
 
 ## Known Issues / Tasks
-- [ ] Proximity-based rebalance refinement (BMV-32 follow-up).
+- [ ] Implement Swarm Grid Segmentation and 32-Order Limit (BMV-50).
+- [ ] Implement Proximity-based Rebalance (< 3%) (BMV-51).
+- [ ] Implement L2 Orderbook Scan and 1-Tick Protection (BMV-52).
+- [ ] Finalize SOL Auto-injection in Financial Manager (BMV-53).
 - [ ] Multi-wallet PnL view consolidation.
 - [ ] Review Jito tip dynamics versus network congestion.
