@@ -242,50 +242,68 @@ export default function D3AreaChart({
             .attr("stroke", "#fff")
             .attr("stroke-width", 2);
 
-        svg.on("mousemove", (event) => {
-            const [mx, my] = d3.pointer(event);
-            const mouseX = mx - margin.left;
+        // Vertical Ruler Line
+        const ruler = focus.append("line")
+            .attr("x1", 0)
+            .attr("y1", -height) // Crosses the whole chart height
+            .attr("x2", 0)
+            .attr("y2", height)
+            .attr("stroke", "#ffffff44")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "4 4");
 
-            // Find nearest point
-            const domain = x.domain();
-            const range = x.range();
-            const proportions = domain.map((_, i) => (range[i] || 0));
+        // Overlay for precise pointer events (inside margins)
+        g.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "transparent")
+            .attr("style", "pointer-events: all; cursor: crosshair;")
+            .on("mousemove", (event) => {
+                const [mouseX] = d3.pointer(event); // Already relative to 'g'
 
-            let nearestIndex = 0;
-            let minDiff = Infinity;
+                // Find nearest point
+                const domain = x.domain();
+                const proportions = domain.map(d => x(d) || 0);
 
-            proportions.forEach((pos, i) => {
-                const diff = Math.abs(pos - mouseX);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    nearestIndex = i;
+                let nearestIndex = 0;
+                let minDiff = Infinity;
+
+                proportions.forEach((pos, i) => {
+                    const diff = Math.abs(pos - mouseX);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        nearestIndex = i;
+                    }
+                });
+
+                const d = data[nearestIndex];
+                if (d) {
+                    const xPos = x(d.time) || 0;
+                    const yPos = y(Number(d[dataKey]));
+
+                    focus.style("display", null)
+                        .attr("transform", `translate(${xPos},${yPos})`);
+
+                    // Adjust ruler relative to translated focus group
+                    ruler.attr("y1", -yPos).attr("y2", height - yPos);
+
+                    const [cx, cy] = d3.pointer(event, containerRef.current);
+                    tooltip.style("visibility", "visible")
+                        .html(`
+                        <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
+                        <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 })}</div>
+                    `)
+                        .style("top", `${cy - 120}px`)
+                        .style("left", `${cx + 20}px`);
                 }
+            })
+            .on("mouseleave", () => {
+                focus.style("display", "none");
+                tooltip.style("visibility", "hidden");
+                d3.select(containerRef.current).selectAll(".d3-tooltip").style("visibility", "hidden");
             });
 
-            const d = data[nearestIndex];
-            if (d && mouseX >= 0 && mouseX <= width) {
-                focus.style("display", null)
-                    .attr("transform", `translate(${x(d.time)},${y(Number(d[dataKey]))})`);
-
-                const [cx, cy] = d3.pointer(event, containerRef.current);
-                tooltip.style("visibility", "visible")
-                    .html(`
-                    <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
-                    <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 })}</div>
-                `)
-                    .style("top", `${cy - 120}px`)
-                    .style("left", `${cx + 20}px`);
-            }
-        });
-
-        svg.on("mouseleave", () => {
-            focus.style("display", "none");
-            tooltip.style("visibility", "hidden");
-            // Final safety cleanup: remove any tooltips that might have been stranded
-            d3.select(containerRef.current).selectAll(".d3-tooltip").style("visibility", "hidden");
-        });
-
-    }, [data, dimensions, color, dataKey, gradientId, name, pivotPrice, buyChannelWidth, sellChannelWidth]);
+    }, [data, dimensions, color, dataKey, gradientId, name, pivotPrice, buyChannelWidth, sellChannelWidth, yAxisFormatter, customMargin]);
 
     return (
         <div ref={containerRef} className="w-full h-full relative">
