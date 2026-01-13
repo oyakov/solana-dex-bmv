@@ -14,16 +14,7 @@ import {
     Flame,
     Globe
 } from "lucide-react";
-import {
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    Legend
-} from "recharts";
+import D3LineChart from "../../components/D3LineChart";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -180,30 +171,7 @@ export default function LatencyDashboard() {
                         </h3>
                         <div className="h-[500px] w-full">
                             {mounted && (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
-                                        <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                            labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                                        />
-                                        <Legend />
-                                        {services.map((service, index) => (
-                                            <Line
-                                                key={service}
-                                                type="monotone"
-                                                dataKey={service}
-                                                stroke={['#22d3ee', '#a855f7', '#fbbf24', '#f87171', '#34d399'][index % 5]}
-                                                strokeWidth={2}
-                                                dot={false}
-                                                animationDuration={1000}
-                                            />
-                                        ))}
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <D3LineChart data={chartData} services={services} />
                             )}
                         </div>
                     </div>

@@ -517,6 +517,10 @@ mod tests {
             .expect_find_open_orders()
             .returning(|_, _| Ok(None));
 
+        mock_database
+            .expect_save_price_tick()
+            .returning(|_, _| Ok(()));
+
         // Settings to disable noisy modules if possible or just handle them
         let mut settings = BotSettings::default();
         settings.flash_volume.enabled = false;

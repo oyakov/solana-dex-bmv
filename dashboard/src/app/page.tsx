@@ -17,16 +17,9 @@ import {
   Clock
 } from "lucide-react";
 import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  Legend,
   ReferenceArea
 } from "recharts";
+import D3AreaChart from "../components/D3AreaChart";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -241,43 +234,15 @@ export default function Dashboard() {
 
                 <div className="h-[400px] w-full">
                   {mounted && (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorAsset" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
-                        <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                          itemStyle={{ color: '#22d3ee', fontWeight: 'bold', fontSize: '12px' }}
-                          labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                        />
-                        <Legend
-                          verticalAlign="top"
-                          align="right"
-                          height={36}
-                          iconType="circle"
-                          formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
-                        />
-                        <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
-                        {stats.pivot_price !== "0.00" && (
-                          <ReferenceArea
-                            y1={parseFloat(stats.pivot_price) * (1 - parseFloat(stats.buy_channel_width) / 100)}
-                            y2={parseFloat(stats.pivot_price) * (1 + parseFloat(stats.sell_channel_width) / 100)}
-                            fill="#22d3ee"
-                            fillOpacity={0.05}
-                            stroke="#22d3ee"
-                            strokeOpacity={0.2}
-                            strokeDasharray="3 3"
-                          />
-                        )}
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <D3AreaChart
+                      data={chartData}
+                      dataKey="asset"
+                      color="#22d3ee"
+                      gradientId="colorAsset"
+                      name="BMV Base Price"
+                      pivotPrice={parseFloat(stats.pivot_price)}
+                      channelWidth={parseFloat(stats.buy_channel_width)}
+                    />
                   )}
                 </div>
               </div>
@@ -290,32 +255,13 @@ export default function Dashboard() {
                 </h3>
                 <div className="h-[400px] w-full">
                   {mounted && (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorSol" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff11" vertical={false} />
-                        <XAxis dataKey="time" stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#ffffff66" fontSize={12} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff22', borderRadius: '16px', backdropFilter: 'blur(10px)' }}
-                          itemStyle={{ color: '#a855f7', fontWeight: 'bold', fontSize: '12px' }}
-                          labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                        />
-                        <Legend
-                          verticalAlign="top"
-                          align="right"
-                          height={36}
-                          iconType="circle"
-                          formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
-                        />
-                        <Area name="SOL/USDC Correlation" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSol)" animationDuration={1000} />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <D3AreaChart
+                      data={chartData}
+                      dataKey="sol"
+                      color="#a855f7"
+                      gradientId="colorSol"
+                      name="SOL Correlation"
+                    />
                   )}
                 </div>
               </div>
