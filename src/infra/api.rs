@@ -15,6 +15,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use futures_util::future;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
@@ -169,21 +170,26 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     let mut total_sol = 0.0;
     let mut total_usdc = 0.0;
 
-    for wallet in &wallets {
+    let balance_futures = wallets.iter().map(|wallet| {
+        let solana = state.solana.clone();
         let pubkey = wallet.pubkey();
         let pubkey_str = pubkey.to_string();
+        let usdc_mint = usdc_mint.clone();
+        async move {
+            let sol = solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
+            let usdc = solana
+                .get_token_balance(&pubkey, &usdc_mint)
+                .await
+                .unwrap_or(0) as f64
+                / 1_000_000.0;
+            (sol, usdc)
+        }
+    });
 
-        let sol_balance =
-            state.solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
-        let usdc_balance_raw = state
-            .solana
-            .get_token_balance(&pubkey, &usdc_mint)
-            .await
-            .unwrap_or(0);
-        let usdc_balance = usdc_balance_raw as f64 / 1_000_000.0;
-
-        total_sol += sol_balance;
-        total_usdc += usdc_balance;
+    let results = future::join_all(balance_futures).await;
+    for (sol, usdc) in results {
+        total_sol += sol;
+        total_usdc += usdc;
     }
 
     // 1. Orderbook Metrics (V1)

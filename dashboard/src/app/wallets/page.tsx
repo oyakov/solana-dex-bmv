@@ -57,7 +57,7 @@ export default function WalletsPage() {
                         </div>
                         <div>
                             <h1 className="text-2xl font-black tracking-tighter leading-none">BMV.BOT</h1>
-                            <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">Swarmlord Prototype</p>
+                            <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">System v0.4.3</p>
                         </div>
                     </div>
 

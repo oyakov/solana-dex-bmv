@@ -103,7 +103,7 @@ export default function LatencyDashboard() {
                         <h1 className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
                             BMV ECO
                         </h1>
-                        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.3</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.4.3</p>
                     </div>
                 </div>
 
