@@ -24,7 +24,8 @@
 
 ## Phase 3: Stealth & Protection (IN PROGRESS)
 - [ ] Wallet Rotation Logic.
-- [/] Randomized Delay obfuscation.
+- [x] Randomized Delay obfuscation (Basic implementation).
+- [ ] Jittered execution timing.
 
 ## Phase 4: Strategy & Growth (PLANNED)
 - [ ] PnL Tracking (Enhanced).
@@ -33,8 +34,8 @@
 ## Phase 5: Safety & Monitoring (DONE)
 - [x] Kill Switch (File/TUI) [BMV-33](https://linear.app/oleg-yakovlev/issue/BMV-33).
 - [x] Circuit Breaker [BMV-33](https://linear.app/oleg-yakovlev/issue/BMV-33).
-- [ ] Fiat Floor adjustment logic.
-- [ ] TUI Dashboard [BMV-34](https://linear.app/oleg-yakovlev/issue/BMV-34).
+- [x] Target Control Percent logic (emission monitoring).
+- [x] Web Dashboard (Superseded TUI) [BMV-34](https://linear.app/oleg-yakovlev/issue/BMV-34).
 
-## Total Completion: ~70%
-Current focus is transitioning to Phase 3: Stealth and protection, including wallet rotation and randomized delay logic.
+## Total Completion: ~75%
+Current focus is transitioning to Phase 3: Stealth and protection, including wallet rotation and advanced randomized delay logic.

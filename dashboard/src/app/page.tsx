@@ -46,11 +46,12 @@ export default function Dashboard() {
 
   const formatPrice = (val: string | number) => {
     const num = Number(val);
-    if (isNaN(num)) return "0.00";
-    if (num < 1 && num > 0) {
-      return num.toFixed(8);
+    if (isNaN(num)) return "0.000000";
+    if (num < 1) {
+      // If it's extremely small, show up to 9 decimals
+      return num.toFixed(9);
     }
-    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return num.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 });
   };
 
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function Dashboard() {
             <h1 className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
               BMV ECO
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.3</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.4</p>
           </div>
         </div>
 

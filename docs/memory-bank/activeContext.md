@@ -1,9 +1,13 @@
 # Active Context: BMV Eco System Market Making Bot
 
 ## Current Focus
-Implementing Phase 3 features: Wallet Rotation and Stealth mechanisms.
+Implementing Phase 3 features: Wallet Rotation and advanced Stealth mechanisms.
 
 ## Recent Changes
+- **Version 0.3.4**:
+    - **Target Control**: Implemented `target_control_percent` logic to monitor free emission versus bot holdings.
+    - **Jito Hardening**: Refined connection pooling and error recovery in `SolanaClient`.
+    - **Health Monitoring**: Added Jito-specific reliability checks to `HealthChecker`.
 - **Version 0.3.2**:
     - **CI/Lint Fixes**: Resolved Clippy warnings (`new_without_default`) and fixed compilation errors in tests and `main.rs`.
     - **Infrastructure Enhancement**: Implemented `Default` for `PriceAggregator` and refined module imports.
@@ -21,12 +25,11 @@ Implementing Phase 3 features: Wallet Rotation and Stealth mechanisms.
 
 ## In Progress
 - [ ] Wallet Rotation Logic (Stealth).
-- [ ] Randomized Delay obfuscation.
-- [x] Implementation of core trading loop orchestrator (Rust).
-- [x] Implementation of Prometheus/Grafana observability stack.
-- [x] Integration testing with Jito (Verified on Regxa).
+- [/] Randomized Delay obfuscation refinement.
+- [x] Target Control emission monitoring.
+- [x] Jito infrastructure hardening.
 
 ## Known Issues / Tasks
-- Monitor Jito tip efficiency and adjust if necessary.
-- Refine PnL reporting for multi-wallet scenarios.
-- Update documentation to reflect v0.3.1 status.
+- [ ] Proximity-based rebalance refinement (BMV-32 follow-up).
+- [ ] Multi-wallet PnL view consolidation.
+- [ ] Review Jito tip dynamics versus network congestion.

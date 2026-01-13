@@ -53,9 +53,13 @@ export default function D3AreaChart({
     useEffect(() => {
         if (!svgRef.current || dimensions.width === 0 || dimensions.height === 0 || data.length === 0) return;
 
+        // Tooltip cleanup: ensure no stale tooltips are left from previous renders
+        d3.select(containerRef.current).selectAll(".d3-tooltip").remove();
+
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
 
+        // ... (rest of setup)
         const margin = { top: 40, right: 30, bottom: 40, left: 60 };
         const width = dimensions.width - margin.left - margin.right;
         const height = dimensions.height - margin.top - margin.bottom;
@@ -76,9 +80,11 @@ export default function D3AreaChart({
             ])
             .range([height, 0]);
 
+        // Find fallback pivot: Last price that is not zero
+        const lastValidPrice = [...data].reverse().find(d => Number(d[dataKey]) > 0);
         const effectivePivot = (pivotPrice && pivotPrice > 0)
             ? pivotPrice
-            : Number(data[data.length - 1][dataKey]);
+            : (lastValidPrice ? Number(lastValidPrice[dataKey]) : 0);
 
         if (effectivePivot && effectivePivot > 0 && buyChannelWidth && sellChannelWidth) {
             const lower = effectivePivot * (1 - buyChannelWidth / 100);
@@ -101,9 +107,9 @@ export default function D3AreaChart({
                 .attr("width", width)
                 .attr("height", Math.max(0, yPivot - yUpper))
                 .attr("fill", "#f43f5e") // Rose/Red 500
-                .attr("fill-opacity", 0.12)
+                .attr("fill-opacity", 0.15)
                 .attr("stroke", "#f43f5e")
-                .attr("stroke-opacity", 0.3)
+                .attr("stroke-opacity", 0.4)
                 .attr("stroke-dasharray", "3 3");
 
             // Draw Buy Zone (Green) - Below Pivot
@@ -113,9 +119,9 @@ export default function D3AreaChart({
                 .attr("width", width)
                 .attr("height", Math.max(0, yLower - yPivot))
                 .attr("fill", "#10b981") // Emerald/Green 500
-                .attr("fill-opacity", 0.12)
+                .attr("fill-opacity", 0.15)
                 .attr("stroke", "#10b981")
-                .attr("stroke-opacity", 0.3)
+                .attr("stroke-opacity", 0.4)
                 .attr("stroke-dasharray", "3 3");
 
             // Draw Pivot Line (Dashed Orange)
@@ -151,8 +157,8 @@ export default function D3AreaChart({
 
         const yAxisFormatter = (v: number) => {
             if (v === 0) return "0";
-            if (v < 1) return v.toFixed(8);
-            return v.toFixed(2);
+            if (v < 1) return v.toFixed(9);
+            return v.toFixed(6);
         };
 
         g.append("g")
@@ -259,7 +265,7 @@ export default function D3AreaChart({
                 tooltip.style("visibility", "visible")
                     .html(`
                     <div style="text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 4px;">${d.time}</div>
-                    <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</div>
+                    <div style="font-weight: bold; color: ${color};">${name}: ${Number(d[dataKey]).toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 9 })}</div>
                 `)
                     .style("top", `${cy - 120}px`)
                     .style("left", `${cx + 20}px`);
@@ -269,6 +275,8 @@ export default function D3AreaChart({
         svg.on("mouseleave", () => {
             focus.style("display", "none");
             tooltip.style("visibility", "hidden");
+            // Final safety cleanup: remove any tooltips that might have been stranded
+            d3.select(containerRef.current).selectAll(".d3-tooltip").style("visibility", "hidden");
         });
 
     }, [data, dimensions, color, dataKey, gradientId, name, pivotPrice, buyChannelWidth, sellChannelWidth]);
