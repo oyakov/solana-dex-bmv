@@ -1,13 +1,14 @@
 use solana_dex_bmv::infra::{
-    Database, HealthChecker, PriceAggregator, SolanaClient, WalletManager,
+    Database, DatabaseProvider, HealthChecker, PriceAggregator, SolanaClient, WalletManager,
 };
 use solana_dex_bmv::services::{MarketDataService, PivotEngine, TradingService};
 use solana_dex_bmv::utils::BotSettings;
 
 use anyhow::{Context, Result};
+use rust_decimal::Decimal;
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::sync::Arc;
-use tracing::{error, info, Level};
+use tracing::{error, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -102,10 +103,10 @@ async fn main() -> Result<()> {
     let orchestrator = TradingService::new(
         settings,
         solana,
-        database,
+        database.clone(),
         wallet_manager,
         pivot_engine,
-        price_aggregator,
+        price_aggregator.clone(),
     );
 
     // Setup signal handling for graceful shutdown
@@ -118,6 +119,11 @@ async fn main() -> Result<()> {
     });
 
     info!("Bot is running. Press Ctrl+C to stop.");
+
+    // Perform backfill if requested or needed
+    if let Err(e) = backfill_historical_data(database.clone(), price_aggregator.clone()).await {
+        warn!(error = ?e, "Historical backfill failed, continuing anyway");
+    }
 
     // Run the trading loop with select for signal
     tokio::select! {
@@ -132,5 +138,47 @@ async fn main() -> Result<()> {
     }
 
     info!("Solana DEX BMV bot shutting down gracefully");
+    Ok(())
+}
+
+async fn backfill_historical_data(
+    db: Arc<Database>,
+    aggregator: Arc<PriceAggregator>,
+) -> Result<()> {
+    info!("Checking if price history backfill is needed...");
+
+    // Check if we have recent history (last 1 hour)
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+
+    let history = db.get_price_history(now - 3600).await?;
+    if history.len() > 5 {
+        info!("Price history already exists, skipping backfill");
+        return Ok(());
+    }
+
+    info!("Fetching historical SOL/USDC data from Binance...");
+    let sol_history = aggregator.fetch_sol_history(48).await?; // Last 48 hours
+
+    if sol_history.is_empty() {
+        warn!("No historical data returned from Binance");
+        return Ok(());
+    }
+
+    // Use current BMV price for the backfill
+    let bmv_price = aggregator
+        .fetch_price_native("HHBeMs1k6mV4bRztdr21vKRYxw6so32QCNkTMfGCR1H")
+        .await
+        .unwrap_or(Decimal::new(11, 6)); // Fallback to 0.000011
+
+    let mut ticks = Vec::new();
+    for (ts, sol_price) in sol_history {
+        ticks.push((ts, bmv_price, sol_price));
+    }
+
+    db.save_historical_price_ticks(ticks).await?;
+    info!("Successfully backfilled historical price data");
+
     Ok(())
 }

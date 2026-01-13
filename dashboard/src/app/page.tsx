@@ -246,7 +246,7 @@ export default function Dashboard() {
                         iconType="circle"
                         formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
                       />
-                      <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={4} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
+                      <Area name="BMV Base Price" type="monotone" dataKey="asset" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#colorAsset)" animationDuration={1000} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -282,7 +282,7 @@ export default function Dashboard() {
                         iconType="circle"
                         formatter={(value: string) => <span className="text-slate-200 text-sm font-bold mr-4">{value.toUpperCase()}</span>}
                       />
-                      <Area name="SOL/USDC Pair" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorSol)" />
+                      <Area name="SOL/USDC Pair" type="monotone" dataKey="sol" stroke="#a855f7" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSol)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

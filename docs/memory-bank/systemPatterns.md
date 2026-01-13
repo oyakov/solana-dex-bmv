@@ -1,42 +1,41 @@
 # System Patterns: BMV Eco System Market Making Bot
 
 ## Architecture Overview
-The system is built as a high-performance, asynchronous, event-driven trading engine using Rust and the `tokio` runtime.
+The system is built as a high-performance, asynchronous, event-driven trading engine using Rust and the `tokio` runtime. It follows a modular, service-oriented structure.
 
-### 1. Unified Async Runtime
-- **Central Core**: Powered by `tokio`.
-- **Lifecycle Management**: Handles startup, shutdown, and task monitoring.
-- **Signal Handling**: Graceful shutdown on termination signals using `tokio::signal`.
+### 1. Core Lifecycle & Infrastructure
+- **Central Core**: Powered by `tokio` (v1.x).
+- **Infrastructure Layer**: Located in `src/infra/`, handles direct external integrations:
+    - `SolanaClient`: RPC communication.
+    - `Database`: PostgreSQL interaction via `sqlx`.
+    - `WalletManager`: Keypair management and rotation (Phase 3).
+    - `PriceAggregator`: Fetching prices from external sources (Binance, Coingecko).
+    - `ApiServer`: Axum-based REST API for observability and control.
 
-### 2. Market Data Pipeline
-- **Subscribers**: Listen to Solana RPC WebSockets for account updates (OpenBook, Raydium).
-- **Normalizers**: Convert raw program data into standard internal models using `serde`.
-- **Queues**: Push normalized events to the strategy engine via `tokio::sync::mpsc`.
+### 2. Market Data Service
+- **Websocket Ingestion**: `MarketDataService` listens to Solana RPC WebSockets for real-time account updates (OpenBook Slab data).
+- **Price Normalization**: Converts raw DEX data into internal price ticks stored in the database.
 
-### 3. Strategy Engine
-- **VWAP Pivot Calculation**: Dynamic calculation of the "True Average Price" including all costs (Market ID rent, Jito tips, fees).
-- **Asymmetric Grid Builder**: 
-    - **Buy Side**: 15% width, exponential volume distribution (larger walls further from pivot).
-    - **Sell Side**: 30% width, exponential volume distribution.
-- **Wallet Manager**: Rotates actions among $N$ wallets to bypass OpenBook's 32-order limit and provide stealth.
+### 3. Logic & Strategy Layer
+- **Pivot Engine**: Dynamic VWAP calculation incorporating market historical data and real-time ticks.
+- **Grid Builder**: Asymmetric grid generation logic with exponential volume distribution.
+- **Trading Service**: The main orchestrator that runs the localized trading loop, manages state, and coordinates with other services.
 
 ### 4. Execution Layer (Jito-First)
-- **Bundle Composition**: Combines multiple instructions (Cancel, Settle, Place) into a single atomic bundle.
-- **Priority Submission**: Uses Jito's Block Engine for MEV-protected, high-speed execution.
-- **Check Mode**: For safe testing without real funds.
+- **Bundle Composition**: `OpenBookDex` (infra) handles raw OpenBook instruction building.
+- **MEV Protection**: Transactions are bundled and submitted via Jito's Block Engine to prevent front-running and ensure atomicity.
 
 ### 5. Safety & Risk Controls
-- **Circuit Breaker**: Halts trading if losses exceed a threshold within a time window.
-- **Kill Switch**: Immediate halt via a sentinel file or manual command.
-- **Fiat Floor**: Dynamically adjusts the SOL-denominated grid to maintain a minimum USD value.
-- **Secret Masking**: Custom `Debug` implementations to prevent private key leakage in logs.
+- **Circuit Breaker**: (Planned) Halts trading on excessive drawdown.
+- **Graceful Shutdown**: Handles OS signals to cancel all open orders and close connections cleanly.
+- **Secret Masking**: Environment variables and masked logging for private keys.
 
 ## Design Patterns
-- **Orchestrator Pattern**: Centralized control of data flow.
-- **Strategy Pattern**: Decoupling the trading logic from the execution layer.
-- **Observer Pattern**: For market data updates using specialized streams.
-- **Clean Architecture**: Separation of Domain, Infrastructure, and Service layers in `src/`.
+- **Orchestrator Pattern**: `TradingService` coordinates the overall flow.
+- **Service Pattern**: Domain logic is encapsulated in dedicated services (Pivot, Grid, MarketData).
+- **Singleton-like Infrastructure**: Core infrastructure components (`Database`, `SolanaClient`) are shared via `Arc`.
+- **Event-Driven**: WebSocket-based market data ingestion triggers updates.
 
 ### 6. Resource Management
-- **Rent Recovery**: Automatically identifies and closes idle OpenBook/Token accounts to recover SOL rent.
-- **Wallet Rebalancing**: Ensures SOL for gas and Jito tips is distributed correctly among active trading wallets.
+- **PostgreSQL Storage**: Efficiently stores high-frequency price history and trade logs.
+- **Memory Efficiency**: Minimal allocation in the hot path of the trading loop.

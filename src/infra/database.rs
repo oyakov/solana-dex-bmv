@@ -35,7 +35,8 @@ impl crate::infra::DatabaseProvider for Database {
 
         sqlx::query(
             "INSERT INTO price_history (timestamp, asset_price, sol_price)
-            VALUES ($1, $2, $3)",
+            VALUES ($1, $2, $3)
+            ON CONFLICT (timestamp) DO NOTHING",
         )
         .bind(timestamp)
         .bind(asset_price.to_string())
@@ -43,6 +44,22 @@ impl crate::infra::DatabaseProvider for Database {
         .execute(&self.pool)
         .await?;
 
+        Ok(())
+    }
+
+    async fn save_historical_price_ticks(&self, ticks: Vec<(i64, Decimal, Decimal)>) -> Result<()> {
+        for (ts, asset_price, sol_price) in ticks {
+            sqlx::query(
+                "INSERT INTO price_history (timestamp, asset_price, sol_price)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (timestamp) DO NOTHING",
+            )
+            .bind(ts)
+            .bind(asset_price.to_string())
+            .bind(sol_price.to_string())
+            .execute(&self.pool)
+            .await?;
+        }
         Ok(())
     }
 

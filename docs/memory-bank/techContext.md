@@ -2,27 +2,28 @@
 
 ## Runtime Environment
 - **Rust**: Latest stable (1.75+)
-- **Host**: Linux Server (e.g., Hetzner) or Docker.
+- **Host**: Linux Server (Regxa-2core2gigs) or Docker.
 - **Concurrency**: `tokio` for non-blocking I/O and async runtime.
 
 ## Core Libraries
 - **Solana SDK**: `solana-sdk`, `solana-client` for blockchain interaction.
-- **Jito**: Jito Block Engine support (custom implementation or crate).
-- **Database**: `sqlx` with SQLite for persisting bot state, trades, and PnL.
+- **Jito**: Custom implementation for Jito Block Engine bundle submission.
+- **Database**: `sqlx` with **PostgreSQL** for persisting bot state, trades, and price history.
 - **Configuration**: `serde_yaml` and `dotenvy`.
 - **Logging**: `tracing` and `tracing-subscriber` for structured logging.
-- **Error Handling**: `anyhow` and `thiserror`.
+- **Error Handling**: `anyhow`.
 
 ## Infrastructure & APIs
-- **Solana RPC**: High-performance HTTP/WS endpoints (e.g., Helius, Triton, QuickNode).
-- **Jito Block Engine**: Dedicated MEV-protected submission.
+- **Solana RPC**: High-performance HTTP/WS endpoints.
+- **Jito Block Engine**: Dedicated MEV-protected bundle submission.
+- **External APIs**:
+    - **Binance API**: Used for SOL/USDC historical price backfill.
 - **DEX Integrations**:
     - **OpenBook V2**: Maker orders and Order Book depth.
-    - **Raydium V4**: AMM pool monitoring.
-    - **Jupiter**: Taker orders and arbitrage.
+    - **Raydium V4**: AMM pool monitoring (planned).
 
 ## Development & Operations
 - **Build System**: Cargo.
-- **Containerization**: Docker & Docker Compose (Non-root user, local-only port binding).
+- **Containerization**: Docker & Docker Compose (Non-root user).
 - **Testing**: Native Rust test runner (`cargo test`).
-- **Metrics**: Prometheus (port 9000, 127.0.0.1 binding) and masked secret logging.
+- **Metrics**: Prometheus and Grafana (Live Dashboards for BMV and SOL/USDC).

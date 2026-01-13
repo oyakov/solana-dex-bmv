@@ -1,28 +1,32 @@
 # Active Context: BMV Eco System Market Making Bot
 
 ## Current Focus
-Developing the memory bank and ensuring documentation is up to date with the latest technical specifications and requirement documents.
+Implementing Phase 3 features: Wallet Rotation and Stealth mechanisms.
 
 ## Recent Changes
+- **Version 0.3.2**:
+    - **CI/Lint Fixes**: Resolved Clippy warnings (`new_without_default`) and fixed compilation errors in tests and `main.rs`.
+    - **Infrastructure Enhancement**: Implemented `Default` for `PriceAggregator` and refined module imports.
+- **Version 0.3.1**:
+    - **Pivot Engine**: Full implementation of VWAP-based pivot calculation.
+    - **Asymmetric Grid**: Implemented asymmetric grid builder with exponential volume distribution (15% buy, 30% sell).
+    - **Rebalance Service**: Automated grid rebalancing with 1% threshold.
+    - **Historical Backfill**: Integrated Binance API for SOL/USDC price history backfill.
+    - **Jito Optimization**: Fixed Jito Bundler endpoint and improved bundle success rates.
+    - **Graceful Shutdown**: Implemented CTRL+C handling for clean termination and order cancellation.
+    - **Observability**: Added live price graphs for BMV and SOL/USDC to Grafana.
 - **Project Structure**: Consolidated documentation into `/docs`.
-- **Memory Bank**: Initialized core references and practices.
-- **Requirements**: Refined the trading grid algorithm (VWAP Pivot, Asymmetric Channel).
-- **Trading Orchestrator**: Implemented `TradingService` to manage the main loop and decouple logic from `main.rs`.
-- **Observability**: Implemented Prometheus metrics exporter and structured tracing.
-- **Health Checks**: Implemented `HealthChecker` for automated connectivity and system verification.
-- **Security Hardening**: Implemented environment variable overrides, non-root Docker execution, and secret masking in logs.
 - **Pure Rust Migration**: Successfully moved from Python to a 100% Rust implementation.
 
+
 ## In Progress
-- [x] Consolidate technical specs.
-- [x] Initialize Memory Bank.
-- [x] Implement core trading loop orchestrator (Rust).
-- [x] Implement Prometheus/Grafana observability stack.
-- [x] Implement basic Market Data polling.
-- [ ] Integration testing with Jito (In testing).
-- [ ] Detailed PnL calculation and reporting.
+- [ ] Wallet Rotation Logic (Stealth).
+- [ ] Randomized Delay obfuscation.
+- [x] Implementation of core trading loop orchestrator (Rust).
+- [x] Implementation of Prometheus/Grafana observability stack.
+- [x] Integration testing with Jito (Verified on Regxa).
 
 ## Known Issues / Tasks
-- Need to verify the exact OpenBook V2 integration details vs legacy OpenBook.
-- Coordinate with the team on the final list of $N$ wallet public keys.
-- Ensure `config.yaml` is fully synchronized with the `Technical Spec.md`.
+- Monitor Jito tip efficiency and adjust if necessary.
+- Refine PnL reporting for multi-wallet scenarios.
+- Update documentation to reflect v0.3.1 status.

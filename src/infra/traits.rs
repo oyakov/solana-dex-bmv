@@ -94,5 +94,6 @@ pub trait DatabaseProvider: Send + Sync {
     async fn get_recent_trades(&self, since_ts: i64) -> Result<Vec<Trade>>;
     async fn save_trade(&self, trade: &Trade) -> Result<()>;
     async fn save_price_tick(&self, asset_price: Decimal, sol_price: Decimal) -> Result<()>;
+    async fn save_historical_price_ticks(&self, ticks: Vec<(i64, Decimal, Decimal)>) -> Result<()>;
     async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>>;
 }

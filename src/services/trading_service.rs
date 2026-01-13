@@ -541,7 +541,15 @@ mod tests {
             dec!(10),
         ));
 
-        let service = TradingService::new(settings, solana, database, wallet_manager, pivot_engine);
+        let price_aggregator = Arc::new(PriceAggregator::default());
+        let service = TradingService::new(
+            settings,
+            solana,
+            database,
+            wallet_manager,
+            pivot_engine,
+            price_aggregator,
+        );
 
         let result = service.tick().await;
         result.expect("Trading service tick failed");

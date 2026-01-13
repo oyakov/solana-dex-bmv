@@ -51,12 +51,14 @@ async fn test_full_trading_loop_integration() {
         dec!(10),
     ));
 
+    let price_aggregator = Arc::new(solana_dex_bmv::infra::PriceAggregator::default());
     let trading_service = TradingService::new(
         settings.clone(),
         solana.clone(),
         database.clone(),
         wallet_manager.clone(),
         pivot_engine.clone(),
+        price_aggregator,
     );
 
     // 3. Execute one tick

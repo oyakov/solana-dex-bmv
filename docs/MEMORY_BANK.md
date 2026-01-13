@@ -2,7 +2,7 @@
 
 The Memory Bank is the central source of truth for the BMV Market Making Bot project. It provides context, architecture patterns, and progress tracking to ensure consistency and speed in development.
 
-## Core References
+## Core Reference Documents
 - [**Project Brief**](memory-bank/projectBrief.md): High-level mission and strategy.
 - [**Product Context**](memory-bank/productContext.md): Business logic and the problems being solved.
 - [**System Patterns**](memory-bank/systemPatterns.md): Architecture, design patterns, and technical decisions.
@@ -17,6 +17,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 - [Docker Guide](DOCKER.md): Running the bot in containerized environments.
 - [Testing Guide](TESTING.md): Testing strategy and execution instructions.
 - [Agent Workflows](WORKFLOWS.md): Available AI agent workflows.
+- [Order Grid Visualization](ORDER_GRID_VISUALIZATION.md): Theory and performance monitoring.
 
 ## Technical Documentation
 - [Main Requirements](requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования.md): Primary project requirements.
