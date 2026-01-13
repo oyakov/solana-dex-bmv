@@ -112,6 +112,11 @@ export default function Dashboard() {
           headers: getAuthHeaders(),
         });
 
+        if (statsRes.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+
         if (statsRes.ok) {
           const data = await statsRes.json();
           setStats(prev => ({ ...prev, ...data }));
@@ -120,6 +125,11 @@ export default function Dashboard() {
         const historyRes = await fetch(`/api/history`, {
           headers: getAuthHeaders(),
         });
+
+        if (historyRes.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
 
         if (historyRes.ok) {
           const data = await historyRes.json();
@@ -179,7 +189,7 @@ export default function Dashboard() {
             <h1 className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
               BMV ECO
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.3.4</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.4.3</p>
           </div>
         </div>
 

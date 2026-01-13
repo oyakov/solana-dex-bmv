@@ -28,8 +28,8 @@ use tracing::{error, info};
 #[derive(Clone)]
 struct ApiState {
     settings: BotSettings,
-    database: Arc<Database>,
-    solana: Arc<SolanaClient>,
+    database: Arc<dyn DatabaseProvider>,
+    solana: Arc<dyn SolanaProvider>,
     wallet_manager: Arc<WalletManager>,
     pivot_engine: Arc<PivotEngine>,
     auth: Arc<Auth>,
@@ -442,7 +442,10 @@ async fn handle_login(
         })?;
         Ok(Json(LoginResponse { token }))
     } else {
-        warn!("Unauthorized login attempt");
+        warn!(
+            "Unauthorized login attempt with password length {}",
+            payload.password.len()
+        );
         Err(StatusCode::UNAUTHORIZED)
     }
 }

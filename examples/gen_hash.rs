@@ -5,7 +5,8 @@ use argon2::{
 use rand_core::OsRng;
 
 fn main() {
-    let password = "admin123";
+    let args: Vec<String> = std::env::args().collect();
+    let password = if args.len() > 1 { &args[1] } else { "admin123" };
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
