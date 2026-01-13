@@ -4337,6 +4337,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "mockall",
+ "rand_core 0.6.4",
  "redis",
  "reqwest",
  "rust_decimal",
