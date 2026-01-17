@@ -285,7 +285,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     .await
     .ok()
     .and_then(|r| r.ok());
-    
+
     let token_supply = tokio::time::timeout(
         std::time::Duration::from_secs(2),
         state.solana.get_token_supply(&token_mint),

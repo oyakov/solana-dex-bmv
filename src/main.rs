@@ -40,7 +40,10 @@ async fn main() -> Result<()> {
         Some(database.clone()),
     )?);
     wallet_manager.load_from_db().await?;
-    println!("WALLET_MANAGER_LOAD_FINISHED: {} wallets", wallet_manager.get_all_wallets().await.len());
+    println!(
+        "WALLET_MANAGER_LOAD_FINISHED: {} wallets",
+        wallet_manager.get_all_wallets().await.len()
+    );
     let price_aggregator = Arc::new(PriceAggregator::new());
 
     // Perform connectivity health checks

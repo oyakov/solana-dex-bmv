@@ -201,7 +201,7 @@ impl Database {
         )
         .execute(&pool)
         .await?;
- 
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS wallets (
                 pubkey TEXT PRIMARY KEY,
