@@ -600,9 +600,10 @@ mod tests {
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
         let database: Arc<dyn DatabaseProvider> = Arc::new(mock_database);
         let wallet_manager = Arc::new(
-            crate::infra::WalletManager::new(&[
-                solana_sdk::signature::Keypair::new().to_base58_string()
-            ])
+            crate::infra::WalletManager::new(
+                &[solana_sdk::signature::Keypair::new().to_base58_string()],
+                None,
+            )
             .unwrap(),
         );
 

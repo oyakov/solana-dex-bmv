@@ -131,9 +131,10 @@ mod tests {
 
         // Only 1 wallet - should return Ok(()) without doing anything
         let wallet_manager = Arc::new(
-            crate::infra::WalletManager::new(&[
-                solana_sdk::signature::Keypair::new().to_base58_string()
-            ])
+            crate::infra::WalletManager::new(
+                &[solana_sdk::signature::Keypair::new().to_base58_string()],
+                None,
+            )
             .unwrap(),
         );
 
@@ -165,10 +166,13 @@ mod tests {
 
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
         let wallet_manager = Arc::new(
-            crate::infra::WalletManager::new(&[
-                solana_sdk::signature::Keypair::new().to_base58_string(),
-                solana_sdk::signature::Keypair::new().to_base58_string(),
-            ])
+            crate::infra::WalletManager::new(
+                &[
+                    solana_sdk::signature::Keypair::new().to_base58_string(),
+                    solana_sdk::signature::Keypair::new().to_base58_string(),
+                ],
+                None,
+            )
             .unwrap(),
         );
 
