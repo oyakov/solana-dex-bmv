@@ -55,7 +55,7 @@ export default function LatencyDashboard() {
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 10000);
+        const interval = setInterval(fetchData, 30000); // Poll every 30s to reduce load
         return () => clearInterval(interval);
     }, []);
 

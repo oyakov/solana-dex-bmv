@@ -196,7 +196,7 @@ pub fn parse_book_side_v1(
 
     let mut levels = Vec::new();
     let node_size = 72;
-    let header_size = 40; // Approx Serum Slab header
+    let header_size = 45; // Serum V3 Slab header (5 bytes flags + 40 bytes Slab)
 
     if data.len() < header_size {
         return Ok(vec![]);
@@ -205,16 +205,22 @@ pub fn parse_book_side_v1(
     let slot_count = (data.len() - header_size) / node_size;
     for i in 0..slot_count.min(1024) {
         let offset = header_size + i * node_size;
-        if offset + 40 > data.len() {
+        if offset + node_size > data.len() {
             break;
         }
         let tag = u32::from_le_bytes(data[offset..offset + 4].try_into()?);
 
         if tag == 2 {
-            // LeafNode
-            let key = u128::from_le_bytes(data[offset + 12..offset + 28].try_into()?);
+            // LeafNode in Serum V3
+            // Offsets within 72-byte node:
+            // 0..4: tag (2)
+            // 4..16: owner_slot + padding
+            // 16..32: key (u128)
+            // 32..64: owner (Pubkey)
+            // 64..72: quantity (u64)
+            let key = u128::from_le_bytes(data[offset + 16..offset + 32].try_into()?);
             let price_raw = (key >> 64) as u64;
-            let quantity = u64::from_le_bytes(data[offset + 28..offset + 36].try_into()?);
+            let quantity = u64::from_le_bytes(data[offset + 64..offset + 72].try_into()?);
 
             let base_pow = Decimal::from(10u64.pow(base_decimals as u32));
             let quote_pow = Decimal::from(10u64.pow(quote_decimals as u32));

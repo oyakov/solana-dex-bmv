@@ -217,3 +217,35 @@ __marimo__/
 *.db-shm
 *.db-wal
 
+# Node.js
+node_modules/
+.next/
+.npm/
+
+# Test artifacts
+test-results/
+playwright-report/
+*.png
+*.webp
+test_logs.txt
+
+# Temporary/debug outputs
+*_output.txt
+*_error*.txt
+error_output.txt
+
+# Generated wallet files (contain sensitive data)
+generated_wallets*.json
+import_wallets.sql
+
+# Build artifacts
+*.wasm
+*.d.ts
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

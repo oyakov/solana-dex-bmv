@@ -1,5 +1,6 @@
 use crate::domain::{OrderSide, Trade};
-use crate::infra::openbook::OPENBOOK_V2_PROGRAM_ID;
+use crate::infra::openbook::{OPENBOOK_V1_PROGRAM_ID, OPENBOOK_V2_PROGRAM_ID};
+
 use crate::infra::DatabaseProvider;
 use crate::services::PivotEngine;
 use anyhow::{anyhow, Result};
@@ -9,7 +10,7 @@ use serde_json::Value;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub struct MarketDataService {
     ws_url: String,
@@ -38,14 +39,14 @@ impl MarketDataService {
 
         let (mut ws_stream, _) = connect_async(&self.ws_url).await?;
 
-        // Subscribe to program logs for OpenBook V2
+        // Subscribe to program logs for OpenBook V1 and V2
         let sub_request = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
             "method": "logsSubscribe",
             "params": [
                 {
-                    "mentions": [OPENBOOK_V2_PROGRAM_ID]
+                    "mentions": [OPENBOOK_V1_PROGRAM_ID, OPENBOOK_V2_PROGRAM_ID]
                 },
                 {
                     "commitment": "processed"
@@ -104,23 +105,65 @@ impl MarketDataService {
     }
 
     async fn parse_and_save_event(&self, log: &str, signature: &str) -> Result<()> {
-        if log.contains("FillEvent") {
+        // Attempt to extract details from log string
+        // V2 Format often looks like: "Program log: FillEvent { maker: ..., taker: ..., price: 123, volume: 456, ... }"
+
+        let price = self
+            .extract_value(log, "price:")
+            .or_else(|| self.extract_value(log, "price="))
+            .and_then(|s| Decimal::from_str(&s).ok());
+
+        let volume = self
+            .extract_value(log, "volume:")
+            .or_else(|| self.extract_value(log, "quantity:"))
+            .and_then(|s| Decimal::from_str(&s).ok());
+
+        if let (Some(p), Some(v)) = (price, volume) {
+            let side = if log.contains("side: 0")
+                || log.contains("side: Buy")
+                || log.to_lowercase().contains("buy")
+            {
+                OrderSide::Buy
+            } else {
+                OrderSide::Sell
+            };
+
             let trade = Trade {
                 id: format!("{}-{}", signature, 0),
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)?
                     .as_secs() as i64,
-                price: Decimal::from_str("154.23").unwrap(), // Mock parsing
-                volume: Decimal::from_str("1.5").unwrap(),   // Mock parsing
-                side: OrderSide::Buy,                        // Mock parsing
+                price: p,
+                volume: v,
+                side,
                 wallet: "unknown".to_string(),
             };
 
             self.database.save_trade(&trade).await?;
             self.pivot_engine.record_trade(trade.clone()).await;
-            info!(price = %trade.price, volume = %trade.volume, "trade_ingested_and_cached");
+            info!(price = %trade.price, volume = %trade.volume, side = ?trade.side, "trade_ingested_and_cached");
+        } else {
+            debug!(log = %log, "log_event_missing_price_or_volume_skipping");
         }
 
         Ok(())
+    }
+
+    fn extract_value(&self, log: &str, marker: &str) -> Option<String> {
+        if let Some(start) = log.find(marker) {
+            let val_start = start + marker.len();
+            let mut val = String::new();
+            for c in log[val_start..].chars() {
+                if c.is_digit(10) || c == '.' || c == '-' {
+                    val.push(c);
+                } else if !val.is_empty() {
+                    break;
+                }
+            }
+            if !val.is_empty() {
+                return Some(val);
+            }
+        }
+        None
     }
 }

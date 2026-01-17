@@ -35,7 +35,12 @@ async fn main() -> Result<()> {
         commitment,
     ));
     let database = Arc::new(Database::connect(&settings.database.url).await?);
-    let wallet_manager = Arc::new(WalletManager::new(&settings.wallets.multi_wallet.keypairs)?);
+    let wallet_manager = Arc::new(WalletManager::new(
+        &settings.wallets.multi_wallet.keypairs,
+        Some(database.clone()),
+    )?);
+    wallet_manager.load_from_db().await?;
+    println!("WALLET_MANAGER_LOAD_FINISHED: {} wallets", wallet_manager.get_all_wallets().await.len());
     let price_aggregator = Arc::new(PriceAggregator::new());
 
     // Perform connectivity health checks

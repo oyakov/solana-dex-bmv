@@ -335,7 +335,7 @@ impl SolanaClient {
         Ok(MarketUpdate {
             timestamp: ob.timestamp,
             price: mid_price,
-            volume_24h: Decimal::from(5000),
+            volume_24h: Decimal::ZERO, // Will be accumulated from trades in DB or aggregator
         })
     }
 

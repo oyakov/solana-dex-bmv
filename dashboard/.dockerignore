@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+.next
+out
+node_modules
+coverage
+.turbo
+
+# Environment
+.env
+.env.*
+
+# Logs and temp
+*.log
+
+# IDE
+.vscode
+.idea

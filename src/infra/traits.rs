@@ -104,4 +104,6 @@ pub trait DatabaseProvider: Send + Sync {
         service_name: &str,
         since_ts: i64,
     ) -> Result<Vec<crate::domain::LatencyTick>>;
+    async fn save_wallet(&self, pubkey: &str, secret: &str) -> Result<()>;
+    async fn get_wallets(&self) -> Result<Vec<(String, String)>>;
 }

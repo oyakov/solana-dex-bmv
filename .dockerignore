@@ -1,10 +1,44 @@
+# IDE and editors
 .git
 .vscode
+.idea
+*.swp
+*.swo
+.agent
+
+# Build artifacts
 target/
-.env
 *.sqlite
-Cargo.lock
-docs/
-temp_test_results.txt
+
+# Environment
+.env
+.env.*
+
+# Logs and temp files
+*.log
+temp/
+bot.log
+bot_v1.log
+build_error.txt
+build_log.txt
+generate_error*.txt
+latency_result.json
+
+# Generated files
+generated_wallets*.json
+import_wallets.sql
+metadata*.json
+
+# Frontend (built separately)
 dashboard/
 node_modules/
+
+# Documentation and tests
+docs/
+tests/
+
+# Misc
+*.txt
+deployment/
+.github/
+vendor/

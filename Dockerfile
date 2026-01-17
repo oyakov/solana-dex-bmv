@@ -1,5 +1,17 @@
-# Builder stage
-FROM rustlang/rust:nightly-bookworm-slim AS builder
+# Builder stage with cargo-chef for dependency caching
+FROM rustlang/rust:nightly-bookworm-slim AS chef
+RUN cargo install cargo-chef
+WORKDIR /app
+
+# Planner stage - extract dependency recipe
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Cacher stage - build dependencies only (cached unless Cargo.toml changes)
+FROM chef AS cacher
+COPY --from=planner /app/recipe.json recipe.json
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,13 +21,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-COPY . .
+RUN cargo chef cook --release --recipe-path recipe.json
 
-# Build the application
+# Builder stage - build actual application
+FROM chef AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    libsqlite3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=cacher /app/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 RUN cargo build --release
 
-# Final stage
+# Final stage - minimal production image
 FROM debian:bookworm-slim
 
 # Create a non-root user

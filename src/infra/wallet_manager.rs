@@ -4,70 +4,92 @@ use solana_sdk::signer::Signer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use tracing::{info, warn};
+use solana_sdk::bs58;
+use tracing::{debug, error, info, warn};
 
 pub struct WalletManager {
     wallets: RwLock<Vec<Arc<Keypair>>>,
+    database: Option<Arc<dyn crate::infra::DatabaseProvider>>,
 }
 
 impl WalletManager {
-    pub fn new(wallet_secrets: &[String]) -> Result<Self> {
+    pub fn new(
+        wallet_secrets: &[String],
+        database: Option<Arc<dyn crate::infra::DatabaseProvider>>,
+    ) -> Result<Self> {
         let mut loaded_wallets = Vec::new();
 
+        // Load from secrets (env/config)
         for secret in wallet_secrets {
-            // Try as file path first
-            if std::path::Path::new(secret).exists() {
-                match read_keypair_file(secret) {
-                    Ok(kp) => {
-                        info!(pubkey = %kp.pubkey(), "Loaded wallet from file");
-                        loaded_wallets.push(Arc::new(kp));
-                        continue;
-                    }
-                    Err(e) => {
-                        warn!(error = ?e, "Failed to read keypair file, trying as base58");
-                    }
-                }
-            }
-
-            // Try as base58 string
-            match bs58::decode(secret).into_vec() {
-                Ok(bytes) => match Keypair::from_bytes(&bytes) {
-                    Ok(kp) => {
-                        info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
-                        loaded_wallets.push(Arc::new(kp));
-                    }
-                    Err(e) => {
-                        warn!(error = ?e, "Failed to load wallet from bytes (likely wrong length)");
-                    }
-                },
-                Err(e) => {
-                    warn!(error = ?e, "Failed to decode base58 string");
-                }
+            if let Ok(kp) = Self::parse_secret(secret) {
+                loaded_wallets.push(Arc::new(kp));
             }
         }
 
-        if loaded_wallets.is_empty() {
-            warn!("No wallets loaded by WalletManager");
-        }
-
-        Ok(Self {
+        let manager = Self {
             wallets: RwLock::new(loaded_wallets),
-        })
+            database,
+        };
+
+        Ok(manager)
     }
 
-    pub async fn add_wallet(&self, secret: &str) -> Result<String> {
+    pub async fn load_from_db(&self) -> Result<()> {
+        if let Some(db) = &self.database {
+            info!("Loading wallets from database...");
+            let db_wallets = db.get_wallets().await?;
+            info!(count = db_wallets.len(), "Retrieved wallets from database");
+            let mut wallets = self.wallets.write().await;
+            for (pubkey, secret) in db_wallets {
+                match Self::parse_secret(&secret) {
+                    Ok(kp) => {
+                        if !wallets.iter().any(|w| w.pubkey().to_string() == pubkey) {
+                            info!(%pubkey, "Loaded wallet from database");
+                            wallets.push(Arc::new(kp));
+                        } else {
+                            debug!(%pubkey, "Wallet already loaded, skipping");
+                        }
+                    }
+                    Err(e) => {
+                        error!(%pubkey, error = ?e, "Failed to parse wallet secret from database");
+                    }
+                }
+            }
+        } else {
+            warn!("No database provider configured in WalletManager, skipping DB load");
+        }
+        Ok(())
+    }
+
+    fn parse_secret(secret: &str) -> Result<Keypair> {
+        // Try as file path first
+        if std::path::Path::new(secret).exists() {
+            if let Ok(kp) = read_keypair_file(secret) {
+                return Ok(kp);
+            }
+        }
+
         // Try as base58 string
         let bytes = bs58::decode(secret)
             .into_vec()
             .map_err(|e| anyhow!("Invalid base58: {}", e))?;
-        let kp =
-            Keypair::from_bytes(&bytes).map_err(|e| anyhow!("Invalid keypair bytes: {}", e))?;
+        Keypair::from_bytes(&bytes).map_err(|e| anyhow!("Invalid keypair bytes: {}", e))
+    }
+
+    pub async fn add_wallet(&self, secret: &str, persist: bool) -> Result<String> {
+        let kp = Self::parse_secret(secret)?;
         let pubkey = kp.pubkey().to_string();
 
         let mut wallets = self.wallets.write().await;
         // Check if already exists
         if wallets.iter().any(|w| w.pubkey().to_string() == pubkey) {
             return Err(anyhow!("Wallet already exists in manager"));
+        }
+
+        if persist {
+            if let Some(db) = &self.database {
+                db.save_wallet(&pubkey, secret).await?;
+            }
         }
 
         info!(%pubkey, "Added new wallet to manager");

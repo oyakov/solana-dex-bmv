@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import D3AreaChart from "../components/D3AreaChart";
 import D3DepthChart from "../components/D3DepthChart";
+import Sidebar from "../components/Sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -143,7 +144,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 1000);
+    const interval = setInterval(fetchData, 5000); // Poll every 5s instead of 1s
     return () => clearInterval(interval);
   }, []);
 
@@ -180,50 +181,7 @@ export default function Dashboard() {
       </div>
 
       {/* Sidebar */}
-      <aside className="w-64 glass-panel border-r border-white/5 flex flex-col p-6 z-20 relative backdrop-blur-xl">
-        <div className="flex items-center gap-3 mb-10 pl-2">
-          <div className="p-2.5 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/20">
-            <Flame className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              BMV ECO
-            </h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400">System v0.4.3</p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active href="/" />
-          <NavItem icon={<Clock size={18} />} label="Latency" href="/latency" />
-          <NavItem icon={<Activity size={18} />} label="Strategy Logs" />
-          <NavItem icon={<BarChart3 size={18} />} label="Performance" />
-          <NavItem icon={<Wallet size={18} />} label="Wallet Swarm" href="/wallets" />
-          <NavItem icon={<Database size={18} />} label="API Docs" />
-          <div onClick={logout} className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
-            <LogOut size={18} />
-            <span className="font-bold text-sm tracking-tight relative z-10">Logout</span>
-          </div>
-        </nav>
-
-
-        <div className="mt-auto pt-6 border-t border-white/5">
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-3 active:scale-95 transition-transform cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 p-[2px]">
-              <div className="w-full h-full rounded-full bg-[#0f172a] flex items-center justify-center">
-                <span className="font-bold text-xs">OY</span>
-              </div>
-            </div>
-            <div className="text-sm overflow-hidden">
-              <p className="font-bold truncate text-slate-200">oyakov.sol</p>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Connected</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8 relative z-10 scrollbar-hide">
@@ -477,28 +435,6 @@ export default function Dashboard() {
   );
 }
 
-function NavItem({ icon, label, active: propActive = false, href }: { icon: React.ReactNode, label: string, active?: boolean, href?: string }) {
-  const pathname = usePathname();
-  const active = href ? pathname === href : propActive;
-
-  const content = (
-    <div className={`
-      flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all cursor-pointer group relative
-      ${active ? 'bg-cyan-500/10 text-cyan-400 shadow-inner' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}
-    `}>
-      {active && <motion.div layoutId="nav-active" className="absolute inset-0 bg-cyan-500/5 rounded-2xl border border-cyan-500/20" />}
-      <span className="relative z-10">{icon}</span>
-      <span className="font-bold text-sm tracking-tight relative z-10">{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />}
-    </div>
-  );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-
-  return content;
-}
 
 function StatCard({ label, value, subValue, icon, isNeon = false, trend, status }: any) {
   return (

@@ -376,7 +376,7 @@ fn default_trading_tick_interval() -> u64 {
 }
 
 fn default_health_check_interval() -> u64 {
-    60
+    300 // 5 minutes to reduce RPC load
 }
 
 impl Default for BotSettings {

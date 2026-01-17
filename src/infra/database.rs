@@ -129,6 +129,26 @@ impl crate::infra::DatabaseProvider for Database {
 
         Ok(ticks)
     }
+
+    async fn save_wallet(&self, pubkey: &str, secret: &str) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO wallets (pubkey, secret) VALUES ($1, $2)
+             ON CONFLICT (pubkey) DO UPDATE SET secret = EXCLUDED.secret",
+        )
+        .bind(pubkey)
+        .bind(secret)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_wallets(&self) -> Result<Vec<(String, String)>> {
+        let rows: Vec<(String, String)> =
+            sqlx::query_as("SELECT pubkey, secret FROM wallets ORDER BY created_at ASC")
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(rows)
+    }
 }
 
 #[allow(dead_code)]
@@ -177,6 +197,16 @@ impl Database {
                 service_name TEXT NOT NULL,
                 status TEXT NOT NULL,
                 latency_ms BIGINT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+ 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS wallets (
+                pubkey TEXT PRIMARY KEY,
+                secret TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
         )
         .execute(&pool)

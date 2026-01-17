@@ -104,5 +104,7 @@ mock! {
         async fn get_price_history(&self, since_ts: i64) -> Result<Vec<crate::domain::PriceTick>>;
         async fn save_latency_report(&self, report: &crate::infra::health::HealthReport) -> Result<()>;
         async fn get_latency_history(&self, service_name: &str, since_ts: i64) -> Result<Vec<crate::domain::LatencyTick>>;
+        async fn save_wallet(&self, pubkey: &str, secret: &str) -> Result<()>;
+        async fn get_wallets(&self) -> Result<Vec<(String, String)>>;
     }
 }

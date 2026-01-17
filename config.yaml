@@ -98,3 +98,6 @@ target_control:
 rugcheck:
   enabled: true
   check_interval_secs: 300
+
+# Health check interval (seconds) - increase to reduce RPC load
+health_check_interval_seconds: 300

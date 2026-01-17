@@ -1,7 +1,7 @@
 use crate::infra::{
     Auth, Database, DatabaseProvider, HealthChecker, SolanaClient, SolanaProvider, WalletManager,
 };
-use crate::services::PivotEngine;
+use crate::services::{GridBuilder, PivotEngine, SimulationEngine};
 use crate::utils::BotSettings;
 use anyhow::Result;
 use argon2::{
@@ -34,6 +34,7 @@ struct ApiState {
     wallet_manager: Arc<WalletManager>,
     pivot_engine: Arc<PivotEngine>,
     auth: Arc<Auth>,
+    simulation_engine: Arc<SimulationEngine>,
 }
 
 pub struct ApiServer {
@@ -106,6 +107,7 @@ impl ApiServer {
                 wallet_manager,
                 pivot_engine,
                 auth,
+                simulation_engine: Arc::new(SimulationEngine::new(GridBuilder::default())),
             },
         }
     }
@@ -139,6 +141,7 @@ impl ApiServer {
                     .route("/wallets", get(handle_list_wallets))
                     .route("/wallets/add", post(handle_add_wallet))
                     .route("/control", post(handle_control))
+                    .route("/simulation", post(handle_simulation))
                     .route_layer(middleware::from_fn_with_state(
                         self.state.auth.clone(),
                         crate::infra::auth_middleware,
@@ -171,6 +174,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     let mut total_sol = 0.0;
     let mut total_usdc = 0.0;
 
+    // Reduce timeout to 500ms per wallet to prevent API blocking
     let balance_futures = wallets.iter().map(|wallet| {
         let solana = state.solana.clone();
         let pubkey = wallet.pubkey();
@@ -178,7 +182,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         let usdc_mint = usdc_mint.clone();
         async move {
             let sol = match tokio::time::timeout(
-                std::time::Duration::from_secs(2),
+                std::time::Duration::from_millis(500),
                 solana.get_balance(&pubkey_str),
             )
             .await
@@ -187,7 +191,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
                 _ => 0.0,
             };
             let usdc = match tokio::time::timeout(
-                std::time::Duration::from_secs(2),
+                std::time::Duration::from_millis(500),
                 solana.get_token_balance(&pubkey, &usdc_mint),
             )
             .await
@@ -205,9 +209,17 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         total_usdc += usdc;
     }
 
-    // 1. Orderbook Metrics (V1)
+    // 1. Orderbook Metrics (V1) - with timeout
     let market_id = &state.settings.openbook_market_id;
-    let orderbook = state.solana.get_orderbook(market_id).await.ok();
+    let orderbook = match tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        state.solana.get_orderbook(market_id),
+    )
+    .await
+    {
+        Ok(result) => result.ok(),
+        Err(_) => None,
+    };
 
     let mut spread_bps = 0.0;
     let mut imbalance_index = 0.0;
@@ -262,17 +274,30 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         resistance_90 = find_level(&asks, ask_depth, 0.9);
     }
 
-    // 2. Ecosystem Health (SPL Token)
+    // 2. Ecosystem Health (SPL Token) - with timeouts
     let token_mint_str = &state.settings.token_mint;
     let token_mint = Pubkey::from_str(token_mint_str).unwrap_or_default();
 
     let mut top_holders_percent = 0.0;
-    if let (Ok(largest_accounts), Ok(supply)) = (
-        state.solana.get_token_largest_accounts(&token_mint).await,
-        state.solana.get_token_supply(&token_mint).await,
-    ) {
+    let largest_accounts = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        state.solana.get_token_largest_accounts(&token_mint),
+    )
+    .await
+    .ok()
+    .and_then(|r| r.ok());
+    
+    let token_supply = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        state.solana.get_token_supply(&token_mint),
+    )
+    .await
+    .ok()
+    .and_then(|r| r.ok());
+
+    if let (Some(accounts), Some(supply)) = (largest_accounts, token_supply) {
         if supply > 0 {
-            let top_10_sum: u64 = largest_accounts.iter().take(10).map(|(_, amt)| amt).sum();
+            let top_10_sum: u64 = accounts.iter().take(10).map(|(_, amt)| amt).sum();
             top_holders_percent = (top_10_sum as f64 / supply as f64) * 100.0;
         }
     }
@@ -378,7 +403,7 @@ async fn handle_add_wallet(
     State(state): State<ApiState>,
     Json(payload): Json<AddWalletRequest>,
 ) -> Json<serde_json::Value> {
-    match state.wallet_manager.add_wallet(&payload.secret).await {
+    match state.wallet_manager.add_wallet(&payload.secret, true).await {
         Ok(pubkey) => Json(serde_json::json!({
             "status": "ok",
             "pubkey": pubkey
@@ -481,6 +506,31 @@ async fn handle_login(
         );
         Err(StatusCode::UNAUTHORIZED)
     }
+}
+
+#[derive(Deserialize)]
+struct SimulationRequest {
+    scenario: crate::services::ScenarioType,
+    base_price: rust_decimal::Decimal,
+    steps: usize,
+    volatility: rust_decimal::Decimal,
+}
+
+async fn handle_simulation(
+    State(state): State<ApiState>,
+    Json(payload): Json<SimulationRequest>,
+) -> Json<crate::services::SimulationResult> {
+    info!(scenario = ?payload.scenario, "Running simulation");
+    let result = state
+        .simulation_engine
+        .run_simulation(
+            payload.scenario,
+            payload.base_price,
+            payload.steps,
+            payload.volatility,
+        )
+        .await;
+    Json(result)
 }
 
 use tracing::warn;

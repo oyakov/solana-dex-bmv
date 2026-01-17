@@ -403,10 +403,8 @@ impl TradingService {
                 }
             }
 
-            // 9. Performance Indicators
+            // 9. Performance Indicators (Placeholders for real metrics later)
             gauge!("bot_active_depth_usd", total_depth.to_f64().unwrap_or(0.0));
-            gauge!("bot_fill_rate_percent", 88.0); // Mock
-            gauge!("bot_bundle_latency_ms", 42.0); // Mock
         } else {
             info!("Pivot stable, no rebalance needed");
         }
