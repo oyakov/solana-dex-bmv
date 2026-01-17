@@ -45,3 +45,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 5. **Tokio-Async**: All I/O operations must be asynchronous using the `tokio` runtime.
 6. **Hardening**: Mandatory environment variables for secrets, masked configs, and no hardcoded fallbacks for production credentials.
 7. **Structured Tracing**: Use the `tracing` crate for all events.
+8. **RPC Timeouts**: All RPC calls must have timeouts (500ms for balance queries, 2s for orderbook/token metrics) to prevent API blocking.
+9. **Polling Discipline**: Frontend polling intervals: 5s for main dashboard, 30s for latency page. Backend health checks: 300s.
+10. **Clippy Compliance**: Code must pass `cargo clippy -- -D warnings` before commit. Use `cargo fmt` for consistent formatting.
+

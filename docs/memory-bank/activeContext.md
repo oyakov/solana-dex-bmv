@@ -5,10 +5,17 @@ Maintaining stability of v0.4.1 features and preparing for long-term multi-walle
 
 ## Recent Changes
 - **Version 0.4.4 (Current)**:
+    - **Dashboard Performance**: Reduced polling intervals (1s→5s main, 10s→30s latency) to reduce RPC load.
+    - **API Optimization**: Added 500ms timeouts for wallet balance queries, 2s for orderbook/token metrics.
     - **Docker Stack Optimization**: Removed Grafana to reduce RAM/CPU footprint.
     - **Resource Limits**: Applied CPU (0.5-1.0) and RAM (256MB-512MB) limits to all services.
     - **Docker Profiles**: Introduced `prod` profile for monitoring (Prometheus) and light default dev profile.
     - **Postgres Tuning**: Optimized shared buffers and connections for low-resource environments.
+    - **Nginx Integration**: Added nginx/nginx.conf for Docker Compose, separate from deployment config.
+    - **Simulation Service**: New backtesting/simulation engine for scenario visualization.
+    - **Sidebar Component**: Refactored dashboard navigation into reusable component.
+    - **Wallet Management**: Database-backed wallet storage with add/list API endpoints.
+    - **CI Compliance**: Fixed all clippy warnings and formatting issues for GitHub Actions.
 - **Version 0.4.3**:
     - **Security Hardening**: Secret masking and environment variable enforcement.
 - **Version 0.4.1**:
