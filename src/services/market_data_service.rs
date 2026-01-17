@@ -154,7 +154,7 @@ impl MarketDataService {
             let val_start = start + marker.len();
             let mut val = String::new();
             for c in log[val_start..].chars() {
-                if c.is_digit(10) || c == '.' || c == '-' {
+                if c.is_ascii_digit() || c == '.' || c == '-' {
                     val.push(c);
                 } else if !val.is_empty() {
                     break;

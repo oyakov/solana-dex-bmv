@@ -13,6 +13,12 @@ pub struct RugCheckService {
     client: Client,
 }
 
+impl Default for RugCheckService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RugCheckService {
     pub fn new() -> Self {
         Self {

@@ -179,7 +179,6 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         let solana = state.solana.clone();
         let pubkey = wallet.pubkey();
         let pubkey_str = pubkey.to_string();
-        let usdc_mint = usdc_mint.clone();
         async move {
             let sol = match tokio::time::timeout(
                 std::time::Duration::from_millis(500),
@@ -328,11 +327,8 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
             let sol_perf = sol_change.to_f64().unwrap_or(0.0);
             let bmv_perf = bmv_change.to_f64().unwrap_or(0.0);
 
-            if sol_perf < 0.0 {
-                safe_haven_index = (1.0 + bmv_perf) / (1.0 + sol_perf);
-            } else {
-                safe_haven_index = (1.0 + bmv_perf) / (1.0 + sol_perf);
-            }
+            // Safe haven index: if SOL drops and BMV is stable/up, index > 1
+            safe_haven_index = (1.0 + bmv_perf) / (1.0 + sol_perf);
         }
     }
 
