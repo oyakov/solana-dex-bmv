@@ -588,6 +588,14 @@ mod tests {
         mock_solana
             .expect_find_open_orders()
             .returning(|_, _| Ok(None));
+        mock_solana.expect_get_orderbook().returning(|_| {
+            Ok(crate::domain::Orderbook {
+                market_id: "TEST_MARKET".to_string(),
+                timestamp: 0,
+                bids: vec![],
+                asks: vec![],
+            })
+        });
 
         mock_database
             .expect_save_price_tick()

@@ -521,6 +521,8 @@ order_grid:
   buy_volume_multiplier: 1.2
   sell_volume_multiplier: 1.0
   rebalance_threshold_percent: 1.0
+  large_order_threshold_sol: 50.0
+  front_run_tick_size_sol: 0.000001
 pivot_vwap:
   pivot_price: 100.0
   vwap_price: 100.0
@@ -567,6 +569,9 @@ financial_manager:
   upper_usdc_ratio_max_percent: 30.0
   lower_usdc_ratio_max_percent: 30.0
   min_conversion_barrier_usd: 50.0
+rugcheck:
+  enabled: true
+  check_interval_secs: 300
 target_control:
   total_emission: 10000000.0
   locked_tokens: 5000000.0
