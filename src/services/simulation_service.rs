@@ -82,7 +82,6 @@ impl SimulationEngine {
         volatility: Decimal,
     ) -> Vec<SimulationPriceTick> {
         let mut prices = Vec::with_capacity(steps);
-        let mut current_price = base_price;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -122,7 +121,7 @@ impl SimulationEngine {
                 }
             };
 
-            current_price = base_price * (Decimal::ONE + trend + noise);
+            let current_price = base_price * (Decimal::ONE + trend + noise);
             prices.push(SimulationPriceTick {
                 timestamp: now + (i as i64 * 60),
                 price: current_price,

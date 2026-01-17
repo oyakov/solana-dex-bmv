@@ -229,10 +229,16 @@ playwright-report/
 *.webp
 test_logs.txt
 
+# Logs and build outputs
+*.log
+*_error.txt
+*_log.txt
+*_result.json
+
 # Temporary/debug outputs
 *_output.txt
-*_error*.txt
 error_output.txt
+metadata*.json
 
 # Generated wallet files (contain sensitive data)
 generated_wallets*.json
