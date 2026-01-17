@@ -30,14 +30,18 @@ impl WalletManager {
             }
 
             // Try as base58 string
-            match Keypair::from_base58_string(secret).try_into() {
-                Ok(kp) => {
-                    let kp: Keypair = kp;
-                    info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
-                    loaded_wallets.push(Arc::new(kp));
-                }
-                Err(_) => {
-                    warn!("Failed to load wallet from base58 string");
+            match bs58::decode(secret).into_vec() {
+                Ok(bytes) => match Keypair::from_bytes(&bytes) {
+                    Ok(kp) => {
+                        info!(pubkey = %kp.pubkey(), "Loaded wallet from base58");
+                        loaded_wallets.push(Arc::new(kp));
+                    }
+                    Err(e) => {
+                        warn!(error = ?e, "Failed to load wallet from bytes (likely wrong length)");
+                    }
+                },
+                Err(e) => {
+                    warn!(error = ?e, "Failed to decode base58 string");
                 }
             }
         }
@@ -53,12 +57,11 @@ impl WalletManager {
 
     pub async fn add_wallet(&self, secret: &str) -> Result<String> {
         // Try as base58 string
-        let kp = match Keypair::from_base58_string(secret).try_into() {
-            Ok(kp) => kp,
-            Err(_) => return Err(anyhow!("Invalid base58 wallet secret")),
-        };
-
-        let kp: Keypair = kp;
+        let bytes = bs58::decode(secret)
+            .into_vec()
+            .map_err(|e| anyhow!("Invalid base58: {}", e))?;
+        let kp =
+            Keypair::from_bytes(&bytes).map_err(|e| anyhow!("Invalid keypair bytes: {}", e))?;
         let pubkey = kp.pubkey().to_string();
 
         let mut wallets = self.wallets.write().await;

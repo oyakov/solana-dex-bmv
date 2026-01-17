@@ -17,20 +17,40 @@ This guide provides instructions for running the Solana Dex (BMV) bot using Dock
 
    Edit `.env` and provide your Solana RPC URLs and keypair paths.
 
-2. **Build and Start**:
+2. **Build and Start (Dev/Default)**:
+
+   By default, the stack is optimized for low RAM/CPU and runs without monitoring tools.
 
    ```powershell
    docker-compose up -d --build
    ```
 
-3. **Check Status**:
+3. **Start with Production Profile (Monitoring Enabled)**:
+
+   To enable Prometheus and keep the stack running for production:
+
+   ```powershell
+   docker-compose --profile prod up -d
+   ```
+
+4. **Check Status**:
 
    ```powershell
    docker-compose ps
    docker-compose logs -f
    ```
 
-## Configuration in Docker
+## Configuration & Optimization
+
+The `docker-compose.yml` has been optimized for performance and resource utilization:
+
+- **Postgres**: Optimized for low RAM (128MB shared buffers).
+- **Resource Limits**: 
+  - Bot: Max 512MB RAM, 1.0 CPU.
+  - Dashboard: Max 512MB RAM, 0.5 CPU.
+  - Postgres: Max 256MB RAM, 0.5 CPU.
+- **Prometheus**: Included in the `prod` profile only.
+- **Grafana**: Removed from the local stack to save resources.
 
 By default, the `docker-compose.yml` maps:
 
@@ -38,17 +58,10 @@ By default, the `docker-compose.yml` maps:
 
 **Recommendation**: Use environment variables (`WALLET_KEYPAIRS`) for secrets rather than mounting volumes for sensitive key files where possible.
 
-The `docker-compose.yml` includes a full observability stack. For security, **ports are bound to 127.0.0.1 by default**. Use an SSH tunnel to access these from a remote machine.
+### Monitoring
 
 - **Bot Metrics**: Exposed at `http://localhost:9000`.
-- **Prometheus**: Scrapes bot metrics and stores them. Accessible at `http://localhost:9090`.
-- **Grafana**: Visualizes metrics via dashboards. Accessible at `http://localhost:3000`.
-  - **Credentials**: `admin` / `admin` (Change this in `docker-compose.yml` via `GRAFANA_PASSWORD`).
-  - **Data Source**: Pre-configured to point to Prometheus.
-
-To import the health dashboard:
-1. Go to Grafana -> Dashboards -> Import.
-2. Upload `docs/grafana_health_dashboard.json`.
+- **Prometheus**: Scrapes bot metrics. Accessible at `http://localhost:9090` (Prod profile only).
 
 ### Commands
 

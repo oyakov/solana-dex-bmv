@@ -164,6 +164,7 @@ async fn handle_health(State(state): State<ApiState>) -> Json<serde_json::Value>
 }
 
 async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
+    info!("GET /api/stats - Starting data aggregation");
     let wallets = state.wallet_manager.get_all_wallets().await;
     let usdc_mint = Pubkey::from_str(&state.settings.wallets.usdc_wallet_3).unwrap_or_default();
 
@@ -176,12 +177,24 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         let pubkey_str = pubkey.to_string();
         let usdc_mint = usdc_mint.clone();
         async move {
-            let sol = solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
-            let usdc = solana
-                .get_token_balance(&pubkey, &usdc_mint)
-                .await
-                .unwrap_or(0) as f64
-                / 1_000_000.0;
+            let sol = match tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                solana.get_balance(&pubkey_str),
+            )
+            .await
+            {
+                Ok(Ok(b)) => b as f64 / 1_000_000_000.0,
+                _ => 0.0,
+            };
+            let usdc = match tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                solana.get_token_balance(&pubkey, &usdc_mint),
+            )
+            .await
+            {
+                Ok(Ok(b)) => b as f64 / 1_000_000.0,
+                _ => 0.0,
+            };
             (sol, usdc)
         }
     });
@@ -298,7 +311,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         }
     }
 
-    Json(BotStats {
+    let res = Json(BotStats {
         pivot_price: state.pivot_engine.get_last_pivot().await,
         buy_channel_width: state.settings.channel_bounds.buy_percent,
         sell_channel_width: state.settings.channel_bounds.sell_percent,
@@ -316,10 +329,13 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         resistance_90,
         bids: bids.into_iter().take(20).collect(), // Send top 20 for depth chart
         asks: asks.into_iter().take(20).collect(),
-    })
+    });
+    info!("GET /api/stats - Aggregation complete");
+    res
 }
 
 async fn handle_list_wallets(State(state): State<ApiState>) -> Json<Vec<WalletInfo>> {
+    info!("GET /api/wallets - Listing wallets");
     let wallets = state.wallet_manager.get_all_wallets().await;
     let mut info_list = Vec::new();
 
@@ -328,13 +344,24 @@ async fn handle_list_wallets(State(state): State<ApiState>) -> Json<Vec<WalletIn
     for wallet in wallets {
         let pubkey = wallet.pubkey();
         let pubkey_str = pubkey.to_string();
-        let sol_balance =
-            state.solana.get_balance(&pubkey_str).await.unwrap_or(0) as f64 / 1_000_000_000.0;
-        let usdc_balance_raw: u64 = state
-            .solana
-            .get_token_balance(&pubkey, &usdc_mint)
-            .await
-            .unwrap_or(0);
+        let sol_balance = match tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            state.solana.get_balance(&pubkey_str),
+        )
+        .await
+        {
+            Ok(Ok(b)) => b as f64 / 1_000_000_000.0,
+            _ => 0.0,
+        };
+        let usdc_balance_raw: u64 = match tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            state.solana.get_token_balance(&pubkey, &usdc_mint),
+        )
+        .await
+        {
+            Ok(Ok(b)) => b,
+            _ => 0,
+        };
         let usdc_balance = usdc_balance_raw as f64 / 1_000_000.0;
 
         info_list.push(WalletInfo {

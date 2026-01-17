@@ -327,9 +327,10 @@ impl SolanaClient {
 
     pub async fn get_market_data_impl(&self, market_id: &str) -> Result<MarketUpdate> {
         let ob = self.get_orderbook_impl(market_id).await?;
-        let mid_price = ob
-            .get_mid_price()
-            .ok_or_else(|| anyhow!("Orderbook is empty, cannot compute mid price"))?;
+        let mid_price = ob.get_mid_price().unwrap_or_else(|| {
+            warn!(market_id = %market_id, "Orderbook is empty, using fallback price 0.0");
+            Decimal::ZERO
+        });
 
         Ok(MarketUpdate {
             timestamp: ob.timestamp,

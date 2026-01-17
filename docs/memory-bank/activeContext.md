@@ -4,11 +4,14 @@
 Maintaining stability of v0.4.1 features and preparing for long-term multi-wallet observability.
 
 ## Recent Changes
-- **Version 0.4.1 (Current)**:
-    - **Dashboard Secure Login**: Implemented JWT-based authentication for the web dashboard (BMV-54).
-    - **Auth Middleware**: Added secure access control to all management API routes.
-    - **Premium Login Interface**: High-fidelity terminal-style login screen.
-- **Version 0.4.0**:
+- **Version 0.4.4 (Current)**:
+    - **Docker Stack Optimization**: Removed Grafana to reduce RAM/CPU footprint.
+    - **Resource Limits**: Applied CPU (0.5-1.0) and RAM (256MB-512MB) limits to all services.
+    - **Docker Profiles**: Introduced `prod` profile for monitoring (Prometheus) and light default dev profile.
+    - **Postgres Tuning**: Optimized shared buffers and connections for low-resource environments.
+- **Version 0.4.3**:
+    - **Security Hardening**: Secret masking and environment variable enforcement.
+- **Version 0.4.1**:
     - **Backlog Implementation**: Completed all high-priority v2.7 requirements.
     - **SOL Auto-injection**: Automated SOL balance management for trading wallets (BMV-53).
     - **Proximity-based Rebalance**: Intelligent pivot rebalancing based on orderbook proximity (BMV-51).
