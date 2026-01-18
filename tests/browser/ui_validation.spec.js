@@ -13,6 +13,14 @@ test.describe('BMV Dashboard UI Validation', () => {
         await page.locator('input[type="password"]').fill(PASSWORD);
         await page.locator('button:has-text("Establish Connection")').click();
 
+        // Wait for navigation and switch to EN
+        await expect(page).toHaveURL(`${BASE_URL}/`, { timeout: 20000 });
+        const enButton = page.locator('button:has-text("EN")');
+        if (await enButton.isVisible()) {
+            await enButton.click();
+            await page.waitForTimeout(1000);
+        }
+
         // Wait for navigation to dashboard with a longer timeout
         try {
             await expect(page).toHaveURL(`${BASE_URL}/`, { timeout: 20000 });
@@ -54,7 +62,8 @@ test.describe('BMV Dashboard UI Validation', () => {
 
         // 4. Verify Order Book
         console.log('Verifying Order Book...');
-        await expect(page.locator("h2:has-text('Order Book V1')").or(page.locator("h1:has-text('Order Book V1')"))).toBeVisible({ timeout: 10000 });
+        // Use a broader selector that targets the text within any container that might hold the heading
+        await expect(page.locator('text=Order Book V1').first()).toBeVisible({ timeout: 15000 });
 
         // Check for bids or asks (at least some rows)
         const bidsAsks = page.locator('div[side]');

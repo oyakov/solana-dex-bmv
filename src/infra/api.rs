@@ -1,6 +1,4 @@
-use crate::infra::{
-    Auth, DatabaseProvider, HealthChecker, SolanaProvider, WalletManager,
-};
+use crate::infra::{Auth, DatabaseProvider, HealthChecker, SolanaProvider, WalletManager};
 use crate::services::{GridBuilder, PivotEngine, SimulationEngine};
 use crate::utils::BotSettings;
 use anyhow::Result;

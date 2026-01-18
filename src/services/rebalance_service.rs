@@ -36,33 +36,37 @@ impl RebalanceService {
     }
 
     pub async fn should_rebuild(&self, current_pivot: Decimal, current_price: Decimal) -> bool {
-        let mut last_pivot_lock = self.last_pivot.lock().unwrap();
-        let mut last_rebuild_lock = self.last_rebuild.lock().unwrap();
-
         let now = std::time::Instant::now();
 
-        // 1. Mandatory hourly sync (3600 seconds)
-        if let Some(last_time) = *last_rebuild_lock {
-            if now.duration_since(last_time).as_secs() >= 3600 {
-                info!("Mandatory hourly sync triggered");
+        // 1. Mandatory hourly sync (3600 seconds) - use a temporary block to drop lock
+        {
+            let mut last_rebuild_lock = self.last_rebuild.lock().unwrap();
+            if let Some(last_time) = *last_rebuild_lock {
+                if now.duration_since(last_time).as_secs() >= 3600 {
+                    info!("Mandatory hourly sync triggered");
+                    let mut last_pivot_lock = self.last_pivot.lock().unwrap();
+                    *last_pivot_lock = Some(current_pivot);
+                    *last_rebuild_lock = Some(now);
+                    return true;
+                }
+            } else {
+                // First time initialization
+                info!("First grid initialization");
+                let mut last_pivot_lock = self.last_pivot.lock().unwrap();
                 *last_pivot_lock = Some(current_pivot);
                 *last_rebuild_lock = Some(now);
                 return true;
             }
-        } else {
-            // First time initialization
-            info!("First grid initialization");
-            *last_pivot_lock = Some(current_pivot);
-            *last_rebuild_lock = Some(now);
-            return true;
         }
 
         // 2. Threshold-based rebalance
+        let threshold = {
+            let s = self.settings.read().await;
+            s.order_grid.rebalance_threshold_percent / Decimal::from(100)
+        };
+
+        let mut last_pivot_lock = self.last_pivot.lock().unwrap();
         if let Some(last_p) = *last_pivot_lock {
-            let threshold = {
-                let s = self.settings.read().await;
-                s.order_grid.rebalance_threshold_percent / Decimal::from(100)
-            };
             if last_p.is_zero() {
                 *last_pivot_lock = Some(current_pivot);
                 return true;
@@ -77,7 +81,9 @@ impl RebalanceService {
                     "Rebalance threshold triggered"
                 );
                 *last_pivot_lock = Some(current_pivot);
-                *last_rebuild_lock = Some(now);
+                if let Ok(mut last_rebuild_lock) = self.last_rebuild.lock() {
+                    *last_rebuild_lock = Some(now);
+                }
                 return true;
             }
         }
@@ -103,7 +109,9 @@ impl RebalanceService {
                         "Proximity rebalance triggered (price too close to order)"
                     );
                     *last_pivot_lock = Some(current_pivot);
-                    *last_rebuild_lock = Some(now);
+                    if let Ok(mut lock) = self.last_rebuild.lock() {
+                        *lock = Some(now);
+                    }
                     return true;
                 }
             }

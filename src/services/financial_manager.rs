@@ -140,7 +140,7 @@ impl FinancialManager {
     }
 
     pub async fn rebalance_fiat(&self, current_price: Decimal, pivot: Decimal) -> Result<()> {
-        let (buy_percent, sell_percent, usdc_wallet_3) = {
+        let (buy_percent, sell_percent, _usdc_wallet_3) = {
             let s = self.settings.read().await;
             (
                 s.channel_bounds.buy_percent,

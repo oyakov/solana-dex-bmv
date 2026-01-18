@@ -27,7 +27,7 @@ impl FlashVolumeModule {
     }
 
     pub async fn execute_cycle(&self) -> Result<()> {
-        let (enabled, market_id, token_mint, usdc_wallet_3, size_sol, tip_sol, bundler_url) = {
+        let (enabled, market_id, _token_mint, _usdc_wallet_3, _size_sol, _tip_sol, _bundler_url) = {
             let s = self.settings.read().await;
             (
                 s.flash_volume.enabled,
@@ -61,7 +61,7 @@ impl FlashVolumeModule {
         let price = market_update.price;
 
         // 3. Determine volume in SOL units
-        let (volume_sol, tip_sol, bundler_url, token_mint, usdc_wallet_3, jito_bundler_url) = {
+        let (volume_sol, tip_sol, _bundler_url, token_mint, usdc_wallet_3, jito_bundler_url) = {
             let s = self.settings.read().await;
             (
                 s.flash_volume.size_sol,

@@ -111,13 +111,13 @@ test.describe("BMV Dashboard API Tests", () => {
             expect(Array.isArray(data)).toBeTruthy();
         });
 
-        test("GET /api/orderbook should return order book data", async ({
+        test("GET /api/stats should return order book data", async ({
             page,
             request,
         }) => {
             const token = await getAuthToken(page);
 
-            const response = await request.get(`${BASE_URL}/api/orderbook`, {
+            const response = await request.get(`${BASE_URL}/api/stats`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -126,9 +126,11 @@ test.describe("BMV Dashboard API Tests", () => {
             expect(response.status()).toBe(200);
             const data = await response.json();
 
-            // Should have bids and asks
+            // Should have bids and asks (Orderbook V1 logic)
             expect(data).toHaveProperty("bids");
             expect(data).toHaveProperty("asks");
+            expect(Array.isArray(data.bids)).toBeTruthy();
+            expect(Array.isArray(data.asks)).toBeTruthy();
         });
 
         test("API should reject requests without auth token", async ({

@@ -555,7 +555,7 @@ impl BotSettings {
         tokio::spawn(async move {
             // Keep watcher alive
             let _watcher = watcher;
-            while let Some(_) = rx.recv().await {
+            while (rx.recv().await).is_some() {
                 // Debounce
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 while rx.try_recv().is_ok() {}

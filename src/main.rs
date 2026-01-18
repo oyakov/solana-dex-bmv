@@ -129,7 +129,8 @@ async fn main() -> Result<()> {
         wallet_manager,
         pivot_engine,
         price_aggregator.clone(),
-    ).await;
+    )
+    .await;
 
     // Setup signal handling for graceful shutdown
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
