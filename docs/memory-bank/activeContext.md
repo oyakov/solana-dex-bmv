@@ -5,6 +5,9 @@ Maintaining stability of v0.4.8 features and preparing for long-term multi-walle
 
 ## Recent Changes
 - **Version 0.4.8 (Current)**:
+    - **Technical Specification Expansion**: Added deep-dives for Pivot/Grid algorithms, DB schema, and code references.
+    - **Browser E2E testing**: Comprehensive Playwright suite implemented for Dashboard and Russian localization.
+    - **Stability Fixes**: Resolved critical compilation errors and "502 Bad Gateway" in Simulation Lab.
     - **Backlog Implementation**: Completed all high-priority v2.7 requirements.
     - **SOL Auto-injection**: Automated SOL balance management for trading wallets (BMV-53).
     - **Proximity-based Rebalance**: Intelligent pivot rebalancing based on orderbook proximity (BMV-51).
@@ -13,7 +16,6 @@ Maintaining stability of v0.4.8 features and preparing for long-term multi-walle
     - **Dynamic Wallet Rotation**: Stealth rotation logic to minimize wallet detection (BMV-46).
     - **RugCheck Monitoring**: Integration for automated security scanning of assets (BMV-14).
     - **Advanced Market Metrics**: Real-time dashboard upgrades with D3 charts for L2 depth and imbalance indices.
-    - **Stability Fixes**: Resolved critical compilation errors and "502 Bad Gateway" in Simulation Lab.
 - **Version 0.4.5**:
     - **Configuration Profiles**: Split monolithic `config.yaml` into `config/base.yaml`, `config/local.yaml`, and `config/prod.yaml`.
     - **Profile Switching**: Implemented `APP_ENV` based configuration loading with hierarchical merging.

@@ -126,6 +126,7 @@ For more details, see [TESTING.md](docs/TESTING.md).
 - [**Memory Bank**](docs/MEMORY_BANK.md): Core references, architecture, and project status.
 - [Requirements](docs/requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования.md)
 - [Docker Guide](docs/DOCKER.md)
+- [**Technical Specification (v0.4.8)**](docs/v0.4.8_TECHNICAL_SPECIFICATION.md)
 - [Testing Guide](docs/TESTING.md)
-- [Dashboard & Testing Guide (v0.4.8)](docs/v0.4.6_DASHBOARD_AND_TESTING.md)
+- [Dashboard & Testing Guide (Legacy)](docs/v0.4.6_DASHBOARD_AND_TESTING.md)
 - [Agent Workflows](docs/WORKFLOWS.md)

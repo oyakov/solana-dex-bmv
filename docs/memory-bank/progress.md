@@ -44,7 +44,9 @@
 - [x] Target Control Percent logic.
 - [x] Web Dashboard (D3 Upgraded) [BMV-34].
 - [x] **Secure Dashboard Authentication** (JWT) [BMV-54].
+- [x] **Expanded Technical Specification** (v0.4.8).
+- [x] **Browser E2E Testing Suite** (Playwright).
 
-## Total Completion: ~92%
-Current focus is stabilizing v0.4.8 security features and implementing continuous PnL tracking and the profit growth model as part of the Financial Manager evolution.
+## Total Completion: ~95%
+Current focus is implementing continuous PnL tracking and the profit growth model as part of the Financial Manager evolution.
 

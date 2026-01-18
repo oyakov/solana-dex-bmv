@@ -17,10 +17,11 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 ## Operational Guides
 - [README](../README.md): Quick start and execution guide.
 - [Docker Guide](DOCKER.md): Running the bot in containerized environments.
+- [**Technical Specification**](v0.4.8_TECHNICAL_SPECIFICATION.md): Detailed algorithm and system maps.
 - [Testing Guide](TESTING.md): Testing strategy and execution instructions.
 - [Agent Workflows](WORKFLOWS.md): Available AI agent workflows.
 - [Order Grid Visualization](ORDER_GRID_VISUALIZATION.md): Theory and performance monitoring.
-- [Dashboard & Testing Guide](v0.4.6_DASHBOARD_AND_TESTING.md): v0.4.6 features and E2E testing.
+- [Dashboard & Testing Guide](v0.4.6_DASHBOARD_AND_TESTING.md): v0.4.6 legacy features.
 
 ## Technical Documentation
 - [Main Requirements](requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования%20—%202.7.md): Latest project requirements (v2.7).
