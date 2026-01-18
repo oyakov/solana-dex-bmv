@@ -26,17 +26,21 @@ async fn main() -> Result<()> {
     info!("Solana DEX BMV bot (Rust) starting");
 
     // Load settings
-    let settings = BotSettings::load()?;
+    let settings = Arc::new(tokio::sync::RwLock::new(BotSettings::load()?));
 
-    // Initialize infrastructure
+    // Spawn config watcher
+    BotSettings::spawn_config_watcher(settings.clone())?;
+
+    let settings_read = settings.read().await;
+
     let commitment = CommitmentConfig::confirmed();
     let solana = Arc::new(SolanaClient::new(
-        &settings.rpc_endpoints.primary_http,
+        &settings_read.rpc_endpoints.primary_http,
         commitment,
     ));
-    let database = Arc::new(Database::connect(&settings.database.url).await?);
+    let database = Arc::new(Database::connect(&settings_read.database.url).await?);
     let wallet_manager = Arc::new(WalletManager::new(
-        &settings.wallets.multi_wallet.keypairs,
+        &settings_read.wallets.multi_wallet.keypairs,
         Some(database.clone()),
     )?);
     wallet_manager.load_from_db().await?;
@@ -47,7 +51,7 @@ async fn main() -> Result<()> {
     let price_aggregator = Arc::new(PriceAggregator::new());
 
     // Perform connectivity health checks
-    let health_checker = HealthChecker::new(solana.clone(), database.clone(), settings.clone());
+    let health_checker = HealthChecker::new(solana.clone(), database.clone(), (*settings_read).clone());
     let health_reports = health_checker.run_all_checks().await;
     HealthChecker::display_reports(&health_reports);
     health_checker
@@ -56,7 +60,7 @@ async fn main() -> Result<()> {
 
     // Spawn periodic health check task
     let health_checker_task = Arc::new(health_checker);
-    let health_check_interval = settings.health_check_interval_seconds;
+    let health_check_interval = settings_read.health_check_interval_seconds;
     tokio::spawn(async move {
         let mut interval =
             tokio::time::interval(tokio::time::Duration::from_secs(health_check_interval));
@@ -68,23 +72,22 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Initialize logic services
     let pivot_engine = Arc::new(PivotEngine::new(
-        settings.pivot_vwap.pivot_price,
-        settings.pivot_vwap.lookback_days,
-        settings.pivot_vwap.lookback_minutes,
-        settings.pivot_vwap.nominal_daily_volume,
-        settings.pivot_vwap.market_id_rent_sol,
-        settings.pivot_vwap.account_rent_sol,
-        settings.pivot_vwap.jito_tip_sol,
-        settings.pivot_vwap.fee_bps,
+        settings_read.pivot_vwap.pivot_price,
+        settings_read.pivot_vwap.lookback_days,
+        settings_read.pivot_vwap.lookback_minutes,
+        settings_read.pivot_vwap.nominal_daily_volume,
+        settings_read.pivot_vwap.market_id_rent_sol,
+        settings_read.pivot_vwap.account_rent_sol,
+        settings_read.pivot_vwap.jito_tip_sol,
+        settings_read.pivot_vwap.fee_bps,
     ));
 
     // Initialize and spawn Market Data Service (WebSocket ingestion)
     let market_data_service = MarketDataService::new(
-        &settings.rpc_endpoints.primary_ws,
+        &settings_read.rpc_endpoints.primary_ws,
         database.clone(),
-        &settings.openbook_market_id,
+        &settings_read.openbook_market_id,
         pivot_engine.clone(),
     );
     tokio::spawn(async move {
@@ -100,7 +103,7 @@ async fn main() -> Result<()> {
 
     // Initialize and spawn API Server
     let api_server = solana_dex_bmv::infra::ApiServer::new(
-        settings.clone(),
+        settings.clone(), // ApiServer should also be updated to hold the lock if needed, but for now we pass the lock
         database.clone(),
         solana.clone(),
         wallet_manager.clone(),
@@ -114,9 +117,11 @@ async fn main() -> Result<()> {
         }
     });
 
+    drop(settings_read);
+
     // Initialize orchestrator
     let orchestrator = TradingService::new(
-        settings,
+        settings.clone(),
         solana,
         database.clone(),
         wallet_manager,

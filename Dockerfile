@@ -65,5 +65,4 @@ RUN chown -R botuser:botgroup /app
 USER botuser
 
 # Run the bot
-ENTRYPOINT ["/app/solana-dex-bmv"]
-CMD ["--config", "/app/config.yaml"]
+CMD ["/app/solana-dex-bmv"]

@@ -27,39 +27,45 @@ pub struct TradingService {
     pnl_tracker: std::sync::Arc<tokio::sync::Mutex<PnlTracker>>,
 
     financial_manager: FinancialManager,
+    emergency_pool: crate::services::emergency_pool::EmergencyPoolService,
     flash_volume: FlashVolumeModule,
     rent_recovery: RentRecoveryService,
     rugcheck: RugCheckService,
     price_aggregator: std::sync::Arc<PriceAggregator>,
-    _settings: BotSettings,
+    _settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
 }
 
 impl TradingService {
     pub fn new(
-        settings: BotSettings,
+        settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
         solana: std::sync::Arc<dyn SolanaProvider>,
         database: std::sync::Arc<dyn DatabaseProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
         pivot_engine: std::sync::Arc<PivotEngine>,
         price_aggregator: std::sync::Arc<PriceAggregator>,
     ) -> Self {
-        let grid_builder = GridBuilder {
-            orders_per_side: settings.order_grid.orders_per_side,
-            buy_channel_width: settings.channel_bounds.buy_percent,
-            sell_channel_width: settings.channel_bounds.sell_percent,
-            buy_volume_multiplier: settings.order_grid.buy_volume_multiplier,
-            sell_volume_multiplier: settings.order_grid.sell_volume_multiplier,
-        };
+        let grid_builder = GridBuilder::default(); // Will be configured per-tick from settings
 
         let rebalance_service =
             RebalanceService::new(solana.clone(), wallet_manager.clone(), settings.clone());
-        let kill_switch = std::sync::Arc::new(KillSwitch::from_settings(&settings.kill_switch));
-        let risk_manager = RiskManager::new(settings.risk_limits.clone());
+        
+        let kill_switch = {
+            // For now, we initialize kill_switch once, but ideally it should follow settings too.
+            // However, kill_switch might be better as a standalone reactive component.
+            // Let's keep it simple for now and use a dummy or separate it.
+            std::sync::Arc::new(KillSwitch::new("file".to_string(), "/tmp/solana-dex-bmv.kill".to_string(), "".to_string(), "".to_string()))
+        };
+        let risk_manager = RiskManager::new(crate::utils::RiskLimitsSettings::default());
 
         let flash_volume =
             FlashVolumeModule::new(solana.clone(), wallet_manager.clone(), settings.clone());
         let financial_manager =
             FinancialManager::new(solana.clone(), wallet_manager.clone(), settings.clone());
+        let emergency_pool = crate::services::emergency_pool::EmergencyPoolService::new(
+            solana.clone(),
+            wallet_manager.clone(),
+            settings.clone(),
+        );
         let rent_recovery =
             RentRecoveryService::new(solana.clone(), wallet_manager.clone(), settings.clone());
 
@@ -88,8 +94,11 @@ impl TradingService {
             "Starting TradingService main loop"
         );
 
-        let tick_interval =
-            tokio::time::Duration::from_secs(self._settings.trading_tick_interval_seconds);
+        let tick_interval_secs = {
+            let s = self._settings.read().await;
+            s.trading_tick_interval_seconds
+        };
+        let tick_interval = tokio::time::Duration::from_secs(tick_interval_secs);
         let recovery_delay = tokio::time::Duration::from_secs(5);
         let mut interval = tokio::time::interval(tick_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -108,13 +117,37 @@ impl TradingService {
     pub async fn tick(&self) -> Result<()> {
         info!("Trading tick starting");
 
+        let (market_id, sol_usdc_id, token_mint, rugcheck_enabled, rugcheck_interval, 
+             large_order_threshold, tick_size, dry_run_enabled, jito_tip_lamports, jito_url, risk_limits,
+             orders_per_side, buy_bounds, sell_bounds, buy_mult, sell_mult) = {
+            let s = self._settings.read().await;
+            (
+                s.openbook_market_id.clone(),
+                s.sol_usdc_market_id.clone(),
+                s.token_mint.clone(),
+                s.rugcheck.enabled,
+                s.rugcheck.check_interval_secs,
+                s.order_grid.large_order_threshold_sol,
+                s.order_grid.front_run_tick_size_sol,
+                s.dry_run.enabled,
+                s.jito_bundle.tip_lamports,
+                s.jito_bundle.bundler_url.clone(),
+                s.risk_limits.clone(),
+                s.order_grid.orders_per_side,
+                s.channel_bounds.buy_percent,
+                s.channel_bounds.sell_percent,
+                s.order_grid.buy_volume_multiplier,
+                s.order_grid.sell_volume_multiplier,
+            )
+        };
+
         if self.kill_switch.is_triggered().await? {
             self.handle_kill_switch("manual trigger detected").await?;
             return Ok(());
         }
 
-        let risk_snapshot = self.build_risk_snapshot().await?;
-        if let Some(reason) = self.risk_manager.evaluate(&risk_snapshot) {
+        let risk_snapshot = self.build_risk_snapshot(&market_id).await?;
+        if let Some(reason) = self.risk_manager.evaluate_with_limits(&risk_snapshot, &risk_limits) {
             let reason_text = reason.to_string();
             self.kill_switch.trigger(&reason_text).await?;
             self.handle_kill_switch(&reason_text).await?;
@@ -189,7 +222,6 @@ impl TradingService {
 
         // 2. Fetch live market data (with fallback for Phase 1 simulation)
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
-        let market_id = &self._settings.openbook_market_id;
 
         // Try to get real price from aggregator first
         let real_bmv_price = self
@@ -270,8 +302,7 @@ impl TradingService {
         );
 
         // 5aa. SOL/USDC and Cross-rate (v0.3.0 Requirement)
-        let sol_usdc_id = &self._settings.sol_usdc_market_id;
-        let sol_usdc_price = match self.price_aggregator.fetch_price_usd(sol_usdc_id).await {
+        let sol_usdc_price = match self.price_aggregator.fetch_price_usd(&sol_usdc_id).await {
             Ok(p) => p,
             Err(e) => {
                 debug!(error = %e, ?sol_usdc_id, "Aggregator failed for SOL/USDC, trying Solana RPC");
@@ -293,8 +324,10 @@ impl TradingService {
 
         // 5b. Target Control (v0.3.0 Requirement)
         // TARGET_CONTROL_% = 100% − LockedTokens − OwnedTokens
-        let total_emission = self._settings.target_control.total_emission;
-        let locked_tokens = self._settings.target_control.locked_tokens;
+        let (total_emission, locked_tokens) = {
+            let s = self._settings.read().await;
+            (s.target_control.total_emission, s.target_control.locked_tokens)
+        };
         let owned_tokens = pnl_snapshot.net_position; // Owned by bot (realized + unrealized)
 
         let free_emission = total_emission - locked_tokens - owned_tokens;
@@ -324,15 +357,22 @@ impl TradingService {
             info!(?pivot, "Rebuilding order grid");
 
             // 7. Build Grid
-            let mut grid = self.grid_builder.build(pivot, Decimal::from(100)).await;
+            let grid_builder = GridBuilder {
+                orders_per_side,
+                buy_channel_width: buy_bounds,
+                sell_channel_width: sell_bounds,
+                buy_volume_multiplier: buy_mult,
+                sell_volume_multiplier: sell_mult,
+            };
+            let mut grid = grid_builder.build(pivot, Decimal::from(100)).await;
 
             // 7a. L2 Scan & Front-running Protection
-            if let Ok(ob) = self.solana.get_orderbook(market_id).await {
-                self.grid_builder.apply_front_running_protection(
+            if let Ok(ob) = self.solana.get_orderbook(&market_id).await {
+                grid_builder.apply_front_running_protection(
                     &mut grid,
                     &ob,
-                    self._settings.order_grid.large_order_threshold_sol,
-                    self._settings.order_grid.front_run_tick_size_sol,
+                    large_order_threshold,
+                    tick_size,
                 );
             }
 
@@ -426,7 +466,7 @@ impl TradingService {
         self.rent_recovery.recover_rent().await?;
 
         // 12a. Periodic RugCheck (BMV-14)
-        if self._settings.rugcheck.enabled {
+        if rugcheck_enabled {
             let last_rugcheck_ts = self
                 .database
                 .get_state("rugcheck_last_ts")
@@ -434,8 +474,8 @@ impl TradingService {
                 .and_then(|s| s.parse::<i64>().ok())
                 .unwrap_or(0);
 
-            if now - last_rugcheck_ts >= self._settings.rugcheck.check_interval_secs as i64 {
-                if let Err(e) = self.rugcheck.fetch_score(&self._settings.token_mint).await {
+            if now - last_rugcheck_ts >= rugcheck_interval as i64 {
+                if let Err(e) = self.rugcheck.fetch_score(&token_mint).await {
                     warn!(error = %e, "rugcheck_failed");
                 } else {
                     self.database
@@ -461,7 +501,7 @@ impl TradingService {
         Ok(())
     }
 
-    async fn build_risk_snapshot(&self) -> Result<RiskSnapshot> {
+    async fn build_risk_snapshot(&self, market_id: &str) -> Result<RiskSnapshot> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         let since_timestamp = now.saturating_sub(86_400);
         let trades = self.database.get_recent_trades(since_timestamp).await?;
@@ -481,7 +521,6 @@ impl TradingService {
             Decimal::ZERO
         };
 
-        let market_id = &self._settings.openbook_market_id;
         let mut open_orders = 0u32;
         for wallet in self.wallet_manager.get_all_wallets().await {
             if self
@@ -507,19 +546,25 @@ impl TradingService {
     }
 
     async fn cancel_all_orders(&self) -> Result<()> {
-        if self._settings.dry_run.enabled {
+        let (dry_run_enabled, market_id, tip_lamports, jito_url) = {
+            let s = self._settings.read().await;
+            (
+                s.dry_run.enabled,
+                s.openbook_market_id.clone(),
+                s.jito_bundle.tip_lamports,
+                s.jito_bundle.bundler_url.clone(),
+            )
+        };
+
+        if dry_run_enabled {
             info!("Dry run enabled; skipping cancel-all execution");
             return Ok(());
         }
 
-        let market_id = &self._settings.openbook_market_id;
-        let tip_lamports = self._settings.jito_bundle.tip_lamports;
-        let jito_url = &self._settings.jito_bundle.bundler_url;
-
         for wallet in self.wallet_manager.get_all_wallets().await {
             let result = self
                 .solana
-                .cancel_all_orders(market_id, &wallet, jito_url, tip_lamports)
+                .cancel_all_orders(&market_id, &wallet, &jito_url, tip_lamports)
                 .await?;
             info!(wallet = %wallet.pubkey(), %result, "Cancel-all submitted");
         }

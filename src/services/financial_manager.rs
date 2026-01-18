@@ -10,14 +10,14 @@ use tracing::{info, warn};
 pub struct FinancialManager {
     solana: std::sync::Arc<dyn SolanaProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
-    settings: BotSettings,
+    settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
 }
 
 impl FinancialManager {
     pub fn new(
         solana: std::sync::Arc<dyn SolanaProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
-        settings: BotSettings,
+        settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
     ) -> Self {
         Self {
             solana,
@@ -29,14 +29,23 @@ impl FinancialManager {
     pub async fn check_balances(&self, current_price: Decimal) -> Result<()> {
         info!("Financial Manager: checking SOL/USDC balances across swarm");
 
+        let (usdc_wallet_3, min_sol_reserve_percent, min_conversion_barrier_usd) = {
+            let s = self.settings.read().await;
+            (
+                s.wallets.usdc_wallet_3.clone(),
+                s.financial_manager.min_sol_reserve_percent,
+                s.financial_manager.min_conversion_barrier_usd,
+            )
+        };
+
         let mut total_sol = Decimal::ZERO;
         let mut total_usdc = Decimal::ZERO;
         let wallets = self.wallet_manager.get_all_wallets().await;
-        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3)
             .map_err(|e| {
                 anyhow!(
                     "Failed to parse usdc_wallet_3 in check_balances '{}': {}",
-                    self.settings.wallets.usdc_wallet_3,
+                    usdc_wallet_3,
                     e
                 )
             })?;
@@ -160,9 +169,17 @@ impl FinancialManager {
         if current_price > pivot && (sell_bound - pivot) > Decimal::ZERO {
             // In SELL zone: SOL -> USDC (Gradients: 100/0 at Pivot -> 70/30 at sell_bound)
             // Progress 0.0 at Pivot -> 1.0 at sell_bound
+            let (upper_usdc_ratio_max_percent, min_conversion_barrier_usd) = {
+                let s = self.settings.read().await;
+                (
+                    s.financial_manager.upper_usdc_ratio_max_percent,
+                    s.financial_manager.min_conversion_barrier_usd,
+                )
+            };
+
             let progress = (current_price - pivot) / (sell_bound - pivot);
             let _target_usdc_ratio = progress.min(Decimal::ONE)
-                * self.settings.financial_manager.upper_usdc_ratio_max_percent
+                * upper_usdc_ratio_max_percent
                 / Decimal::from(100);
 
             // To reach target_usdc_ratio, we may need to sell SOL.
@@ -170,7 +187,7 @@ impl FinancialManager {
             if progress > Decimal::new(5, 1) {
                 // 0.5
                 let amount_usd = Decimal::from(50);
-                if amount_usd >= self.settings.financial_manager.min_conversion_barrier_usd {
+                if amount_usd >= min_conversion_barrier_usd {
                     let amount_lamports = (Decimal::from(1_000_000_000u64) * amount_usd
                         / current_price)
                         .to_u64()
@@ -193,9 +210,13 @@ impl FinancialManager {
             }
         } else if current_price < pivot && (pivot - buy_bound) > Decimal::ZERO {
             // In BUY zone: USDC -> SOL (Gradients: 100/0 at Pivot -> 70/30 at buy_bound)
+            let lower_usdc_ratio_max_percent = {
+                let s = self.settings.read().await;
+                s.financial_manager.lower_usdc_ratio_max_percent
+            };
             let progress = (pivot - current_price) / (pivot - buy_bound);
             let _target_sol_ratio = progress.min(Decimal::ONE)
-                * self.settings.financial_manager.lower_usdc_ratio_max_percent
+                * lower_usdc_ratio_max_percent
                 / Decimal::from(100);
 
             // If SOL share is too low, buy SOL.

@@ -1,3 +1,4 @@
+pub mod emergency_pool;
 pub mod financial_manager;
 pub mod flash_volume;
 pub mod grid_builder;

@@ -40,18 +40,26 @@ impl RiskManager {
     }
 
     pub fn evaluate(&self, snapshot: &RiskSnapshot) -> Option<CircuitBreakerReason> {
-        if self.limits.max_daily_loss_usd > Decimal::ZERO
-            && snapshot.daily_loss_usd >= self.limits.max_daily_loss_usd
+        self.evaluate_with_limits(snapshot, &self.limits)
+    }
+
+    pub fn evaluate_with_limits(
+        &self,
+        snapshot: &RiskSnapshot,
+        limits: &RiskLimitsSettings,
+    ) -> Option<CircuitBreakerReason> {
+        if limits.max_daily_loss_usd > Decimal::ZERO
+            && snapshot.daily_loss_usd >= limits.max_daily_loss_usd
         {
             return Some(CircuitBreakerReason::MaxDailyLoss {
-                limit: self.limits.max_daily_loss_usd,
+                limit: limits.max_daily_loss_usd,
                 value: snapshot.daily_loss_usd,
             });
         }
 
-        if self.limits.max_open_orders > 0 && snapshot.open_orders >= self.limits.max_open_orders {
+        if limits.max_open_orders > 0 && snapshot.open_orders >= limits.max_open_orders {
             return Some(CircuitBreakerReason::MaxOpenOrders {
-                limit: self.limits.max_open_orders,
+                limit: limits.max_open_orders,
                 value: snapshot.open_orders,
             });
         }

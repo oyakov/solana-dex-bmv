@@ -10,14 +10,14 @@ use tracing::info;
 pub struct FlashVolumeModule {
     solana: std::sync::Arc<dyn SolanaProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
-    settings: BotSettings,
+    settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
 }
 
 impl FlashVolumeModule {
     pub fn new(
         solana: std::sync::Arc<dyn SolanaProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
-        settings: BotSettings,
+        settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
     ) -> Self {
         Self {
             solana,
@@ -27,7 +27,20 @@ impl FlashVolumeModule {
     }
 
     pub async fn execute_cycle(&self) -> Result<()> {
-        if !self.settings.flash_volume.enabled {
+        let (enabled, market_id, token_mint, usdc_wallet_3, size_sol, tip_sol, bundler_url) = {
+            let s = self.settings.read().await;
+            (
+                s.flash_volume.enabled,
+                s.openbook_market_id.clone(),
+                s.token_mint.clone(),
+                s.wallets.usdc_wallet_3.clone(),
+                s.flash_volume.size_sol,
+                s.flash_volume.tip_sol,
+                s.jito_bundle.bundler_url.clone(),
+            )
+        };
+
+        if !enabled {
             return Ok(());
         }
 
@@ -49,8 +62,18 @@ impl FlashVolumeModule {
         let price = market_update.price;
 
         // 3. Determine volume in SOL units
-        let volume_sol = self.settings.flash_volume.size_sol;
-        let tip_lamports = (self.settings.flash_volume.tip_sol * Decimal::from(1_000_000_000u64))
+        let (volume_sol, tip_sol, bundler_url, token_mint, usdc_wallet_3, jito_bundler_url) = {
+            let s = self.settings.read().await;
+            (
+                s.flash_volume.size_sol,
+                s.flash_volume.tip_sol,
+                s.jito_bundle.bundler_url.clone(), // This might be redundant with next one but anyway
+                s.token_mint.clone(),
+                s.wallets.usdc_wallet_3.clone(),
+                s.jito_bundle.bundler_url.clone(),
+            )
+        };
+        let tip_lamports = (tip_sol * Decimal::from(1_000_000_000u64))
             .to_u64()
             .unwrap_or(1_000_000);
 
@@ -68,18 +91,18 @@ impl FlashVolumeModule {
             .unwrap_or(0);
 
         let base_mint =
-            solana_sdk::pubkey::Pubkey::from_str(&self.settings.token_mint).map_err(|e| {
+            solana_sdk::pubkey::Pubkey::from_str(&token_mint).map_err(|e| {
                 anyhow!(
                     "Failed to parse token_mint in flash_volume '{}': {}",
-                    self.settings.token_mint,
+                    token_mint,
                     e
                 )
             })?;
-        let quote_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
+        let quote_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3)
             .map_err(|e| {
                 anyhow!(
                     "Failed to parse usdc_wallet_3 in flash_volume '{}': {}",
-                    self.settings.wallets.usdc_wallet_3,
+                    usdc_wallet_3,
                     e
                 )
             })?;
@@ -100,7 +123,7 @@ impl FlashVolumeModule {
                 price_lots,
                 size_lots,
                 tip_lamports,
-                &self.settings.jito_bundle.bundler_url,
+                &jito_bundler_url,
                 &base_mint,
                 &quote_mint,
             )

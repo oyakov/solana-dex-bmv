@@ -23,12 +23,13 @@ use solana_sdk::signer::Signer;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
 #[derive(Clone)]
 struct ApiState {
-    settings: BotSettings,
+    settings: Arc<RwLock<BotSettings>>,
     database: Arc<dyn DatabaseProvider>,
     solana: Arc<dyn SolanaProvider>,
     wallet_manager: Arc<WalletManager>,
@@ -127,7 +128,7 @@ impl ApiServer {
     ) -> Self {
         Self {
             state: ApiState {
-                settings,
+                settings: Arc::new(RwLock::new(settings)),
                 database,
                 solana,
                 wallet_manager,
@@ -188,7 +189,9 @@ impl ApiServer {
 }
 
 async fn handle_health(State(state): State<ApiState>) -> Json<serde_json::Value> {
-    let health_checker = HealthChecker::new(state.solana, state.database, state.settings);
+    let settings = state.settings.read().await;
+    let health_checker = HealthChecker::new(state.solana, state.database, settings.clone());
+    drop(settings);
     let reports = health_checker.run_all_checks().await;
     Json(serde_json::to_value(reports).unwrap_or_default())
 }
@@ -196,7 +199,13 @@ async fn handle_health(State(state): State<ApiState>) -> Json<serde_json::Value>
 async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     info!("GET /api/stats - Starting data aggregation");
     let wallets = state.wallet_manager.get_all_wallets().await;
-    let usdc_mint = Pubkey::from_str(&state.settings.wallets.usdc_wallet_3).unwrap_or_default();
+
+    let settings = state.settings.read().await;
+    let usdc_mint = Pubkey::from_str(&settings.wallets.usdc_wallet_3).unwrap_or_default();
+    let market_id = settings.openbook_market_id.clone();
+    let token_mint_str = settings.token_mint.clone();
+    let channel_bounds = settings.channel_bounds.clone();
+    drop(settings);
 
     let mut total_sol = 0.0;
     let mut total_usdc = 0.0;
@@ -236,10 +245,9 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     }
 
     // 1. Orderbook Metrics (V1) - with timeout
-    let market_id = &state.settings.openbook_market_id;
     let orderbook = match tokio::time::timeout(
         std::time::Duration::from_secs(2),
-        state.solana.get_orderbook(market_id),
+        state.solana.get_orderbook(&market_id),
     )
     .await
     {
@@ -309,8 +317,7 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     }
 
     // 2. Ecosystem Health (SPL Token) - with timeouts
-    let token_mint_str = &state.settings.token_mint;
-    let token_mint = Pubkey::from_str(token_mint_str).unwrap_or_default();
+    let token_mint = Pubkey::from_str(&token_mint_str).unwrap_or_default();
 
     let mut top_holders_percent = 0.0;
     let largest_accounts = tokio::time::timeout(
@@ -373,8 +380,8 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
 
     let res = Json(BotStats {
         pivot_price: state.pivot_engine.get_last_pivot().await,
-        buy_channel_width: state.settings.channel_bounds.buy_percent,
-        sell_channel_width: state.settings.channel_bounds.sell_percent,
+        buy_channel_width: channel_bounds.buy_percent,
+        sell_channel_width: channel_bounds.sell_percent,
         active_wallets: wallets.len(),
         kill_switch_active: false,
         total_sol_balance: total_sol,
@@ -399,7 +406,9 @@ async fn handle_list_wallets(State(state): State<ApiState>) -> Json<Vec<WalletIn
     let wallets = state.wallet_manager.get_all_wallets().await;
     let mut info_list = Vec::new();
 
-    let usdc_mint = Pubkey::from_str(&state.settings.wallets.usdc_wallet_3).unwrap_or_default();
+    let settings = state.settings.read().await;
+    let usdc_mint = Pubkey::from_str(&settings.wallets.usdc_wallet_3).unwrap_or_default();
+    drop(settings);
 
     for wallet in wallets {
         let pubkey = wallet.pubkey();
@@ -583,8 +592,11 @@ async fn handle_simulation(
 async fn handle_holders(State(state): State<ApiState>) -> Json<TokenHoldersResponse> {
     info!("GET /api/holders - Fetching token holder data");
 
-    let token_mint_str = &state.settings.token_mint;
-    let token_mint = Pubkey::from_str(token_mint_str).unwrap_or_default();
+    let settings = state.settings.read().await;
+    let token_mint_str = settings.token_mint.clone();
+    drop(settings);
+
+    let token_mint = Pubkey::from_str(&token_mint_str).unwrap_or_default();
 
     // Get token supply with timeout
     let total_supply = match tokio::time::timeout(

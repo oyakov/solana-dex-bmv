@@ -8,7 +8,7 @@ use tracing::info;
 pub struct RebalanceService {
     solana: std::sync::Arc<dyn crate::infra::SolanaProvider>,
     wallet_manager: std::sync::Arc<WalletManager>,
-    settings: BotSettings,
+    settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
     last_pivot: std::sync::Mutex<Option<Decimal>>,
     last_rebuild: std::sync::Mutex<Option<std::time::Instant>>,
     last_grid: std::sync::Mutex<Vec<crate::domain::GridLevel>>,
@@ -18,7 +18,7 @@ impl RebalanceService {
     pub fn new(
         solana: std::sync::Arc<dyn SolanaProvider>,
         wallet_manager: std::sync::Arc<WalletManager>,
-        settings: BotSettings,
+        settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
     ) -> Self {
         Self {
             solana,
@@ -35,7 +35,7 @@ impl RebalanceService {
         *last_grid_lock = grid;
     }
 
-    pub fn should_rebuild(&self, current_pivot: Decimal, current_price: Decimal) -> bool {
+    pub async fn should_rebuild(&self, current_pivot: Decimal, current_price: Decimal) -> bool {
         let mut last_pivot_lock = self.last_pivot.lock().unwrap();
         let mut last_rebuild_lock = self.last_rebuild.lock().unwrap();
 
@@ -59,8 +59,10 @@ impl RebalanceService {
 
         // 2. Threshold-based rebalance
         if let Some(last_p) = *last_pivot_lock {
-            let threshold =
-                self.settings.order_grid.rebalance_threshold_percent / Decimal::from(100);
+            let threshold = {
+                let s = self.settings.read().await;
+                s.order_grid.rebalance_threshold_percent / Decimal::from(100)
+            };
             if last_p.is_zero() {
                 *last_pivot_lock = Some(current_pivot);
                 return true;

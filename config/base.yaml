@@ -59,3 +59,11 @@ rugcheck:
 
 health_check_interval_seconds: 300
 trading_tick_interval_seconds: 10
+
+rpc_endpoints:
+  primary_http: "https://api.mainnet-beta.solana.com"
+  secondary_http: []
+  primary_ws: "wss://api.mainnet-beta.solana.com"
+
+database:
+  url: "postgres://botuser:botpass@localhost:5432/solana_dex"

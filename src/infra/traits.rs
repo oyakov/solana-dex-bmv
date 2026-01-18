@@ -85,6 +85,13 @@ pub trait SolanaProvider: Send + Sync {
         signer: &Keypair,
         open_orders: &Pubkey,
     ) -> Result<String>;
+    async fn get_open_orders_account_data(&self, oo_pubkey: &Pubkey) -> Result<Vec<u8>>;
+    async fn create_market(
+        &self,
+        base_mint: &Pubkey,
+        quote_mint: &Pubkey,
+        market_authority: &solana_sdk::signer::keypair::Keypair,
+    ) -> Result<Pubkey>;
     async fn get_token_largest_accounts(&self, mint: &Pubkey) -> Result<Vec<(Pubkey, u64)>>;
     async fn get_token_supply(&self, mint: &Pubkey) -> Result<u64>;
 }

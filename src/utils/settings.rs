@@ -1,4 +1,7 @@
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use dotenvy::dotenv;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -415,15 +418,19 @@ impl BotSettings {
 
         // Load base config
         let base_path = config_dir.join("base.yaml");
-        let mut config_value: serde_json::Value = if base_path.exists() {
-            let content = fs::read_to_string(base_path)?;
-            serde_yaml::from_str(&content)?
+        let mut config_value: serde_json::Value = if base_path.is_file() {
+            let content = fs::read_to_string(&base_path)
+                .with_context(|| format!("Failed to read base config: {:?}", base_path))?;
+            serde_yaml::from_str(&content)
+                .with_context(|| format!("Failed to parse base config: {:?}", base_path))?
         } else {
             // Fallback to legacy config.yaml if it exists
             let legacy_path = Path::new("config.yaml");
-            if legacy_path.exists() {
-                let content = fs::read_to_string(legacy_path)?;
-                serde_yaml::from_str(&content)?
+            if legacy_path.is_file() {
+                let content = fs::read_to_string(legacy_path)
+                    .with_context(|| format!("Failed to read legacy config: {:?}", legacy_path))?;
+                serde_yaml::from_str(&content)
+                    .with_context(|| format!("Failed to parse legacy config: {:?}", legacy_path))?
             } else {
                 serde_json::to_value(Self::default())?
             }
@@ -431,9 +438,11 @@ impl BotSettings {
 
         // Load profile config and merge
         let profile_path = config_dir.join(format!("{}.yaml", env));
-        if profile_path.exists() {
-            let content = fs::read_to_string(profile_path)?;
-            let profile_value: serde_json::Value = serde_yaml::from_str(&content)?;
+        if profile_path.is_file() {
+            let content = fs::read_to_string(&profile_path)
+                .context(format!("Failed to read profile config: {:?}", profile_path))?;
+            let profile_value: serde_json::Value = serde_yaml::from_str(&content)
+                .context(format!("Failed to parse profile config: {:?}", profile_path))?;
             merge_json_values(&mut config_value, profile_value);
         }
 
@@ -524,6 +533,47 @@ impl BotSettings {
         }
 
         Ok(settings)
+    }
+
+    pub fn spawn_config_watcher(settings: Arc<RwLock<Self>>) -> Result<()> {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+
+        let mut watcher = RecommendedWatcher::new(
+            move |res: notify::Result<notify::Event>| {
+                if let Ok(event) = res {
+                    if event.kind.is_modify() || event.kind.is_create() {
+                        let _ = tx.blocking_send(());
+                    }
+                }
+            },
+            Config::default(),
+        )?;
+
+        watcher.watch(Path::new("config"), RecursiveMode::NonRecursive)?;
+
+        tokio::spawn(async move {
+            // Keep watcher alive
+            let _watcher = watcher;
+            while let Some(_) = rx.recv().await {
+                // Debounce
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                while rx.try_recv().is_ok() {}
+
+                tracing::info!("Config change detected, reloading...");
+                match Self::load() {
+                    Ok(new_settings) => {
+                        let mut w = settings.write().await;
+                        *w = new_settings;
+                        tracing::info!("Settings hot-reloaded successfully");
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to reload settings: {}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(())
     }
 }
 

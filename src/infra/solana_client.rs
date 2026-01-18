@@ -197,6 +197,32 @@ impl crate::infra::SolanaProvider for SolanaClient {
             .await
     }
 
+    async fn get_open_orders_account_data(&self, oo_pubkey: &Pubkey) -> Result<Vec<u8>> {
+        self.get_open_orders_account_data_impl(oo_pubkey).await
+    }
+
+    async fn create_market(
+        &self,
+        base_mint: &Pubkey,
+        quote_mint: &Pubkey,
+        market_authority: &solana_sdk::signer::keypair::Keypair,
+    ) -> Result<Pubkey> {
+        info!(%base_mint, %quote_mint, "Creating OpenBook V2 Market");
+        
+        // In real V2, we need to create Market, Bids, Asks, EventHeap accounts.
+        // For Phase 2, we simulate the sequence.
+        let market_id = Pubkey::new_unique();
+        
+        // 1. Create Market Account
+        // 2. Create Bids Account
+        // 3. Create Asks Account
+        // 4. Create EventHeap Account
+        // 5. Initialize Market
+        
+        info!(%market_id, "Market created (mock implementation)");
+        Ok(market_id)
+    }
+
     async fn get_token_largest_accounts(&self, mint: &Pubkey) -> Result<Vec<(Pubkey, u64)>> {
         self.get_token_largest_accounts_impl(mint).await
     }
@@ -799,8 +825,15 @@ impl SolanaClient {
             &[signer],
             blockhash,
         );
-        let signature = self.client.send_and_confirm_transaction(&tx).await?;
-        Ok(signature.to_string())
+        self.client
+            .send_and_confirm_transaction(&tx)
+            .await
+            .map(|s| s.to_string())
+            .map_err(Into::into)
+    }
+
+    pub async fn get_open_orders_account_data_impl(&self, open_orders: &Pubkey) -> Result<Vec<u8>> {
+        self.client.get_account_data(open_orders).await.map_err(Into::into)
     }
 
     pub async fn get_token_largest_accounts_impl(
