@@ -19,15 +19,14 @@ import { getAuthHeaders } from "../../utils/auth";
 
 interface SimulationOrder {
     price: number;
-    amount: number;
+    size: number;
     side: "buy" | "sell";
-    wallet_index: number;
 }
 
 interface SimulationResult {
     scenario_name: string;
-    prices: number[];
-    projected_orders: SimulationOrder[];
+    price_history: { timestamp: number; price: number }[];
+    projected_grids: SimulationOrder[][];
     total_buy_orders: number;
     total_sell_orders: number;
     price_range: { min: number; max: number };
@@ -263,21 +262,20 @@ export default function SimulationPage() {
                                         </div>
                                     </div>
 
-                                    {/* Orders Table */}
+                                    {/* Orders Table - Using last grid of simulation */}
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Projected Orders ({result.projected_orders.length})</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Projected Orders ({result.projected_grids[result.projected_grids.length - 1]?.length || 0})</p>
                                         <div className="max-h-64 overflow-y-auto">
                                             <table className="w-full text-sm">
                                                 <thead className="sticky top-0 bg-[#020617]">
                                                     <tr className="border-b border-white/5">
                                                         <th className="text-left py-2 text-slate-500 font-medium">Side</th>
                                                         <th className="text-right py-2 text-slate-500 font-medium">Price</th>
-                                                        <th className="text-right py-2 text-slate-500 font-medium">Amount</th>
-                                                        <th className="text-right py-2 text-slate-500 font-medium">Wallet</th>
+                                                        <th className="text-right py-2 text-slate-500 font-medium">Size</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {result.projected_orders.slice(0, 20).map((order, idx) => (
+                                                    {(result.projected_grids[result.projected_grids.length - 1] || []).slice(0, 20).map((order, idx) => (
                                                         <motion.tr
                                                             key={idx}
                                                             initial={{ opacity: 0 }}
@@ -291,15 +289,14 @@ export default function SimulationPage() {
                                                                 </span>
                                                             </td>
                                                             <td className="text-right py-2 font-mono text-slate-300">{order.price.toFixed(8)}</td>
-                                                            <td className="text-right py-2 font-mono text-slate-300">{order.amount.toFixed(2)}</td>
-                                                            <td className="text-right py-2 font-mono text-slate-500">#{order.wallet_index}</td>
+                                                            <td className="text-right py-2 font-mono text-slate-300">{order.size.toFixed(4)}</td>
                                                         </motion.tr>
                                                     ))}
                                                 </tbody>
                                             </table>
-                                            {result.projected_orders.length > 20 && (
+                                            {result.projected_grids[result.projected_grids.length - 1]?.length > 20 && (
                                                 <p className="text-center text-slate-500 text-xs mt-2">
-                                                    + {result.projected_orders.length - 20} more orders
+                                                    + {result.projected_grids[result.projected_grids.length - 1].length - 20} more orders
                                                 </p>
                                             )}
                                         </div>

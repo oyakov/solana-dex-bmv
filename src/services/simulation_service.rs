@@ -9,10 +9,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub enum ScenarioType {
     UpwardSaw,
     DownwardSaw,
+    Sideways,
     FlashCrash,
-    Pump,
-    Flat,
-    UpDownHills,
+    PumpAndDump,
+    GradualRise,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,9 +23,20 @@ pub struct SimulationPriceTick {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationResult {
+    pub scenario_name: String,
     pub price_history: Vec<SimulationPriceTick>,
     pub projected_grids: Vec<Vec<GridLevel>>,
     pub density_distribution: Vec<DensityLevel>,
+    pub total_buy_orders: usize,
+    pub total_sell_orders: usize,
+    pub price_range: PriceRange,
+    pub average_spread: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceRange {
+    pub min: Decimal,
+    pub max: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,26 +62,44 @@ impl SimulationEngine {
         steps: usize,
         volatility: Decimal,
     ) -> SimulationResult {
+        let scenario_name = format!("{:?}", scenario);
         let price_history = self.generate_prices(scenario, base_price, steps, volatility);
         let mut projected_grids = Vec::with_capacity(steps);
 
-        // In a real MM bot, the grid is redeployed when price moves outside bounds.
-        // For simulation, we can simulate grid updates at each step or when thresholds are met.
-        // Let's build a grid at each step for visualization.
+        let mut total_buy = 0;
+        let mut total_sell = 0;
+        let mut min_p = base_price;
+        let mut max_p = base_price;
+
         for tick in &price_history {
+            if tick.price < min_p { min_p = tick.price; }
+            if tick.price > max_p { max_p = tick.price; }
+
             let grid = self
                 .grid_builder
                 .build(tick.price, Decimal::from(100))
-                .await; // Using fixed total size for sim
+                .await;
+            
+            for level in &grid {
+                match level.side {
+                    OrderSide::Buy => total_buy += 1,
+                    OrderSide::Sell => total_sell += 1,
+                }
+            }
             projected_grids.push(grid);
         }
 
         let density_distribution = self.calculate_density(&projected_grids);
 
         SimulationResult {
+            scenario_name,
             price_history,
             projected_grids,
             density_distribution,
+            total_buy_orders: total_buy,
+            total_sell_orders: total_sell,
+            price_range: PriceRange { min: min_p, max: max_p },
+            average_spread: Decimal::new(2, 2), // Placeholder 2%
         }
     }
 
@@ -102,6 +131,10 @@ impl SimulationEngine {
                     let saw = Decimal::from_f64((i % 10) as f64 * -0.005).unwrap();
                     downward + saw
                 }
+                ScenarioType::Sideways => {
+                    let sin = (t * std::f64::consts::PI * 4.0).sin();
+                    Decimal::from_f64(sin * 0.02).unwrap()
+                }
                 ScenarioType::FlashCrash => {
                     if i > steps / 3 && i < steps / 2 {
                         Decimal::from_f64(-0.3).unwrap() // -30% drop
@@ -111,13 +144,15 @@ impl SimulationEngine {
                         Decimal::ZERO
                     }
                 }
-                ScenarioType::Pump => {
-                    Decimal::from_f64(t * t * 0.5).unwrap() // Exponential pump
+                ScenarioType::PumpAndDump => {
+                    if t < 0.5 {
+                        Decimal::from_f64(t * 2.0 * 0.5).unwrap() // Sharp rise
+                    } else {
+                        Decimal::from_f64(0.5 - (t - 0.5) * 2.0 * 0.5).unwrap() // Sharp fall
+                    }
                 }
-                ScenarioType::Flat => Decimal::ZERO,
-                ScenarioType::UpDownHills => {
-                    let sin = (t * std::f64::consts::PI * 4.0).sin();
-                    Decimal::from_f64(sin * 0.1).unwrap()
+                ScenarioType::GradualRise => {
+                    Decimal::from_f64(t * 0.1).unwrap() // Steady +10%
                 }
             };
 
