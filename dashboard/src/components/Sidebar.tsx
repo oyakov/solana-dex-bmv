@@ -23,8 +23,7 @@ export default function Sidebar() {
     const { language, setLanguage, t } = useLanguage();
 
     const buttonClasses = (active: boolean) =>
-        `px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border transition-colors ${
-            active ? "bg-cyan-500 text-black border-cyan-400" : "text-slate-400 border-white/10 hover:text-white"
+        `px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border transition-colors ${active ? "bg-cyan-500 text-black border-cyan-400" : "text-slate-400 border-white/10 hover:text-white"
         }`;
 
     return (
@@ -36,7 +35,7 @@ export default function Sidebar() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-black tracking-tighter leading-none">BMV.BOT</h1>
-                        <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">System v0.4.5</p>
+                        <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">System v0.4.8</p>
                     </div>
                 </div>
 

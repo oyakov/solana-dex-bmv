@@ -36,7 +36,7 @@ pub struct TradingService {
 }
 
 impl TradingService {
-    pub fn new(
+    pub async fn new(
         settings: std::sync::Arc<tokio::sync::RwLock<BotSettings>>,
         solana: std::sync::Arc<dyn SolanaProvider>,
         database: std::sync::Arc<dyn DatabaseProvider>,
@@ -50,7 +50,7 @@ impl TradingService {
             RebalanceService::new(solana.clone(), wallet_manager.clone(), settings.clone());
 
         let kill_switch = {
-            let s = settings.blocking_read();
+            let s = settings.read().await;
             std::sync::Arc::new(KillSwitch::from_settings(&s.kill_switch))
         };
         let risk_manager = RiskManager::new(crate::utils::RiskLimitsSettings::default());

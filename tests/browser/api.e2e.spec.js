@@ -17,8 +17,10 @@ test.describe("BMV Dashboard API Tests", () => {
         await page.locator('button:has-text("Establish Connection")').click();
         await page.waitForURL(`${BASE_URL}/`, { timeout: 20000 });
 
+        // Wait a moment for token to be saved
+        await page.waitForTimeout(1000);
         // Get token from localStorage
-        authToken = await page.evaluate(() => localStorage.getItem("token"));
+        authToken = await page.evaluate(() => localStorage.getItem("bmv_auth_token"));
         return authToken;
     }
 
@@ -43,8 +45,8 @@ test.describe("BMV Dashboard API Tests", () => {
 
             // Verify expected fields
             expect(data).toHaveProperty("pivot_price");
-            expect(data).toHaveProperty("sol_balance");
-            expect(data).toHaveProperty("usdc_balance");
+            expect(data).toHaveProperty("total_sol_balance");
+            expect(data).toHaveProperty("total_usdc_balance");
         }, { timeout: 60000 });
 
         test("GET /api/latency should return latency data", async ({
@@ -172,10 +174,10 @@ test.describe("BMV Dashboard API Tests", () => {
 
             // Validate numeric fields
             expect(typeof data.pivot_price).toBe("number");
-            expect(typeof data.sol_balance).toBe("number");
-            expect(typeof data.usdc_balance).toBe("number");
-            expect(data.sol_balance).toBeGreaterThanOrEqual(0);
-            expect(data.usdc_balance).toBeGreaterThanOrEqual(0);
+            expect(typeof data.total_sol_balance).toBe("number");
+            expect(typeof data.total_usdc_balance).toBe("number");
+            expect(data.total_sol_balance).toBeGreaterThanOrEqual(0);
+            expect(data.total_usdc_balance).toBeGreaterThanOrEqual(0);
         });
 
         test("Holders API should return valid concentration percentages", async ({

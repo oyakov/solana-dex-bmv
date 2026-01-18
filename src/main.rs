@@ -119,9 +119,9 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Initialize orchestrator
     drop(settings_read);
 
-    // Initialize orchestrator
     let orchestrator = TradingService::new(
         settings.clone(),
         solana,
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
         wallet_manager,
         pivot_engine,
         price_aggregator.clone(),
-    );
+    ).await;
 
     // Setup signal handling for graceful shutdown
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);

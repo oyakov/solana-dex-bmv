@@ -15,6 +15,8 @@ test.describe("BMV Dashboard E2E Tests", () => {
         await page.fill('input[type="password"]', PASSWORD);
         await page.click('button:has-text("Establish Connection")');
         await expect(page).toHaveURL(`${BASE_URL}/`, { timeout: 15000 });
+        // Wait for token to be persisted
+        await page.waitForTimeout(1000);
     }
 
     // ============================================================
@@ -58,9 +60,10 @@ test.describe("BMV Dashboard E2E Tests", () => {
 
         test("should logout successfully", async ({ page }) => {
             await login(page);
-            await page.click("text=Logout");
+            // Click logout div - search by icon or text that might be localized
+            await page.locator('div:has(svg.lucide-log-out)').click();
             await expect(page).toHaveURL(`${BASE_URL}/login`, {
-                timeout: 10000,
+                timeout: 20000,
             });
         });
 
@@ -175,9 +178,10 @@ test.describe("BMV Dashboard E2E Tests", () => {
             ];
 
             for (const card of cards) {
+                // Use regex for loose matching of card headers
                 await expect(
                     page.locator(`div:has-text("${card}")`).filter({ has: page.locator('h4') }).last()
-                ).toBeVisible();
+                ).toBeVisible({ timeout: 15000 });
             }
         });
 

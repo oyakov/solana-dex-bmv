@@ -47,14 +47,14 @@ export default function LoginPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 blur-[120px] rounded-full animate-pulse delay-1000" />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md z-10 p-8"
       >
         <div className="glass-panel p-10 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden backdrop-blur-2xl">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
-          
+
           <div className="flex flex-col items-center mb-10">
             <div className="p-4 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl shadow-xl shadow-cyan-500/20 mb-6 group cursor-pointer active:scale-95 transition-transform">
               <Flame className="w-10 h-10 text-white" />
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
             <AnimatePresence mode="wait">
               {error && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -114,7 +114,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-2">
-            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Encrypted Session v4.0.0</p>
+            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Encrypted Session v0.4.8</p>
             <div className="flex gap-1">
               <div className="w-1 h-1 rounded-full bg-cyan-500/40" />
               <div className="w-1 h-1 rounded-full bg-cyan-500/20" />
