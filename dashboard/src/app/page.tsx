@@ -51,6 +51,7 @@ export default function Dashboard() {
     asks: [] as { price: number; size: number }[],
   });
   const [history, setHistory] = useState<PriceTick[]>([]);
+  const [timeRange, setTimeRange] = useState("1D");
   const [loading, setLoading] = useState(true);
 
   const [mounted, setMounted] = useState(false);
@@ -114,7 +115,7 @@ export default function Dashboard() {
           setStats(prev => ({ ...prev, ...data }));
         }
 
-        const historyRes = await fetch(`/api/history`, {
+        const historyRes = await fetch(`/api/history?range=${timeRange}`, {
           headers: getAuthHeaders(),
         });
 
@@ -137,7 +138,7 @@ export default function Dashboard() {
     fetchData();
     const interval = setInterval(fetchData, 5000); // Poll every 5s instead of 1s
     return () => clearInterval(interval);
-  }, []);
+  }, [timeRange]);
 
   const handleControl = async (action: string) => {
     try {
@@ -286,7 +287,11 @@ export default function Dashboard() {
                 <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-4">
                   <div className="flex gap-1.5 p-1 bg-[#0f172a] rounded-lg border border-white/5">
                     {['1H', '1D', '1W', 'ALL'].map((tf) => (
-                      <button key={tf} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${tf === '1D' ? 'bg-cyan-500 text-black' : 'text-slate-500 hover:text-white'}`}>
+                      <button
+                        key={tf}
+                        onClick={() => setTimeRange(tf)}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${timeRange === tf ? 'bg-cyan-500 text-black' : 'text-slate-500 hover:text-white'}`}
+                      >
                         {tf}
                       </button>
                     ))}

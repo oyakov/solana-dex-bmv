@@ -85,6 +85,11 @@ struct LoginRequest {
     password: String,
 }
 
+#[derive(Deserialize)]
+struct RangeQuery {
+    range: Option<String>,
+}
+
 #[derive(Serialize)]
 struct LoginResponse {
     token: String,
@@ -238,8 +243,16 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
     )
     .await
     {
-        Ok(result) => result.ok(),
-        Err(_) => None,
+        Ok(result) => {
+            if result.is_err() {
+                warn!(market_id = %market_id, "Failed to fetch orderbook");
+            }
+            result.ok()
+        }
+        Err(_) => {
+            warn!(market_id = %market_id, "Orderbook fetch timed out");
+            None
+        }
     };
 
     let mut spread_bps = 0.0;
@@ -320,7 +333,11 @@ async fn handle_stats(State(state): State<ApiState>) -> Json<BotStats> {
         if supply > 0 {
             let top_10_sum: u64 = accounts.iter().take(10).map(|(_, amt)| amt).sum();
             top_holders_percent = (top_10_sum as f64 / supply as f64) * 100.0;
+        } else {
+            warn!(token_mint = %token_mint_str, "Token supply is 0 or failed to fetch");
         }
+    } else {
+        warn!(token_mint = %token_mint_str, "Failed to fetch largest accounts or supply");
     }
 
     // 3. Safe Haven Index (Correlation)
@@ -433,12 +450,24 @@ async fn handle_add_wallet(
     }
 }
 
-async fn handle_history(State(state): State<ApiState>) -> Json<Vec<crate::domain::PriceTick>> {
+async fn handle_history(
+    State(state): State<ApiState>,
+    axum::extract::Query(query): axum::extract::Query<RangeQuery>,
+) -> Json<Vec<crate::domain::PriceTick>> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
-    let since = now - 24 * 3600; // Last 24 hours
+
+    let range = query.range.unwrap_or_else(|| "1D".to_string());
+    let since = match range.as_str() {
+        "1H" => now - 3600,
+        "1D" => now - 86400,
+        "1W" => now - 7 * 86400,
+        "ALL" => 0,
+        _ => now - 86400,
+    };
+
     let history = state
         .database
         .get_price_history(since)
