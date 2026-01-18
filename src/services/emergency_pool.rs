@@ -2,6 +2,7 @@ use crate::infra::{SolanaProvider, WalletManager};
 use crate::utils::BotSettings;
 use anyhow::{anyhow, Result};
 use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -37,8 +38,10 @@ impl EmergencyPoolService {
             (s.token_mint.clone(), s.wallets.usdc_wallet_3.clone())
         };
 
-        let base_mint = Pubkey::parse(&token_mint)?;
-        let quote_mint = Pubkey::parse(&usdc_mint_str)?;
+        let base_mint =
+            Pubkey::from_str(&token_mint).map_err(|e| anyhow!("Invalid base mint: {}", e))?;
+        let quote_mint =
+            Pubkey::from_str(&usdc_mint_str).map_err(|e| anyhow!("Invalid quote mint: {}", e))?;
 
         let wallets = self.wallet_manager.get_all_wallets().await;
         if wallets.is_empty() {
@@ -47,14 +50,20 @@ impl EmergencyPoolService {
 
         // 1. Create Market
         let market_authority = wallets[0].clone(); // Use first wallet as authority for simplicity
-        info!("Step 1: Creating new OpenBook V2 Market for {}/{}", token_mint, usdc_mint_str);
-        
-        let new_market_id = self.solana.create_market(&base_mint, &quote_mint, &market_authority).await?;
+        info!(
+            "Step 1: Creating new OpenBook V2 Market for {}/{}",
+            token_mint, usdc_mint_str
+        );
+
+        let new_market_id = self
+            .solana
+            .create_market(&base_mint, &quote_mint, &market_authority)
+            .await?;
         info!(%new_market_id, "Market created successfully");
 
         // 2. Seed Orders (Atomic injection)
         info!("Step 2: Seeding initial liquidity via Jito Bundle");
-        
+
         let wallets = self.wallet_manager.get_all_wallets().await;
         if wallets.is_empty() {
             return Err(anyhow!("No wallets available for seeding"));
@@ -62,9 +71,9 @@ impl EmergencyPoolService {
 
         // We would construct a bundle of 'place_order' instructions
         // self.solana.send_bundle(...)
-        
+
         info!("Pool restart completed. New Market ID: {}", new_market_id);
-        
+
         // Update settings with new market ID
         {
             let mut s = self.settings.write().await;

@@ -1,5 +1,6 @@
 use solana_dex_bmv::infra::{
-    Database, DatabaseProvider, HealthChecker, PriceAggregator, SolanaClient, WalletManager,
+    Database, DatabaseProvider, HealthChecker, PriceAggregator, SolanaClient, SolanaProvider,
+    WalletManager,
 };
 use solana_dex_bmv::services::{MarketDataService, PivotEngine, TradingService};
 use solana_dex_bmv::utils::BotSettings;
@@ -51,7 +52,8 @@ async fn main() -> Result<()> {
     let price_aggregator = Arc::new(PriceAggregator::new());
 
     // Perform connectivity health checks
-    let health_checker = HealthChecker::new(solana.clone(), database.clone(), (*settings_read).clone());
+    let health_checker =
+        HealthChecker::new(solana.clone(), database.clone(), (*settings_read).clone());
     let health_reports = health_checker.run_all_checks().await;
     HealthChecker::display_reports(&health_reports);
     health_checker
@@ -103,9 +105,9 @@ async fn main() -> Result<()> {
 
     // Initialize and spawn API Server
     let api_server = solana_dex_bmv::infra::ApiServer::new(
-        settings.clone(), // ApiServer should also be updated to hold the lock if needed, but for now we pass the lock
-        database.clone(),
-        solana.clone(),
+        settings.clone(),
+        database.clone() as Arc<dyn DatabaseProvider>,
+        solana.clone() as Arc<dyn SolanaProvider>,
         wallet_manager.clone(),
         pivot_engine.clone(),
         auth.clone(),

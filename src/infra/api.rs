@@ -1,5 +1,5 @@
 use crate::infra::{
-    Auth, Database, DatabaseProvider, HealthChecker, SolanaClient, SolanaProvider, WalletManager,
+    Auth, DatabaseProvider, HealthChecker, SolanaProvider, WalletManager,
 };
 use crate::services::{GridBuilder, PivotEngine, SimulationEngine};
 use crate::utils::BotSettings;
@@ -119,16 +119,16 @@ struct TokenHoldersResponse {
 
 impl ApiServer {
     pub fn new(
-        settings: BotSettings,
-        database: Arc<Database>,
-        solana: Arc<SolanaClient>,
+        settings: Arc<RwLock<BotSettings>>,
+        database: Arc<dyn DatabaseProvider>,
+        solana: Arc<dyn SolanaProvider>,
         wallet_manager: Arc<WalletManager>,
         pivot_engine: Arc<PivotEngine>,
         auth: Arc<Auth>,
     ) -> Self {
         Self {
             state: ApiState {
-                settings: Arc::new(RwLock::new(settings)),
+                settings,
                 database,
                 solana,
                 wallet_manager,

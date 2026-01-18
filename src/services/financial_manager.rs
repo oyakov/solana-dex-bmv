@@ -41,14 +41,13 @@ impl FinancialManager {
         let mut total_sol = Decimal::ZERO;
         let mut total_usdc = Decimal::ZERO;
         let wallets = self.wallet_manager.get_all_wallets().await;
-        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3)
-            .map_err(|e| {
-                anyhow!(
-                    "Failed to parse usdc_wallet_3 in check_balances '{}': {}",
-                    usdc_wallet_3,
-                    e
-                )
-            })?;
+        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3).map_err(|e| {
+            anyhow!(
+                "Failed to parse usdc_wallet_3 in check_balances '{}': {}",
+                usdc_wallet_3,
+                e
+            )
+        })?;
 
         for wallet in &wallets {
             let pubkey = wallet.pubkey();
@@ -87,20 +86,19 @@ impl FinancialManager {
         );
 
         // 2. Check against MIN_SOL_RESERVE_%
-        if sol_reserve_percent < self.settings.financial_manager.min_sol_reserve_percent {
+        if sol_reserve_percent < min_sol_reserve_percent {
             warn!(
                 %sol_reserve_percent,
-                threshold = %self.settings.financial_manager.min_sol_reserve_percent,
+                threshold = %min_sol_reserve_percent,
                 "SOL reserve below threshold! Triggering auto-injection."
             );
 
             // Calculate how much USD to convert to reach threshold + 5% buffer
-            let target_percent =
-                self.settings.financial_manager.min_sol_reserve_percent + Decimal::from(5);
+            let target_percent = min_sol_reserve_percent + Decimal::from(5);
             let target_sol_value = total_value_usd * (target_percent / Decimal::from(100));
             let usd_to_buy = (target_sol_value - sol_value_usd).max(Decimal::ZERO);
 
-            if usd_to_buy >= self.settings.financial_manager.min_conversion_barrier_usd {
+            if usd_to_buy >= min_conversion_barrier_usd {
                 let usdc_units = (usd_to_buy * Decimal::from(1_000_000u64))
                     .to_u64()
                     .unwrap_or(0);
@@ -142,8 +140,16 @@ impl FinancialManager {
     }
 
     pub async fn rebalance_fiat(&self, current_price: Decimal, pivot: Decimal) -> Result<()> {
-        let buy_bound = pivot * (Decimal::ONE - self.settings.channel_bounds.buy_percent);
-        let sell_bound = pivot * (Decimal::ONE + self.settings.channel_bounds.sell_percent);
+        let (buy_percent, sell_percent, usdc_wallet_3) = {
+            let s = self.settings.read().await;
+            (
+                s.channel_bounds.buy_percent,
+                s.channel_bounds.sell_percent,
+                s.wallets.usdc_wallet_3.clone(),
+            )
+        };
+        let buy_bound = pivot * (Decimal::ONE - buy_percent);
+        let sell_bound = pivot * (Decimal::ONE + sell_percent);
 
         info!(
             %current_price,
@@ -156,14 +162,11 @@ impl FinancialManager {
         let sol_mint =
             solana_sdk::pubkey::Pubkey::from_str("So11111111111111111111111111111111111111112")
                 .map_err(|e| anyhow::anyhow!("Failed to parse SOL mint: {}", e))?;
-        let usdc_mint = solana_sdk::pubkey::Pubkey::from_str(&self.settings.wallets.usdc_wallet_3)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to parse usdc_wallet_3 '{}': {}",
-                    self.settings.wallets.usdc_wallet_3,
-                    e
-                )
-            })?;
+        let usdc_mint = {
+            let s = self.settings.read().await;
+            solana_sdk::pubkey::Pubkey::from_str(&s.wallets.usdc_wallet_3)
+                .map_err(|e| anyhow::anyhow!("Failed to parse usdc_wallet_3: {}", e))?
+        };
         let main_wallet = self.wallet_manager.get_main_wallet().await?;
 
         if current_price > pivot && (sell_bound - pivot) > Decimal::ZERO {
@@ -178,9 +181,8 @@ impl FinancialManager {
             };
 
             let progress = (current_price - pivot) / (sell_bound - pivot);
-            let _target_usdc_ratio = progress.min(Decimal::ONE)
-                * upper_usdc_ratio_max_percent
-                / Decimal::from(100);
+            let _target_usdc_ratio =
+                progress.min(Decimal::ONE) * upper_usdc_ratio_max_percent / Decimal::from(100);
 
             // To reach target_usdc_ratio, we may need to sell SOL.
             // Placeholder: if progress > 0.5 and barrier met, sell $50 worth of SOL
@@ -215,9 +217,8 @@ impl FinancialManager {
                 s.financial_manager.lower_usdc_ratio_max_percent
             };
             let progress = (pivot - current_price) / (pivot - buy_bound);
-            let _target_sol_ratio = progress.min(Decimal::ONE)
-                * lower_usdc_ratio_max_percent
-                / Decimal::from(100);
+            let _target_sol_ratio =
+                progress.min(Decimal::ONE) * lower_usdc_ratio_max_percent / Decimal::from(100);
 
             // If SOL share is too low, buy SOL.
             // Placeholder: if progress > 0.5, buy $50 worth of SOL

@@ -36,24 +36,32 @@ impl RentRecoveryService {
 
         for wallet in wallets {
             let owner = wallet.pubkey();
-            if let Ok(Some(oo_pubkey)) = self.solana.find_open_orders(market_id, &owner).await {
+            if let Ok(Some(oo_pubkey)) = self.solana.find_open_orders(&market_id, &owner).await {
                 // Safety check: Fetch account data to ensure it's empty
                 match self.solana.get_open_orders_account_data(&oo_pubkey).await {
                     Ok(data) => {
                         if self.is_open_orders_empty(&data) {
                             info!(wallet = %owner, %oo_pubkey, "Closing empty OpenOrders account");
-                            match self.solana.close_open_orders_account(&wallet, &oo_pubkey).await {
+                            match self
+                                .solana
+                                .close_open_orders_account(&wallet, &oo_pubkey)
+                                .await
+                            {
                                 Ok(sig) => {
                                     info!(%sig, "Closed OpenOrders account and reclaimed rent");
                                     total_reclaimed += Decimal::new(23, 3); // ~0.023 SOL
                                 }
-                                Err(e) => warn!(error = %e, %oo_pubkey, "Failed to close OpenOrders account"),
+                                Err(e) => {
+                                    warn!(error = %e, %oo_pubkey, "Failed to close OpenOrders account")
+                                }
                             }
                         } else {
                             info!(wallet = %owner, %oo_pubkey, "OpenOrders account not empty, skipping closure");
                         }
                     }
-                    Err(e) => warn!(error = %e, %oo_pubkey, "Failed to fetch OpenOrders account data"),
+                    Err(e) => {
+                        warn!(error = %e, %oo_pubkey, "Failed to fetch OpenOrders account data")
+                    }
                 }
             }
         }
@@ -67,9 +75,9 @@ impl RentRecoveryService {
 
     fn is_open_orders_empty(&self, data: &[u8]) -> bool {
         // OpenBook V2 OpenOrders account check
-        // Rough layout: Discriminator (8) + Owner (32) + Market (32) + 
+        // Rough layout: Discriminator (8) + Owner (32) + Market (32) +
         // free_slot_bits (16) + is_free (16) + position (huge)
-        
+
         if data.len() < 128 {
             return false;
         }
@@ -77,7 +85,7 @@ impl RentRecoveryService {
         // In OpenBook V2, if free_slot_bits are all 1s (u128::MAX), it's empty
         // free_slot_bits is at offset 72 (8+32+32)
         let free_bits = u128::from_le_bytes(data[72..88].try_into().unwrap_or([0; 16]));
-        
+
         // Also check positions (base_free_lots and quote_free_lots should be 0)
         // Offset for position struct is after is_free (88+16 = 104)
         // base_free_lots is at offset 104, quote_free_lots at 112

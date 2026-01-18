@@ -57,8 +57,7 @@ impl FlashVolumeModule {
         let wallet_b = &wallets[1];
 
         // 2. Fetch market data for lot logic
-        let market_id = &self.settings.openbook_market_id;
-        let market_update = self.solana.get_market_data(market_id).await?;
+        let market_update = self.solana.get_market_data(&market_id).await?;
         let price = market_update.price;
 
         // 3. Determine volume in SOL units
@@ -90,22 +89,20 @@ impl FlashVolumeModule {
             .to_i64()
             .unwrap_or(0);
 
-        let base_mint =
-            solana_sdk::pubkey::Pubkey::from_str(&token_mint).map_err(|e| {
-                anyhow!(
-                    "Failed to parse token_mint in flash_volume '{}': {}",
-                    token_mint,
-                    e
-                )
-            })?;
-        let quote_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3)
-            .map_err(|e| {
-                anyhow!(
-                    "Failed to parse usdc_wallet_3 in flash_volume '{}': {}",
-                    usdc_wallet_3,
-                    e
-                )
-            })?;
+        let base_mint = solana_sdk::pubkey::Pubkey::from_str(&token_mint).map_err(|e| {
+            anyhow!(
+                "Failed to parse token_mint in flash_volume '{}': {}",
+                token_mint,
+                e
+            )
+        })?;
+        let quote_mint = solana_sdk::pubkey::Pubkey::from_str(&usdc_wallet_3).map_err(|e| {
+            anyhow!(
+                "Failed to parse usdc_wallet_3 in flash_volume '{}': {}",
+                usdc_wallet_3,
+                e
+            )
+        })?;
 
         info!(
             wallet_a = %wallet_a.pubkey(),
@@ -117,7 +114,7 @@ impl FlashVolumeModule {
         let sig = self
             .solana
             .send_flash_volume_bundle(
-                market_id,
+                &market_id,
                 wallet_a,
                 wallet_b,
                 price_lots,

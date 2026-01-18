@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Context, Result};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use anyhow::{Context, Result};
 use dotenvy::dotenv;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderGridSettings {
@@ -441,8 +441,9 @@ impl BotSettings {
         if profile_path.is_file() {
             let content = fs::read_to_string(&profile_path)
                 .context(format!("Failed to read profile config: {:?}", profile_path))?;
-            let profile_value: serde_json::Value = serde_yaml::from_str(&content)
-                .context(format!("Failed to parse profile config: {:?}", profile_path))?;
+            let profile_value: serde_json::Value = serde_yaml::from_str(&content).context(
+                format!("Failed to parse profile config: {:?}", profile_path),
+            )?;
             merge_json_values(&mut config_value, profile_value);
         }
 
@@ -698,14 +699,17 @@ sol_usdc_market_id: "SOL_USDC"
             "f": 6
         });
         merge_json_values(&mut base, override_val);
-        assert_eq!(base, json!({
-            "a": 1,
-            "b": {
-                "c": 4,
-                "d": 3,
-                "e": 5
-            },
-            "f": 6
-        }));
+        assert_eq!(
+            base,
+            json!({
+                "a": 1,
+                "b": {
+                    "c": 4,
+                    "d": 3,
+                    "e": 5
+                },
+                "f": 6
+            })
+        );
     }
 }

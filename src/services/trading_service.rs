@@ -48,12 +48,10 @@ impl TradingService {
 
         let rebalance_service =
             RebalanceService::new(solana.clone(), wallet_manager.clone(), settings.clone());
-        
+
         let kill_switch = {
-            // For now, we initialize kill_switch once, but ideally it should follow settings too.
-            // However, kill_switch might be better as a standalone reactive component.
-            // Let's keep it simple for now and use a dummy or separate it.
-            std::sync::Arc::new(KillSwitch::new("file".to_string(), "/tmp/solana-dex-bmv.kill".to_string(), "".to_string(), "".to_string()))
+            let s = settings.blocking_read();
+            std::sync::Arc::new(KillSwitch::from_settings(&s.kill_switch))
         };
         let risk_manager = RiskManager::new(crate::utils::RiskLimitsSettings::default());
 
@@ -80,6 +78,7 @@ impl TradingService {
             risk_manager,
             pnl_tracker: std::sync::Arc::new(tokio::sync::Mutex::new(PnlTracker::default())),
             financial_manager,
+            emergency_pool,
             flash_volume,
             rent_recovery,
             rugcheck: RugCheckService::new(),
@@ -117,9 +116,24 @@ impl TradingService {
     pub async fn tick(&self) -> Result<()> {
         info!("Trading tick starting");
 
-        let (market_id, sol_usdc_id, token_mint, rugcheck_enabled, rugcheck_interval, 
-             large_order_threshold, tick_size, dry_run_enabled, jito_tip_lamports, jito_url, risk_limits,
-             orders_per_side, buy_bounds, sell_bounds, buy_mult, sell_mult) = {
+        let (
+            market_id,
+            sol_usdc_id,
+            token_mint,
+            rugcheck_enabled,
+            rugcheck_interval,
+            large_order_threshold,
+            tick_size,
+            dry_run_enabled,
+            jito_tip_lamports,
+            _jito_url,
+            risk_limits,
+            orders_per_side,
+            buy_bounds,
+            sell_bounds,
+            buy_mult,
+            sell_mult,
+        ) = {
             let s = self._settings.read().await;
             (
                 s.openbook_market_id.clone(),
@@ -147,7 +161,10 @@ impl TradingService {
         }
 
         let risk_snapshot = self.build_risk_snapshot(&market_id).await?;
-        if let Some(reason) = self.risk_manager.evaluate_with_limits(&risk_snapshot, &risk_limits) {
+        if let Some(reason) = self
+            .risk_manager
+            .evaluate_with_limits(&risk_snapshot, &risk_limits)
+        {
             let reason_text = reason.to_string();
             self.kill_switch.trigger(&reason_text).await?;
             self.handle_kill_switch(&reason_text).await?;
@@ -226,11 +243,11 @@ impl TradingService {
         // Try to get real price from aggregator first
         let real_bmv_price = self
             .price_aggregator
-            .fetch_price_native(market_id)
+            .fetch_price_native(&market_id)
             .await
             .ok();
 
-        let market_data = match self.solana.get_market_data(market_id).await {
+        let market_data = match self.solana.get_market_data(&market_id).await {
             Ok(mut data) => {
                 if let Some(p) = real_bmv_price {
                     data.price = p; // override with real aggregator price if available
@@ -306,7 +323,7 @@ impl TradingService {
             Ok(p) => p,
             Err(e) => {
                 debug!(error = %e, ?sol_usdc_id, "Aggregator failed for SOL/USDC, trying Solana RPC");
-                match self.solana.get_market_data(sol_usdc_id).await {
+                match self.solana.get_market_data(&sol_usdc_id).await {
                     Ok(data) => data.price,
                     Err(rpc_e) => {
                         warn!(error = %rpc_e, "Solana RPC also failed for SOL/USDC, using fallback 150.0");
@@ -326,7 +343,10 @@ impl TradingService {
         // TARGET_CONTROL_% = 100% − LockedTokens − OwnedTokens
         let (total_emission, locked_tokens) = {
             let s = self._settings.read().await;
-            (s.target_control.total_emission, s.target_control.locked_tokens)
+            (
+                s.target_control.total_emission,
+                s.target_control.locked_tokens,
+            )
         };
         let owned_tokens = pnl_snapshot.net_position; // Owned by bot (realized + unrealized)
 
@@ -353,6 +373,7 @@ impl TradingService {
         if self
             .rebalance_service
             .should_rebuild(pivot, market_data.price)
+            .await
         {
             info!(?pivot, "Rebuilding order grid");
 
