@@ -1,14 +1,29 @@
 {
-  "name": "browser",
+  "name": "bmv-dashboard-tests",
   "version": "1.0.0",
+  "description": "Playwright E2E tests for BMV Dashboard",
   "main": "dashboard_smoke.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:dashboard": "npx playwright test dashboard.e2e.spec.js",
+    "test:api": "npx playwright test api.e2e.spec.js",
+    "test:chrome": "npx playwright test --project=chromium",
+    "test:firefox": "npx playwright test --project=firefox",
+    "test:mobile": "npx playwright test --project='Mobile Chrome'",
+    "report": "npx playwright show-report test-results/html-report",
+    "smoke": "node dashboard_smoke.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "bmv",
+    "dashboard"
+  ],
+  "author": "BMV Team",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@playwright/test": "^1.57.0"
   }
