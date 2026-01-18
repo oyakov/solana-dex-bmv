@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
     Zap,
     Activity,
@@ -8,7 +8,6 @@ import {
     LayoutDashboard,
     Settings,
     BarChart3,
-    Clock,
     LogOut,
     FlaskConical,
     Users
@@ -17,9 +16,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { logout } from "../utils/auth";
+import { useLanguage } from "./LanguageProvider";
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const { language, setLanguage, t } = useLanguage();
+
+    const buttonClasses = (active: boolean) =>
+        `px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border transition-colors ${
+            active ? "bg-cyan-500 text-black border-cyan-400" : "text-slate-400 border-white/10 hover:text-white"
+        }`;
 
     return (
         <aside className="w-80 h-screen border-r border-white/5 bg-[#020617]/80 backdrop-blur-2xl flex flex-col relative z-20 shrink-0">
@@ -35,18 +41,38 @@ export default function Sidebar() {
                 </div>
 
                 <nav className="space-y-2">
-                    <NavItem icon={<LayoutDashboard size={20} />} label="Command Center" href="/" active={pathname === "/"} />
-                    <NavItem icon={<Activity size={20} />} label="Latency Report" href="/latency" active={pathname === "/latency"} />
-                    <NavItem icon={<FlaskConical size={20} />} label="Simulation Lab" href="/simulation" active={pathname === "/simulation"} />
-                    <NavItem icon={<Wallet size={20} />} label="Wallet Swarm" href="/wallets" active={pathname === "/wallets"} />
-                    <NavItem icon={<Users size={20} />} label="Token Holders" href="/holders" active={pathname === "/holders"} />
-                    <NavItem icon={<BarChart3 size={20} />} label="PnL Engine" />
-                    <NavItem icon={<Settings size={20} />} label="Protocol Config" />
+                    <NavItem icon={<LayoutDashboard size={20} />} label={t("commandCenter")} href="/" active={pathname === "/"} />
+                    <NavItem icon={<Activity size={20} />} label={t("latencyReport")} href="/latency" active={pathname === "/latency"} />
+                    <NavItem icon={<FlaskConical size={20} />} label={t("simulationLab")} href="/simulation" active={pathname === "/simulation"} />
+                    <NavItem icon={<Wallet size={20} />} label={t("walletSwarm")} href="/wallets" active={pathname === "/wallets"} />
+                    <NavItem icon={<Users size={20} />} label={t("tokenHolders")} href="/holders" active={pathname === "/holders"} />
+                    <NavItem icon={<BarChart3 size={20} />} label={t("pnlEngine")} />
+                    <NavItem icon={<Settings size={20} />} label={t("protocolConfig")} />
                     <div onClick={logout} className="flex items-center gap-3 px-5 py-4 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
                         <LogOut size={20} />
-                        <span className="font-bold text-sm tracking-tight relative z-10">Logout</span>
+                        <span className="font-bold text-sm tracking-tight relative z-10">{t("logout")}</span>
                     </div>
                 </nav>
+
+                <div className="mt-8">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-3">{t("language")}</p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            className={buttonClasses(language === "ru")}
+                            onClick={() => setLanguage("ru")}
+                        >
+                            RU
+                        </button>
+                        <button
+                            type="button"
+                            className={buttonClasses(language === "en")}
+                            onClick={() => setLanguage("en")}
+                        >
+                            EN
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div className="mt-auto p-10">
@@ -58,10 +84,10 @@ export default function Sidebar() {
                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#020617]" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-xs font-black text-slate-200 tracking-tight">System Status</span>
+                            <span className="text-xs font-black text-slate-200 tracking-tight">{t("systemStatus")}</span>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Connected</p>
+                                <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">{t("connected")}</p>
                             </div>
                         </div>
                     </div>
