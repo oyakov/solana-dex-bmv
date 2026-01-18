@@ -46,5 +46,5 @@
 - [x] **Secure Dashboard Authentication** (JWT) [BMV-54].
 
 ## Total Completion: ~92%
-Current focus is stabilizing v0.4.1 security features and implementing continuous PnL tracking and the profit growth model as part of the Financial Manager evolution.
+Current focus is stabilizing v0.4.8 security features and implementing continuous PnL tracking and the profit growth model as part of the Financial Manager evolution.
 
