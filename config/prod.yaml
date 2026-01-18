@@ -1,0 +1,16 @@
+dry_run:
+  enabled: false
+  use_live_rpc: true
+  simulate_fills: false
+
+jito_bundle:
+  enabled: true
+  tip_lamports: 1000
+  max_bundle_txs: 5
+  bundler_url: "https://mainnet.block-engine.jito.wtf/api/v1/bundles"
+
+wallets:
+  multi_wallet:
+    enabled: true
+    keypairs: []
+  usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"

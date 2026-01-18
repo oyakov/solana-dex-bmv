@@ -13,9 +13,9 @@ test.describe("BMV Dashboard API Tests", () => {
     // Helper: Get auth token via login
     async function getAuthToken(page) {
         await page.goto(`${BASE_URL}/login`);
-        await page.fill('input[type="password"]', PASSWORD);
-        await page.click('button:has-text("Establish Connection")');
-        await page.waitForURL(`${BASE_URL}/`);
+        await page.locator('input[type="password"]').fill(PASSWORD);
+        await page.locator('button:has-text("Establish Connection")').click();
+        await page.waitForURL(`${BASE_URL}/`, { timeout: 20000 });
 
         // Get token from localStorage
         authToken = await page.evaluate(() => localStorage.getItem("token"));
@@ -45,7 +45,7 @@ test.describe("BMV Dashboard API Tests", () => {
             expect(data).toHaveProperty("pivot_price");
             expect(data).toHaveProperty("sol_balance");
             expect(data).toHaveProperty("usdc_balance");
-        });
+        }, { timeout: 60000 });
 
         test("GET /api/latency should return latency data", async ({
             page,

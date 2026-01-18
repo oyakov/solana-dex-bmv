@@ -4,7 +4,10 @@
 Maintaining stability of v0.4.1 features and preparing for long-term multi-wallet observability.
 
 ## Recent Changes
-- **Version 0.4.4 (Current)**:
+- **Version 0.4.5 (Current)**:
+    - **Configuration Profiles**: Split monolithic `config.yaml` into `config/base.yaml`, `config/local.yaml`, and `config/prod.yaml`.
+    - **Profile Switching**: Implemented `APP_ENV` based configuration loading with hierarchical merging.
+- **Version 0.4.4**:
     - **Dashboard Performance**: Reduced polling intervals (1s→5s main, 10s→30s latency) to reduce RPC load.
     - **API Optimization**: Added 500ms timeouts for wallet balance queries, 2s for orderbook/token metrics.
     - **Docker Stack Optimization**: Removed Grafana to reduce RAM/CPU footprint.
@@ -17,7 +20,9 @@ Maintaining stability of v0.4.1 features and preparing for long-term multi-walle
     - **Wallet Management**: Database-backed wallet storage with add/list API endpoints.
     - **CI Compliance**: Fixed all clippy warnings and formatting issues for GitHub Actions.
 - **Version 0.4.3**:
-    - **Security Hardening**: Secret masking and environment variable enforcement.
+    - [x] **Security Hardening**: Non-root Docker, Env var secrets, Masking.
+- [x] **Configuration Refactoring**: Profile-based splitting (`local`/`prod`).
+ and environment variable enforcement.
 - **Version 0.4.1**:
     - **Backlog Implementation**: Completed all high-priority v2.7 requirements.
     - **SOL Auto-injection**: Automated SOL balance management for trading wallets (BMV-53).

@@ -42,9 +42,10 @@ services:
     environment:
       - DATABASE_URL=postgres://botuser:${DB_PASSWORD?DB_PASSWORD must be set}@db:5432/solana_dex
       - RUST_LOG=info
+      - APP_ENV=prod
     volumes:
       - ./data:/app/data
-      - ./config.yaml:/app/config.yaml
+      - ./config:/app/config
     expose:
       - "8080"
     networks:

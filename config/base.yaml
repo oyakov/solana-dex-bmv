@@ -1,0 +1,61 @@
+token_mint: "8VMi93EEqSGCHGjRGNhEFBkGoNZTQxUFfFYWDEX2e5Uf"
+openbook_market_id: "B9coHrCxYv7xmPfSU7Z5VfugDqdTdZqZTpBGBdazq8AC"
+sol_usdc_market_id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2"
+
+order_grid:
+  orders_per_side: 16
+  buy_volume_multiplier: 1.2
+  sell_volume_multiplier: 1.0
+  rebalance_threshold_percent: 1.0
+  large_order_threshold_sol: 50.0
+  front_run_tick_size_sol: 0.000001
+
+pivot_vwap:
+  pivot_price: 0.0
+  vwap_price: 0.0
+  lookback_minutes: 0
+  lookback_days: 365
+  nominal_daily_volume: 1000
+  market_id_rent_sol: 0.4
+  account_rent_sol: 0.023
+  jito_tip_sol: 0.0
+  fee_bps: 25
+
+channel_bounds:
+  buy_percent: 15
+  sell_percent: 30
+
+risk_limits:
+  max_position_usd: 0.0
+  max_order_usd: 0.0
+  max_daily_loss_usd: 0.0
+  max_open_orders: 0
+
+kill_switch:
+  mode: "file"
+  file_path: "/tmp/solana-dex-bmv.kill"
+  redis_url: "redis://127.0.0.1/"
+  redis_key: "bmv:kill_switch"
+
+flash_volume:
+  enabled: true
+  size_sol: 0.1
+  interval_min: 15
+  tip_sol: 0.001
+
+financial_manager:
+  min_sol_reserve_percent: 70.0
+  upper_usdc_ratio_max_percent: 30.0
+  lower_usdc_ratio_max_percent: 30.0
+  min_conversion_barrier_usd: 50.0
+
+target_control:
+  total_emission: 10000000.0
+  locked_tokens: 5000000.0
+
+rugcheck:
+  enabled: true
+  check_interval_secs: 300
+
+health_check_interval_seconds: 300
+trading_tick_interval_seconds: 10

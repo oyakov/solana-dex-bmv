@@ -14,6 +14,7 @@
 - [x] Prometheus/Grafana infrastructure.
 - [x] Automated Health Checks.
 - [x] **Security Hardening**: Non-root Docker, Env var secrets, Masking.
+- [x] **Configuration Refactoring**: Profile-based splitting (`local`/`prod`).
 
 ## Phase 2: MVP Logic (100% DONE)
 - [x] VWAP Pivot Formula implementation [BMV-30](https://linear.app/oleg-yakovlev/issue/BMV-30).

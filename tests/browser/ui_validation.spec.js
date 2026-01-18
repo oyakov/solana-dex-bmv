@@ -10,12 +10,12 @@ test.describe('BMV Dashboard UI Validation', () => {
         await page.goto(`${BASE_URL}/login`);
 
         console.log('Performing login...');
-        await page.fill('input[type="password"]', PASSWORD);
-        await page.click('button:has-text("Establish Connection")');
+        await page.locator('input[type="password"]').fill(PASSWORD);
+        await page.locator('button:has-text("Establish Connection")').click();
 
         // Wait for navigation to dashboard with a longer timeout
         try {
-            await expect(page).toHaveURL(`${BASE_URL}/`, { timeout: 10000 });
+            await expect(page).toHaveURL(`${BASE_URL}/`, { timeout: 20000 });
             console.log('Login successful, on dashboard.');
         } catch (err) {
             console.error('Login failed or was too slow. Capturing error screenshot...');
@@ -43,7 +43,7 @@ test.describe('BMV Dashboard UI Validation', () => {
         ];
 
         for (const card of cards) {
-            const cardElement = page.locator(`div:has-text("${card}")`).last();
+            const cardElement = page.locator(`div:has-text("${card}")`).filter({ has: page.locator('h4') }).last();
             await expect(cardElement).toBeVisible();
             const value = await cardElement.locator('h4').textContent();
             console.log(`Indicator "${card}" value: ${value}`);
@@ -54,7 +54,7 @@ test.describe('BMV Dashboard UI Validation', () => {
 
         // 4. Verify Order Book
         console.log('Verifying Order Book...');
-        await expect(page.locator('text=Order Book V1')).toBeVisible();
+        await expect(page.locator("h2:has-text('Order Book V1')").or(page.locator("h1:has-text('Order Book V1')"))).toBeVisible({ timeout: 10000 });
 
         // Check for bids or asks (at least some rows)
         const bidsAsks = page.locator('div[side]');

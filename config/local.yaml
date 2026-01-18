@@ -1,0 +1,21 @@
+dry_run:
+  enabled: true
+  use_live_rpc: true
+  simulate_fills: true
+
+rpc_endpoints:
+  primary_http: "https://api.mainnet-beta.solana.com"
+  secondary_http: []
+  primary_ws: "wss://api.mainnet-beta.solana.com"
+
+jito_bundle:
+  enabled: false
+  tip_lamports: 1000
+  max_bundle_txs: 5
+  bundler_url: "https://mainnet.block-engine.jito.wtf/api/v1/bundles"
+
+wallets:
+  multi_wallet:
+    enabled: true
+    keypairs: []
+  usdc_wallet_3: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"

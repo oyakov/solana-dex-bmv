@@ -395,7 +395,7 @@ impl Default for BotSettings {
             financial_manager: FinancialManagerSettings::default(),
             rugcheck: RugCheckSettings::default(),
             target_control: TargetControlSettings::default(),
-            sol_usdc_market_id: "8v6rXSrT7Yf6S7itnC28A6r5tYy5C2A4r7U6r8y6r8y6".to_string(), // SOL/USDC OBv2 Mainnet (Placeholder, will verify)
+            sol_usdc_market_id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2".to_string(),
             kill_switch: KillSwitchSettings::default(),
             database: DatabaseSettings::default(),
             dry_run: DryRunSettings::default(),
@@ -410,14 +410,34 @@ impl BotSettings {
     pub fn load() -> Result<Self> {
         dotenv().ok();
 
-        let config_path =
-            std::env::var("BOT_CONFIG_PATH").unwrap_or_else(|_| "config.yaml".to_string());
-        let mut settings = if Path::new(&config_path).exists() {
-            let content = fs::read_to_string(&config_path)?;
+        let env = std::env::var("APP_ENV").unwrap_or_else(|_| "local".to_string());
+        let config_dir = Path::new("config");
+
+        // Load base config
+        let base_path = config_dir.join("base.yaml");
+        let mut config_value: serde_json::Value = if base_path.exists() {
+            let content = fs::read_to_string(base_path)?;
             serde_yaml::from_str(&content)?
         } else {
-            Self::default()
+            // Fallback to legacy config.yaml if it exists
+            let legacy_path = Path::new("config.yaml");
+            if legacy_path.exists() {
+                let content = fs::read_to_string(legacy_path)?;
+                serde_yaml::from_str(&content)?
+            } else {
+                serde_json::to_value(Self::default())?
+            }
         };
+
+        // Load profile config and merge
+        let profile_path = config_dir.join(format!("{}.yaml", env));
+        if profile_path.exists() {
+            let content = fs::read_to_string(profile_path)?;
+            let profile_value: serde_json::Value = serde_yaml::from_str(&content)?;
+            merge_json_values(&mut config_value, profile_value);
+        }
+
+        let mut settings: Self = serde_json::from_value(config_value)?;
 
         // Override with environment variables for secrets
         if let Ok(keypairs_env) = std::env::var("WALLET_KEYPAIRS") {
@@ -504,6 +524,17 @@ impl BotSettings {
         }
 
         Ok(settings)
+    }
+}
+
+fn merge_json_values(a: &mut serde_json::Value, b: serde_json::Value) {
+    match (a, b) {
+        (serde_json::Value::Object(ref mut a), serde_json::Value::Object(b)) => {
+            for (k, v) in b {
+                merge_json_values(a.entry(k).or_insert(serde_json::Value::Null), v);
+            }
+        }
+        (a, b) => *a = b,
     }
 }
 
@@ -597,5 +628,34 @@ sol_usdc_market_id: "SOL_USDC"
         assert!(!debug_output.contains("secret1"));
         assert!(!debug_output.contains("secret2"));
         assert!(debug_output.contains("***MASKED***"));
+    }
+
+    #[test]
+    fn test_merge_json_values() {
+        use serde_json::json;
+        let mut base = json!({
+            "a": 1,
+            "b": {
+                "c": 2,
+                "d": 3
+            }
+        });
+        let override_val = json!({
+            "b": {
+                "c": 4,
+                "e": 5
+            },
+            "f": 6
+        });
+        merge_json_values(&mut base, override_val);
+        assert_eq!(base, json!({
+            "a": 1,
+            "b": {
+                "c": 4,
+                "d": 3,
+                "e": 5
+            },
+            "f": 6
+        }));
     }
 }

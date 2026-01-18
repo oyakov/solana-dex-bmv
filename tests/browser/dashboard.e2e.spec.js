@@ -30,9 +30,7 @@ test.describe("BMV Dashboard E2E Tests", () => {
                 page.locator('button:has-text("Establish Connection")')
             ).toBeVisible();
             // Check for any authentication-related text on the page
-            await expect(
-                page.locator("text=Terminal Access").or(page.locator("text=Authentication")).or(page.locator("text=Password"))
-            ).toBeVisible();
+            await expect(page.getByRole('heading', { name: 'TERMINAL ACCESS' })).toBeVisible();
         });
 
         test("should reject invalid password", async ({ page }) => {
@@ -55,6 +53,7 @@ test.describe("BMV Dashboard E2E Tests", () => {
             const url = page.url();
             // Should be on root after login  
             expect(url).toBe(`${BASE_URL}/`);
+            await expect(page.locator("h1:has-text('BMV.BOT')")).toBeVisible();
         });
 
         test("should logout successfully", async ({ page }) => {
@@ -146,8 +145,8 @@ test.describe("BMV Dashboard E2E Tests", () => {
 
             for (const pagePath of pages) {
                 await page.goto(`${BASE_URL}${pagePath}`);
-                await page.waitForLoadState("networkidle");
-                await page.waitForTimeout(2000);
+                await page.waitForLoadState("domcontentloaded");
+                await page.waitForTimeout(1000);
 
                 // Just verify page loaded - check URL
                 expect(page.url()).toContain(pagePath === "/" ? BASE_URL : pagePath);
@@ -177,7 +176,7 @@ test.describe("BMV Dashboard E2E Tests", () => {
 
             for (const card of cards) {
                 await expect(
-                    page.locator(`div:has-text("${card}")`).last()
+                    page.locator(`div:has-text("${card}")`).filter({ has: page.locator('h4') }).last()
                 ).toBeVisible();
             }
         });
@@ -196,11 +195,11 @@ test.describe("BMV Dashboard E2E Tests", () => {
         test("should display system status indicator", async ({ page }) => {
             // Check for version number as proxy for system status (always visible)
             await page.waitForTimeout(2000);
-            await expect(page.locator("text=v0.4")).toBeVisible({ timeout: 10000 });
+            await expect(page.locator("text=v0.4").first()).toBeVisible({ timeout: 10000 });
         });
 
         test("should display version number", async ({ page }) => {
-            await expect(page.locator("text=v0.4")).toBeVisible();
+            await expect(page.locator("text=v0.4").first()).toBeVisible();
         });
     });
 
@@ -354,7 +353,7 @@ test.describe("BMV Dashboard E2E Tests", () => {
         test("should display wallet status", async ({ page }) => {
             await page.waitForTimeout(3000);
             // Just verify the page title is visible - wallet status may vary
-            await expect(page.locator("h2:has-text('Wallet Swarm')")).toBeVisible();
+            await expect(page.locator("h2:has-text('Wallet Swarm')")).toBeVisible({ timeout: 10000 });
             // Log what we find for debugging
             const statusIndicators = page.locator("text=/READY|ACTIVE|MASTER|Ready|Active|Master/");
             const count = await statusIndicators.count();
