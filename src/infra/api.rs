@@ -90,6 +90,27 @@ struct LoginResponse {
     token: String,
 }
 
+#[derive(Serialize)]
+struct TokenHolder {
+    rank: usize,
+    address: String,
+    ata_address: String,
+    balance: u64,
+    balance_formatted: f64,
+    percent_of_supply: f64,
+    is_whale: bool,
+}
+
+#[derive(Serialize)]
+struct TokenHoldersResponse {
+    holders: Vec<TokenHolder>,
+    total_supply: u64,
+    total_supply_formatted: f64,
+    top_10_concentration: f64,
+    top_20_concentration: f64,
+    largest_holder_percent: f64,
+}
+
 impl ApiServer {
     pub fn new(
         settings: BotSettings,
@@ -138,6 +159,7 @@ impl ApiServer {
                     .route("/stats", get(handle_stats))
                     .route("/history", get(handle_history))
                     .route("/latency", get(handle_latency))
+                    .route("/holders", get(handle_holders))
                     .route("/wallets", get(handle_list_wallets))
                     .route("/wallets/add", post(handle_add_wallet))
                     .route("/control", post(handle_control))
@@ -527,6 +549,95 @@ async fn handle_simulation(
         )
         .await;
     Json(result)
+}
+
+async fn handle_holders(State(state): State<ApiState>) -> Json<TokenHoldersResponse> {
+    info!("GET /api/holders - Fetching token holder data");
+
+    let token_mint_str = &state.settings.token_mint;
+    let token_mint = Pubkey::from_str(token_mint_str).unwrap_or_default();
+
+    // Get token supply with timeout
+    let total_supply = match tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        state.solana.get_token_supply(&token_mint),
+    )
+    .await
+    {
+        Ok(Ok(supply)) => supply,
+        _ => 0,
+    };
+
+    // Get largest accounts with timeout
+    let largest_accounts = match tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        state.solana.get_token_largest_accounts(&token_mint),
+    )
+    .await
+    {
+        Ok(Ok(accounts)) => accounts,
+        _ => Vec::new(),
+    };
+
+    // Token decimals (BMV is typically 9 decimals)
+    let decimals: u64 = 9;
+    let divisor = 10u64.pow(decimals as u32) as f64;
+
+    let mut holders: Vec<TokenHolder> = Vec::new();
+    let mut top_10_sum: u64 = 0;
+    let mut top_20_sum: u64 = 0;
+
+    for (rank, (ata_pubkey, balance)) in largest_accounts.iter().take(20).enumerate() {
+        let percent = if total_supply > 0 {
+            (*balance as f64 / total_supply as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        if rank < 10 {
+            top_10_sum += balance;
+        }
+        top_20_sum += balance;
+
+        holders.push(TokenHolder {
+            rank: rank + 1,
+            address: ata_pubkey.to_string(), // ATA address (can be resolved to owner later)
+            ata_address: ata_pubkey.to_string(),
+            balance: *balance,
+            balance_formatted: *balance as f64 / divisor,
+            percent_of_supply: percent,
+            is_whale: percent >= 5.0,
+        });
+    }
+
+    let top_10_concentration = if total_supply > 0 {
+        (top_10_sum as f64 / total_supply as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let top_20_concentration = if total_supply > 0 {
+        (top_20_sum as f64 / total_supply as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let largest_holder_percent = holders.first().map(|h| h.percent_of_supply).unwrap_or(0.0);
+
+    info!(
+        "GET /api/holders - Found {} holders, top 10 = {:.2}%",
+        holders.len(),
+        top_10_concentration
+    );
+
+    Json(TokenHoldersResponse {
+        holders,
+        total_supply,
+        total_supply_formatted: total_supply as f64 / divisor,
+        top_10_concentration,
+        top_20_concentration,
+        largest_holder_percent,
+    })
 }
 
 use tracing::warn;

@@ -10,7 +10,8 @@ import {
     BarChart3,
     Clock,
     LogOut,
-    FlaskConical
+    FlaskConical,
+    Users
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,7 +30,7 @@ export default function Sidebar() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-black tracking-tighter leading-none">BMV.BOT</h1>
-                        <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">System v0.4.4</p>
+                        <p className="text-cyan-400/60 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">System v0.4.5</p>
                     </div>
                 </div>
 
@@ -38,6 +39,7 @@ export default function Sidebar() {
                     <NavItem icon={<Activity size={20} />} label="Latency Report" href="/latency" active={pathname === "/latency"} />
                     <NavItem icon={<FlaskConical size={20} />} label="Simulation Lab" href="/simulation" active={pathname === "/simulation"} />
                     <NavItem icon={<Wallet size={20} />} label="Wallet Swarm" href="/wallets" active={pathname === "/wallets"} />
+                    <NavItem icon={<Users size={20} />} label="Token Holders" href="/holders" active={pathname === "/holders"} />
                     <NavItem icon={<BarChart3 size={20} />} label="PnL Engine" />
                     <NavItem icon={<Settings size={20} />} label="Protocol Config" />
                     <div onClick={logout} className="flex items-center gap-3 px-5 py-4 rounded-2xl transition-all cursor-pointer group relative text-slate-500 hover:text-red-400 hover:bg-red-500/5 mt-4">
