@@ -8,29 +8,19 @@ import {
   Activity,
   Wallet,
   TrendingUp,
-  LayoutDashboard,
-  Settings,
-  Flame,
   Globe,
   Database,
-  BarChart3,
   Clock,
   Users,
   Scale,
   ShieldCheck,
-  TrendingDown,
-  LogOut
 } from "lucide-react";
-import {
-  ReferenceArea
-} from "recharts";
 import D3AreaChart from "../components/D3AreaChart";
 import D3DepthChart from "../components/D3DepthChart";
 import Sidebar from "../components/Sidebar";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { getAuthHeaders, logout } from "../utils/auth";
+import { motion } from "framer-motion";
+import { getAuthHeaders } from "../utils/auth";
+import { useLanguage } from "../components/LanguageProvider";
 
 
 interface PriceTick {
@@ -40,6 +30,7 @@ interface PriceTick {
 }
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState({
     pivot_price: "0.00",
     buy_channel_width: "0.00",
@@ -156,7 +147,7 @@ export default function Dashboard() {
         body: JSON.stringify({ action }),
       });
 
-      alert(`Action ${action} triggered successfully`);
+      alert(t("actionTriggered", { action }));
     } catch (error) {
       console.error("Control action failed:", error);
     }
@@ -189,10 +180,10 @@ export default function Dashboard() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
             <div>
-              <h2 className="text-3xl font-black tracking-tight mb-1">Trading Command Center</h2>
+              <h2 className="text-3xl font-black tracking-tight mb-1">{t("tradingCommandCenter")}</h2>
               <p className="text-slate-400 text-sm flex items-center gap-2">
                 <Globe size={14} className="text-cyan-400" />
-                Live from Solana Mainnet Beta
+                {t("liveFromSolana")}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -203,7 +194,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <button className="px-6 py-2 bg-cyan-500 text-black font-black text-xs uppercase tracking-widest rounded-full hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20">
-                Deploy Grid
+                {t("deployGrid")}
               </button>
             </div>
           </div>
@@ -211,31 +202,31 @@ export default function Dashboard() {
           {/* Header Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              label="Asset Pivot"
+              label={t("assetPivot")}
               value={`${formatPrice(stats.pivot_price)} SOL`}
-              subValue="Seeded VWAP Mid-Point"
+              subValue={t("seededVwapMidPoint")}
               icon={<TrendingUp className="text-cyan-400" />}
               trend="+1.2%"
               isNeon
             />
             <StatCard
-              label="SOL Balance"
+              label={t("solBalance")}
               value={`${(stats.total_sol_balance ?? 0).toFixed(4)} SOL`}
-              subValue="Total Swarm Reserve"
+              subValue={t("totalSwarmReserve")}
               icon={<Wallet className="text-emerald-400" />}
-              status="Liquid"
+              status={t("liquid")}
             />
             <StatCard
-              label="USDC Balance"
+              label={t("usdcBalance")}
               value={`$${(stats.total_usdc_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              subValue="Stablecoin Liquidity"
+              subValue={t("stablecoinLiquidity")}
               icon={<Database className="text-blue-400" />}
-              status="Ready"
+              status={t("ready")}
             />
             <StatCard
-              label="SOL/USDC"
+              label={t("solUsdc")}
               value={`$${chartData[chartData.length - 1]?.sol.toFixed(2) || "0.00"}`}
-              subValue="Market Baseline"
+              subValue={t("marketBaseline")}
               icon={<Activity className="text-purple-400" />}
               trend="-0.4%"
             />
@@ -244,47 +235,47 @@ export default function Dashboard() {
           {/* Enhanced Analytics Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              label="Whale Index"
+              label={t("whaleIndex")}
               value={`${(stats.top_holders_percent ?? 0).toFixed(1)}%`}
-              subValue="Concentration in Top 10"
+              subValue={t("concentrationTop10")}
               icon={<Users className="text-cyan-400" />}
-              status={(stats.top_holders_percent ?? 0) > 50 ? "Centralized" : "Healthy"}
+              status={(stats.top_holders_percent ?? 0) > 50 ? t("centralized") : t("healthy")}
             />
             <StatCard
-              label="Order Imbalance"
+              label={t("orderImbalance")}
               value={`${((stats.imbalance_index ?? 0) * 100).toFixed(1)}%`}
-              subValue={(stats.imbalance_index ?? 0) > 0 ? "Bid Dominance" : "Ask Dominance"}
+              subValue={(stats.imbalance_index ?? 0) > 0 ? t("bidDominance") : t("askDominance")}
               icon={<Scale className={`${(stats.imbalance_index ?? 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`} />}
             />
             <StatCard
-              label="Safe Haven Index"
+              label={t("safeHavenIndex")}
               value={`${(stats.safe_haven_index ?? 1.0).toFixed(2)}x`}
-              subValue="Beta vs Solana Index"
+              subValue={t("betaVsSolana")}
               icon={<ShieldCheck className="text-blue-400" />}
             />
             <StatCard
-              label="Market Spread"
+              label={t("marketSpread")}
               value={`${(stats.spread_bps ?? 0).toFixed(2)} bps`}
-              subValue="Real-time Liquidity Gap"
+              subValue={t("realTimeLiquidityGap")}
               icon={<Zap className="text-yellow-400" />}
-              status={(stats.spread_bps ?? 0) < 10 ? "Tight" : "Wide"}
+              status={(stats.spread_bps ?? 0) < 10 ? t("tight") : t("wide")}
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              label="Node Status"
-              value={`${stats.active_wallets} Active`}
-              subValue="Multi-Wallet Rotation"
+              label={t("nodeStatus")}
+              value={`${stats.active_wallets} ${t("active")}`}
+              subValue={t("multiWalletRotation")}
               icon={<Activity className="text-blue-400" />}
-              status="Online"
+              status={t("online")}
             />
             <StatCard
-              label="Channel Width"
+              label={t("channelWidth")}
               value={`${stats.buy_channel_width}% / ${stats.sell_channel_width}%`}
-              subValue="Dynamic Volatility Bound"
+              subValue={t("dynamicVolatilityBound")}
               icon={<Shield className="text-emerald-400" />}
-              status="Protected"
+              status={t("protected")}
             />
           </div>
 
@@ -302,13 +293,13 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
                     <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">Dry Run Mode</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">{t("dryRunMode")}</span>
                   </div>
                 </div>
 
                 <h3 className="text-xl font-black mb-8 flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-cyan-400 rounded-full" />
-                  Asset Price History
+                  {t("assetPriceHistory")}
                 </h3>
 
                 <div className="h-[400px] w-full">
@@ -318,7 +309,7 @@ export default function Dashboard() {
                       dataKey="asset"
                       color="#22d3ee"
                       gradientId="colorAsset"
-                      name="BMV Base Price"
+                      name={t("bmvBasePrice")}
                       pivotPrice={parseFloat(stats.pivot_price)}
                       buyChannelWidth={parseFloat(stats.buy_channel_width)}
                       sellChannelWidth={parseFloat(stats.sell_channel_width)}
@@ -333,7 +324,7 @@ export default function Dashboard() {
               <div className="glass-panel rounded-[2rem] p-8 border border-white/5">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-purple-400 rounded-full" />
-                  SOL/USDC Correlation
+                  {t("solUsdcCorrelation")}
                 </h3>
                 <div className="h-[400px] w-full">
                   {mounted && (
@@ -342,7 +333,7 @@ export default function Dashboard() {
                       dataKey="sol"
                       color="#a855f7"
                       gradientId="colorSol"
-                      name="SOL Correlation"
+                      name={t("solCorrelation")}
                       yAxisFormatter={yAxisFormatter}
                       margin={chartMargin}
                     />
@@ -356,18 +347,18 @@ export default function Dashboard() {
               <div className="glass-panel rounded-[2rem] p-8 border border-white/5 h-full">
                 <h3 className="text-lg font-black mb-8 flex items-center gap-2 text-slate-300">
                   <Zap size={18} className="text-yellow-400" />
-                  Tactical Control
+                  {t("tacticalControl")}
                 </h3>
 
                 <div className="space-y-4">
                   <TacticalButton
-                    label="Force Rebalance"
+                    label={t("forceRebalance")}
                     icon={<RefreshCcw size={18} />}
                     color="cyan"
                     onClick={() => handleControl("rebalance")}
                   />
                   <TacticalButton
-                    label="Kill Switch"
+                    label={t("killSwitch")}
                     icon={<Shield size={18} />}
                     color="red"
                     onClick={() => handleControl("kill_switch")}
@@ -376,8 +367,8 @@ export default function Dashboard() {
 
                   <div className="mt-10 pt-10 border-t border-white/5">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-6 font-mono flex items-center justify-between">
-                      <span>Order Book V1</span>
-                      <span className="text-cyan-400">Live</span>
+                      <span>{t("orderBookV1")}</span>
+                      <span className="text-cyan-400">{t("live")}</span>
                     </h4>
                     <div className="space-y-3">
                       {stats.asks.slice(0, 3).reverse().map((ask, i) => (
@@ -398,24 +389,24 @@ export default function Dashboard() {
 
                     <div className="mt-6 flex flex-col gap-2 p-4 glass-panel rounded-2xl border border-white/5 bg-cyan-500/5">
                       <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <span>Liquidity Concentr.</span>
-                        <span className="text-cyan-400">Target Level</span>
+                        <span>{t("liquidityConcentration")}</span>
+                        <span className="text-cyan-400">{t("targetLevel")}</span>
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400">RESIST (90%)</span>
+                          <span className="text-slate-400">{t("resist90")}</span>
                           <span className="text-rose-400 font-bold">{formatPrice(stats.resistance_90)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400">RESIST (50%)</span>
+                          <span className="text-slate-400">{t("resist50")}</span>
                           <span className="text-rose-400/80">{formatPrice(stats.resistance_50)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-white/5">
-                          <span className="text-slate-400">SUPPORT (50%)</span>
+                          <span className="text-slate-400">{t("support50")}</span>
                           <span className="text-emerald-400/80">{formatPrice(stats.support_50)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400">SUPPORT (90%)</span>
+                          <span className="text-slate-400">{t("support90")}</span>
                           <span className="text-emerald-400 font-bold">{formatPrice(stats.support_90)}</span>
                         </div>
                       </div>
