@@ -10,7 +10,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 
 ## Runtime Status
 - [**Active Context**](memory-bank/activeContext.md): Current focus, recent changes, and immediate tasks.
-  - Current Version: v0.4.5 (Config Profiles Split)
+  - Current Version: v0.4.6 (Dashboard & E2E Testing)
 - [**Progress**](memory-bank/progress.md): Roadmap status and phase completion tracking.
 - **Network Observability**: In-system latency tracking for external dependencies (OpenBook, Jito, Solana).
 
@@ -20,6 +20,7 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 - [Testing Guide](TESTING.md): Testing strategy and execution instructions.
 - [Agent Workflows](WORKFLOWS.md): Available AI agent workflows.
 - [Order Grid Visualization](ORDER_GRID_VISUALIZATION.md): Theory and performance monitoring.
+- [Dashboard & Testing Guide](v0.4.6_DASHBOARD_AND_TESTING.md): v0.4.6 features and E2E testing.
 
 ## Technical Documentation
 - [Main Requirements](requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования%20—%202.7.md): Latest project requirements (v2.7).
@@ -48,4 +49,5 @@ The Memory Bank is the central source of truth for the BMV Market Making Bot pro
 8. **RPC Timeouts**: All RPC calls must have timeouts (500ms for balance queries, 2s for orderbook/token metrics) to prevent API blocking.
 9. **Polling Discipline**: Frontend polling intervals: 5s for main dashboard, 30s for latency page. Backend health checks: 300s.
 10. **Clippy Compliance**: Code must pass `cargo clippy -- -D warnings` before commit. Use `cargo fmt` for consistent formatting.
+11. **E2E Testing**: Major UI and API flows must be covered by Playwright tests in `tests/browser/`.
 

@@ -23,7 +23,17 @@ cargo test --test integration_*
 - `flash_volume_jito`: Verifies atomic wash trade bundle construction.
 - `rent_recovery`: Verifies OpenOrder account scanning.
 
-## 3. Performance Tests (Benchmarks)
+## 3. Playwright E2E Tests
+Browser-based tests for the dashboard and API integration.
+
+```powershell
+cd tests/browser
+npm install
+npx playwright test
+```
+See [Dashboard & Testing Guide](v0.4.6_DASHBOARD_AND_TESTING.md) for details.
+
+## 4. Performance Tests (Benchmarks)
 Located in `tests/performance/`. Used to measure the latency of critical computations like the Pivot Point calculation.
 
 **Run performance tests:**

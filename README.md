@@ -16,7 +16,7 @@ This project is a high-performance Solana trading system implemented in Rust, co
 - **Execution Layer**: Builds, signs, and submits transactions, with Jito MEV protection support.
 - **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
 - **Safety & Risk Controls**: Integrated Circuit Breaker and Risk Manager to guard all actions.
-- **Observability**: Structured logging using `tracing` and real-time metrics via Prometheus & Grafana.
+- **Observability**: Structured logging using `tracing` and real-time metrics via Prometheus, Grafana, and a modern Solana DEX Dashboard (v0.4.6).
 - **Security Hardening**: Secure configuration via environment variables, masked sensitive data in logs, and non-root execution in Docker.
 
 ## Security & Secret Management
@@ -127,4 +127,5 @@ For more details, see [TESTING.md](docs/TESTING.md).
 - [Requirements](docs/requirements/BMV%20Eco%20System%20Market%20Making%20Bot%20—%20Требования.md)
 - [Docker Guide](docs/DOCKER.md)
 - [Testing Guide](docs/TESTING.md)
+- [Dashboard & Testing Guide (v0.4.6)](docs/v0.4.6_DASHBOARD_AND_TESTING.md)
 - [Agent Workflows](docs/WORKFLOWS.md)
