@@ -158,7 +158,8 @@ mod tests {
             .unwrap(),
         );
 
-        let module = FlashVolumeModule::new(solana, wallet_manager, settings);
+        let settings_arc = Arc::new(tokio::sync::RwLock::new(settings));
+        let module = FlashVolumeModule::new(solana, wallet_manager, settings_arc);
         let result = module.execute_cycle().await;
         assert!(result.is_ok());
     }
@@ -196,7 +197,8 @@ mod tests {
             .unwrap(),
         );
 
-        let module = FlashVolumeModule::new(solana, wallet_manager, settings);
+        let settings_arc = Arc::new(tokio::sync::RwLock::new(settings));
+        let module = FlashVolumeModule::new(solana, wallet_manager, settings_arc);
         let result = module.execute_cycle().await;
         result.expect("Flash volume cycle failed");
     }

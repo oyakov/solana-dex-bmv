@@ -608,7 +608,8 @@ mod tests {
         let mut mock_solana = MockSolanaProvider::new();
         let mut mock_database = MockDatabaseProvider::new();
 
-        let settings = BotSettings::default();
+        let mut settings = BotSettings::default();
+        settings.flash_volume.enabled = false;
 
         // Mock get_market_data
         let market_id_clone = settings.openbook_market_id.clone();
@@ -667,10 +668,6 @@ mod tests {
             .expect_save_price_tick()
             .returning(|_, _| Ok(()));
 
-        // Settings to disable noisy modules if possible or just handle them
-        let mut settings = BotSettings::default();
-        settings.flash_volume.enabled = false;
-
         let solana: Arc<dyn SolanaProvider> = Arc::new(mock_solana);
         let database: Arc<dyn DatabaseProvider> = Arc::new(mock_database);
         let wallet_manager = Arc::new(
@@ -693,14 +690,16 @@ mod tests {
         ));
 
         let price_aggregator = Arc::new(PriceAggregator::default());
+        let settings_arc = Arc::new(tokio::sync::RwLock::new(settings));
         let service = TradingService::new(
-            settings,
+            settings_arc,
             solana,
             database,
             wallet_manager,
             pivot_engine,
             price_aggregator,
-        );
+        )
+        .await;
 
         let result = service.tick().await;
         result.expect("Trading service tick failed");

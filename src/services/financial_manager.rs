@@ -272,7 +272,11 @@ mod tests {
             .unwrap(),
         );
 
-        let manager = FinancialManager::new(solana, wallet_manager, settings);
+        let manager = FinancialManager::new(
+            solana,
+            wallet_manager,
+            Arc::new(tokio::sync::RwLock::new(settings)),
+        );
 
         // Price at pivot - no swap expected
         let result = manager.rebalance_fiat(dec!(100), dec!(100)).await;
