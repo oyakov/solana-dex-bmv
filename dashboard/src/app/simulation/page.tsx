@@ -15,7 +15,8 @@ import {
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Sidebar from "../../components/Sidebar";
-import { getAuthHeaders } from "../../utils/auth";
+import SimulationChart from "../../components/SimulationChart";
+import { useLanguage } from "../../components/LanguageProvider";
 
 interface SimulationOrder {
     price: number;
@@ -36,6 +37,7 @@ interface SimulationResult {
 type ScenarioType = "upward_saw" | "downward_saw" | "sideways" | "flash_crash" | "pump_and_dump" | "gradual_rise";
 
 export default function SimulationPage() {
+    const { t } = useLanguage();
     const [scenario, setScenario] = useState<ScenarioType>("upward_saw");
     const [basePrice, setBasePrice] = useState("0.00001");
     const [steps, setSteps] = useState("50");
@@ -45,12 +47,12 @@ export default function SimulationPage() {
     const [error, setError] = useState<string | null>(null);
 
     const scenarios: { value: ScenarioType; label: string; icon: React.ReactNode; description: string }[] = [
-        { value: "upward_saw", label: "Upward Saw", icon: <TrendingUp className="text-green-400" />, description: "Gradual uptrend with pullbacks" },
-        { value: "downward_saw", label: "Downward Saw", icon: <TrendingDown className="text-red-400" />, description: "Gradual downtrend with bounces" },
-        { value: "sideways", label: "Sideways", icon: <Activity className="text-yellow-400" />, description: "Range-bound movement" },
-        { value: "flash_crash", label: "Flash Crash", icon: <Zap className="text-rose-400" />, description: "Sudden price collapse & recovery" },
-        { value: "pump_and_dump", label: "Pump & Dump", icon: <TrendingUp className="text-orange-400" />, description: "Sharp rise then selloff" },
-        { value: "gradual_rise", label: "Gradual Rise", icon: <TrendingUp className="text-cyan-400" />, description: "Steady upward movement" },
+        { value: "upward_saw", label: t("upwardSaw"), icon: <TrendingUp className="text-green-400" />, description: t("upwardSawDesc") },
+        { value: "downward_saw", label: t("downwardSaw"), icon: <TrendingDown className="text-red-400" />, description: t("downwardSawDesc") },
+        { value: "sideways", label: t("sideways"), icon: <Activity className="text-yellow-400" />, description: t("sidewaysDesc") },
+        { value: "flash_crash", label: t("flashCrash"), icon: <Zap className="text-rose-400" />, description: t("flashCrashDesc") },
+        { value: "pump_and_dump", label: t("pumpAndDump"), icon: <TrendingUp className="text-orange-400" />, description: t("pumpAndDumpDesc") },
+        { value: "gradual_rise", label: t("gradualRise"), icon: <TrendingUp className="text-cyan-400" />, description: t("gradualRiseDesc") },
     ];
 
     const runSimulation = async () => {
@@ -110,19 +112,19 @@ export default function SimulationPage() {
                             <div className="flex items-center gap-2 mb-2">
                                 <Link href="/" className="p-1 px-2 bg-white/5 rounded-lg border border-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                                     <ArrowLeft size={10} />
-                                    Back
+                                    {t("back")}
                                 </Link>
                             </div>
-                            <h2 className="text-3xl font-black tracking-tight mb-1">Simulation Lab</h2>
+                            <h2 className="text-3xl font-black tracking-tight mb-1">{t("simulationLab")}</h2>
                             <p className="text-slate-400 text-sm flex items-center gap-2">
                                 <FlaskConical size={14} className="text-orange-400" />
-                                Backtest Market Scenarios
+                                {t("backtestingMarketScenarios")}
                             </p>
                         </div>
                         <div className="px-5 py-2 bg-orange-500/10 border border-orange-500/20 rounded-full">
                             <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 flex items-center gap-2">
                                 <FlaskConical size={10} />
-                                Simulation Engine Active
+                                {t("simulationEngineActive")}
                             </span>
                         </div>
                     </div>
@@ -132,12 +134,12 @@ export default function SimulationPage() {
                         <div className="glass-panel rounded-[2rem] p-8 border border-white/5">
                             <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                 <div className="w-1.5 h-6 bg-orange-400 rounded-full" />
-                                Configuration
+                                {t("configuration")}
                             </h3>
 
                             {/* Scenario Selection */}
                             <div className="mb-6">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-3">Market Scenario</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-3">{t("marketScenario")}</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {scenarios.map((s) => (
                                         <button
@@ -161,7 +163,7 @@ export default function SimulationPage() {
                             {/* Parameters */}
                             <div className="space-y-4 mb-6">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Base Price (SOL)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">{t("basePrice")} (SOL)</label>
                                     <input
                                         type="text"
                                         value={basePrice}
@@ -170,7 +172,7 @@ export default function SimulationPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Steps</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">{t("steps")}</label>
                                     <input
                                         type="number"
                                         value={steps}
@@ -179,7 +181,7 @@ export default function SimulationPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Volatility</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">{t("volatility")}</label>
                                     <input
                                         type="text"
                                         value={volatility}
@@ -200,7 +202,7 @@ export default function SimulationPage() {
                                 ) : (
                                     <Play size={16} />
                                 )}
-                                {loading ? "Running..." : "Run Simulation"}
+                                {loading ? t("running") : t("runSimulation")}
                             </button>
 
                             {error && (
@@ -212,41 +214,53 @@ export default function SimulationPage() {
                         <div className="lg:col-span-2 glass-panel rounded-[2rem] p-8 border border-white/5">
                             <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                 <div className="w-1.5 h-6 bg-cyan-400 rounded-full" />
-                                Simulation Results
+                                {t("simulationResults")}
                             </h3>
 
                             {!result ? (
                                 <div className="flex items-center justify-center h-64 text-slate-500">
                                     <div className="text-center">
                                         <FlaskConical size={48} className="mx-auto mb-4 opacity-30" />
-                                        <p className="font-medium">Configure and run a simulation to see results</p>
+                                        <p className="font-medium">{t("configureAndRun")}</p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
+                                    {/* Price History Chart */}
+                                    <div className="bg-white/5 rounded-[2rem] p-6 border border-white/5">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                                            <Activity size={12} className="text-cyan-400" />
+                                            {t("marketEvolution")}
+                                        </p>
+                                        <SimulationChart
+                                            priceHistory={result.price_history}
+                                            orders={result.projected_grids[result.projected_grids.length - 1] || []}
+                                        />
+                                    </div>
+
                                     {/* Summary Cards */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div className="bg-white/5 rounded-xl p-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Scenario</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{t("marketScenario")}</p>
                                             <p className="text-lg font-bold text-slate-200">{result.scenario_name}</p>
                                         </div>
                                         <div className="bg-white/5 rounded-xl p-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Buy Orders</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{t("buyOrders")}</p>
                                             <p className="text-lg font-bold text-green-400">{result.total_buy_orders}</p>
                                         </div>
                                         <div className="bg-white/5 rounded-xl p-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Sell Orders</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{t("sellOrders")}</p>
                                             <p className="text-lg font-bold text-red-400">{result.total_sell_orders}</p>
                                         </div>
                                         <div className="bg-white/5 rounded-xl p-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Avg Spread</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{t("avgSpread")}</p>
                                             <p className="text-lg font-bold text-cyan-400">{(result.average_spread * 100).toFixed(2)}%</p>
                                         </div>
                                     </div>
 
                                     {/* Price Range */}
                                     <div className="bg-white/5 rounded-xl p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Price Range</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{t("priceRange")}</p>
                                         <div className="flex items-center gap-4">
                                             <div className="flex-1 h-2 bg-white/10 rounded-full relative">
                                                 <div
@@ -264,14 +278,14 @@ export default function SimulationPage() {
 
                                     {/* Orders Table - Using last grid of simulation */}
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Projected Orders ({result.projected_grids[result.projected_grids.length - 1]?.length || 0})</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{t("projectedOrders")} ({result.projected_grids[result.projected_grids.length - 1]?.length || 0})</p>
                                         <div className="max-h-64 overflow-y-auto">
                                             <table className="w-full text-sm">
                                                 <thead className="sticky top-0 bg-[#020617]">
                                                     <tr className="border-b border-white/5">
-                                                        <th className="text-left py-2 text-slate-500 font-medium">Side</th>
-                                                        <th className="text-right py-2 text-slate-500 font-medium">Price</th>
-                                                        <th className="text-right py-2 text-slate-500 font-medium">Size</th>
+                                                        <th className="text-left py-2 text-slate-500 font-medium">{t("side")}</th>
+                                                        <th className="text-right py-2 text-slate-500 font-medium">{t("price")}</th>
+                                                        <th className="text-right py-2 text-slate-500 font-medium">{t("size")}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -285,7 +299,7 @@ export default function SimulationPage() {
                                                         >
                                                             <td className="py-2">
                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${order.side === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                                                    {order.side}
+                                                                    {order.side === 'buy' ? t("buy") : t("sell")}
                                                                 </span>
                                                             </td>
                                                             <td className="text-right py-2 font-mono text-slate-300">{order.price.toFixed(8)}</td>
@@ -296,7 +310,7 @@ export default function SimulationPage() {
                                             </table>
                                             {result.projected_grids[result.projected_grids.length - 1]?.length > 20 && (
                                                 <p className="text-center text-slate-500 text-xs mt-2">
-                                                    + {result.projected_grids[result.projected_grids.length - 1].length - 20} more orders
+                                                    {t("moreOrders", { count: (result.projected_grids[result.projected_grids.length - 1].length - 20).toString() })}
                                                 </p>
                                             )}
                                         </div>

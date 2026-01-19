@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Wallet, Plus, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2, Shield, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../utils/auth";
+import { useLanguage } from "./LanguageProvider";
 
 
 interface WalletInfo {
@@ -13,6 +14,7 @@ interface WalletInfo {
 }
 
 export default function WalletList() {
+    const { t } = useLanguage();
     const [wallets, setWallets] = useState<WalletInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -76,7 +78,7 @@ export default function WalletList() {
         return (
             <div className="flex flex-col items-center justify-center p-20 space-y-4">
                 <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
-                <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">Synchronizing Swarm...</p>
+                <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">{t("synchronizingSwarm")}</p>
             </div>
         );
     }
@@ -87,9 +89,9 @@ export default function WalletList() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-cyan-400 rounded-full" />
-                    <h3 className="text-xl font-black">Active Swarm</h3>
+                    <h3 className="text-xl font-black">{t("activeSwarm")}</h3>
                     <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[10px] font-black rounded-full border border-cyan-500/20">
-                        {wallets.length} NODES
+                        {t("activeNodes", { count: wallets.length.toString() })}
                     </span>
                 </div>
                 <div className="flex gap-2">
@@ -104,7 +106,7 @@ export default function WalletList() {
                         className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-cyan-400 transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
                     >
                         <Plus size={16} strokeWidth={3} />
-                        Inject Wallet
+                        {t("injectWallet")}
                     </button>
                 </div>
             </div>
@@ -135,7 +137,7 @@ export default function WalletList() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 opacity-60">Public Address</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 opacity-60">{t("publicAddress")}</p>
                                     <div className="flex items-center gap-2">
                                         <p className="text-xs font-mono text-slate-300 break-all bg-black/20 p-2 rounded-lg border border-white/5 w-full">
                                             {wallet.pubkey}
@@ -165,11 +167,11 @@ export default function WalletList() {
                             <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Ready</span>
+                                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{t("ready")}</span>
                                 </div>
                                 {idx === 0 && (
                                     <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest px-2 py-0.5 bg-yellow-500/10 rounded-full border border-yellow-500/20">
-                                        Master Node
+                                        {t("masterNode")}
                                     </span>
                                 )}
                             </div>
@@ -200,21 +202,21 @@ export default function WalletList() {
                                     <div className="p-2 bg-cyan-500/20 rounded-xl">
                                         <Plus className="text-cyan-400" size={24} />
                                     </div>
-                                    Inject Wallet
+                                    {t("injectWallet")}
                                 </h3>
-                                <p className="text-slate-400 text-sm">Deploy a new keypair to the active swarm for multi-wallet rotation.</p>
+                                <p className="text-slate-400 text-sm">{t("walletCaution")}</p>
                             </div>
 
                             <form onSubmit={handleAddWallet} className="space-y-6">
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 mb-2 block">
-                                        Base58 Secret Key
+                                        {t("secretKey")}
                                     </label>
                                     <textarea
                                         required
                                         value={secret}
                                         onChange={(e) => setSecret(e.target.value)}
-                                        placeholder="Enter wallet secret key..."
+                                        placeholder={t("enterSecretKey")}
                                         className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500/50 transition-all resize-none h-32"
                                     />
                                     {error && (
@@ -231,7 +233,7 @@ export default function WalletList() {
                                         onClick={() => setShowAddModal(false)}
                                         className="flex-1 px-6 py-3.5 bg-white/5 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-white/10 transition-all active:scale-95 border border-white/5"
                                     >
-                                        Abort
+                                        {t("abort")}
                                     </button>
                                     <button
                                         disabled={isAdding}
@@ -243,7 +245,7 @@ export default function WalletList() {
                                         ) : (
                                             <>
                                                 <Zap size={18} fill="currentColor" />
-                                                Initialize
+                                                {t("initialize")}
                                             </>
                                         )}
                                     </button>
@@ -252,7 +254,7 @@ export default function WalletList() {
 
                             <div className="mt-8 p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-2xl">
                                 <p className="text-[9px] text-yellow-500/60 font-medium leading-relaxed uppercase tracking-wider">
-                                    Caution: Injected wallets are active immediately and will participate in automated rebalancing and wash trading cycles.
+                                    {t("walletCaution")}
                                 </p>
                             </div>
                         </motion.div>

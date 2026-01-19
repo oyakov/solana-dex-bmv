@@ -421,7 +421,7 @@ impl BotSettings {
         let mut config_value: serde_json::Value = if base_path.is_file() {
             let content = fs::read_to_string(&base_path)
                 .with_context(|| format!("Failed to read base config: {:?}", base_path))?;
-            serde_yaml::from_str(&content)
+            serde_yml::from_str(&content)
                 .with_context(|| format!("Failed to parse base config: {:?}", base_path))?
         } else {
             // Fallback to legacy config.yaml if it exists
@@ -429,7 +429,7 @@ impl BotSettings {
             if legacy_path.is_file() {
                 let content = fs::read_to_string(legacy_path)
                     .with_context(|| format!("Failed to read legacy config: {:?}", legacy_path))?;
-                serde_yaml::from_str(&content)
+                serde_yml::from_str(&content)
                     .with_context(|| format!("Failed to parse legacy config: {:?}", legacy_path))?
             } else {
                 serde_json::to_value(Self::default())?
@@ -441,7 +441,7 @@ impl BotSettings {
         if profile_path.is_file() {
             let content = fs::read_to_string(&profile_path)
                 .context(format!("Failed to read profile config: {:?}", profile_path))?;
-            let profile_value: serde_json::Value = serde_yaml::from_str(&content).context(
+            let profile_value: serde_json::Value = serde_yml::from_str(&content).context(
                 format!("Failed to parse profile config: {:?}", profile_path),
             )?;
             merge_json_values(&mut config_value, profile_value);
@@ -659,7 +659,7 @@ target_control:
   locked_tokens: 5000000.0
 sol_usdc_market_id: "SOL_USDC"
 "#;
-        let settings: BotSettings = serde_yaml::from_str(yaml).unwrap();
+        let settings: BotSettings = serde_yml::from_str(yaml).unwrap();
         assert_eq!(settings.token_mint, "TEST_MINT");
         assert_eq!(settings.order_grid.orders_per_side, 32);
         assert!(settings.jito_bundle.enabled);

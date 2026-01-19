@@ -39,6 +39,7 @@ interface TokenHoldersResponse {
 }
 
 export default function HoldersPage() {
+    const { t } = useLanguage();
     const [data, setData] = useState<TokenHoldersResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -141,13 +142,13 @@ export default function HoldersPage() {
                             <div className="flex items-center gap-2 mb-2">
                                 <Link href="/" className="p-1 px-2 bg-white/5 rounded-lg border border-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                                     <ArrowLeft size={10} />
-                                    Back
+                                    {t("back")}
                                 </Link>
                             </div>
-                            <h2 className="text-3xl font-black tracking-tight mb-1">Token Holders</h2>
+                            <h2 className="text-3xl font-black tracking-tight mb-1">{t("tokenHolders")}</h2>
                             <p className="text-slate-400 text-sm flex items-center gap-2">
                                 <Globe size={14} className="text-purple-400" />
-                                BMV Distribution via Solana RPC
+                                {t("distributionSolana")}
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -160,7 +161,7 @@ export default function HoldersPage() {
                             <div className="px-5 py-2 bg-purple-500/10 border border-purple-500/20 rounded-full">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
                                     <PieChart size={10} />
-                                    Live Concentration Data
+                                    {t("liveConcentration")}
                                 </span>
                             </div>
                         </div>
@@ -180,28 +181,28 @@ export default function HoldersPage() {
                             {/* Metrics Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                 <MetricCard
-                                    label="Total Supply"
+                                    label={t("totalSupply")}
                                     value={formatBalance(data?.total_supply_formatted || 0)}
-                                    subValue="BMV Tokens"
+                                    subValue={t("bmvTokens")}
                                     icon={<Database className="text-cyan-400" />}
                                 />
                                 <MetricCard
-                                    label="Top 10 Concentration"
+                                    label={t("top10Concentration")}
                                     value={`${(data?.top_10_concentration || 0).toFixed(1)}%`}
-                                    subValue={data && data.top_10_concentration > 50 ? "Centralized" : "Healthy Distribution"}
+                                    subValue={data && data.top_10_concentration > 50 ? t("centralized") : t("healthyDistribution")}
                                     icon={<Users className="text-purple-400" />}
                                     status={data && data.top_10_concentration > 50 ? "warning" : "healthy"}
                                 />
                                 <MetricCard
-                                    label="Top 20 Concentration"
+                                    label={t("top20Concentration")}
                                     value={`${(data?.top_20_concentration || 0).toFixed(1)}%`}
-                                    subValue="Combined Holdings"
+                                    subValue={t("combinedHoldings")}
                                     icon={<PieChart className="text-blue-400" />}
                                 />
                                 <MetricCard
-                                    label="Largest Holder"
+                                    label={t("largestHolder")}
                                     value={`${(data?.largest_holder_percent || 0).toFixed(2)}%`}
-                                    subValue="Whale Alert"
+                                    subValue={t("whaleAlert")}
                                     icon={<Crown className="text-yellow-400" />}
                                     status={data && data.largest_holder_percent > 10 ? "warning" : "healthy"}
                                 />
@@ -212,16 +213,16 @@ export default function HoldersPage() {
                                 <div className="lg:col-span-2 glass-panel rounded-[2rem] p-8 border border-white/5">
                                     <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                         <div className="w-1.5 h-6 bg-purple-400 rounded-full" />
-                                        Top 20 Token Holders
+                                        {t("top20Holders")}
                                     </h3>
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
                                             <thead>
                                                 <tr className="border-b border-white/5">
-                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-left">Rank</th>
-                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-left">Address</th>
-                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-right">Balance</th>
-                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-right">Share</th>
+                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-left">{t("rank")}</th>
+                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-left">{t("address")}</th>
+                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-right">{t("balance")}</th>
+                                                    <th className="text-[10px] font-black uppercase tracking-widest text-slate-500 py-3 text-right">{t("share")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -288,7 +289,7 @@ export default function HoldersPage() {
                                 <div className="glass-panel rounded-[2rem] p-8 border border-white/5">
                                     <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-slate-300">
                                         <PieChart size={18} className="text-purple-400" />
-                                        Distribution Overview
+                                        {t("distributionOverview")}
                                     </h3>
 
                                     {/* Stacked Bar Chart */}
@@ -313,7 +314,7 @@ export default function HoldersPage() {
                                             <div key={i} className="flex items-center justify-between text-sm">
                                                 <div className="flex items-center gap-2">
                                                     <div className={`w-3 h-3 rounded-full ${seg.color}`} />
-                                                    <span className="text-slate-400 font-medium">{seg.label}</span>
+                                                    <span className="text-slate-400 font-medium">{seg.label === "Others" ? t("others") : seg.label}</span>
                                                 </div>
                                                 <span className="font-mono text-slate-300">{seg.percent.toFixed(1)}%</span>
                                             </div>
@@ -326,9 +327,9 @@ export default function HoldersPage() {
                                             <div className="flex items-start gap-3">
                                                 <AlertTriangle size={18} className="text-yellow-400 mt-0.5" />
                                                 <div>
-                                                    <p className="text-yellow-400 font-bold text-sm">High Concentration</p>
+                                                    <p className="text-yellow-400 font-bold text-sm">{t("highConcentration")}</p>
                                                     <p className="text-slate-400 text-xs mt-1">
-                                                        Top 10 holders control over 50% of supply. Distribution may be centralized.
+                                                        {t("highConcentrationDesc")}
                                                     </p>
                                                 </div>
                                             </div>
@@ -338,9 +339,9 @@ export default function HoldersPage() {
                                     {/* Health Indicator */}
                                     <div className="mt-8 p-4 glass-panel rounded-2xl border border-white/5">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Distribution Health</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t("distributionHealth")}</span>
                                             <span className={`text-[10px] font-black uppercase ${data && data.top_10_concentration <= 50 ? 'text-emerald-400' : 'text-yellow-400'}`}>
-                                                {data && data.top_10_concentration <= 30 ? 'Excellent' : data && data.top_10_concentration <= 50 ? 'Good' : 'Fair'}
+                                                {data && data.top_10_concentration <= 30 ? t("excellent") : data && data.top_10_concentration <= 50 ? t("good") : t("fair")}
                                             </span>
                                         </div>
                                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">

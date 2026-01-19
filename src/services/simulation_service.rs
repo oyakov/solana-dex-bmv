@@ -72,14 +72,18 @@ impl SimulationEngine {
         let mut max_p = base_price;
 
         for tick in &price_history {
-            if tick.price < min_p { min_p = tick.price; }
-            if tick.price > max_p { max_p = tick.price; }
+            if tick.price < min_p {
+                min_p = tick.price;
+            }
+            if tick.price > max_p {
+                max_p = tick.price;
+            }
 
             let grid = self
                 .grid_builder
                 .build(tick.price, Decimal::from(100))
                 .await;
-            
+
             for level in &grid {
                 match level.side {
                     OrderSide::Buy => total_buy += 1,
@@ -98,7 +102,10 @@ impl SimulationEngine {
             density_distribution,
             total_buy_orders: total_buy,
             total_sell_orders: total_sell,
-            price_range: PriceRange { min: min_p, max: max_p },
+            price_range: PriceRange {
+                min: min_p,
+                max: max_p,
+            },
             average_spread: Decimal::new(2, 2), // Placeholder 2%
         }
     }

@@ -11,6 +11,7 @@ import D3LineChart from "../../components/D3LineChart";
 import Link from "next/link";
 import { getAuthHeaders } from "../../utils/auth";
 import Sidebar from "../../components/Sidebar";
+import { useLanguage } from "../../components/LanguageProvider";
 
 
 interface LatencyTick {
@@ -21,6 +22,7 @@ interface LatencyTick {
 }
 
 export default function LatencyDashboard() {
+    const { t } = useLanguage();
     const [latencyData, setLatencyData] = useState<Record<string, LatencyTick[]>>({});
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
@@ -95,16 +97,16 @@ export default function LatencyDashboard() {
                         <div>
                             <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest mb-2">
                                 <Shield size={14} />
-                                Network Observability
+                                {t("networkObservability")}
                             </div>
-                            <h2 className="text-3xl font-black tracking-tight mb-1">Infrastructure Latency</h2>
+                            <h2 className="text-3xl font-black tracking-tight mb-1">{t("infrastructureLatency")}</h2>
                             <p className="text-slate-400 text-sm flex items-center gap-2">
-                                Real-time dependency performance monitoring
+                                {t("latencyMonitoring")}
                             </p>
                         </div>
                         <Link href="/" className="px-6 py-2 bg-white/5 border border-white/10 text-slate-300 font-bold text-xs uppercase tracking-widest rounded-full hover:bg-white/10 transition-all flex items-center gap-2">
                             <ArrowLeft size={14} />
-                            Return to Command Center
+                            {t("returnToCommandCenter")}
                         </Link>
                     </div>
 
@@ -141,7 +143,7 @@ export default function LatencyDashboard() {
                     <div className="glass-panel rounded-[2rem] p-8 border border-white/5">
                         <h3 className="text-xl font-black mb-8 flex items-center gap-3">
                             <div className="w-1.5 h-6 bg-cyan-400 rounded-full" />
-                            Temporal Latency Distribution
+                            {t("temporalLatency")}
                         </h3>
                         <div className="h-[500px] w-full">
                             {mounted && (

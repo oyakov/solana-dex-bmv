@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { Flame, Lock, ArrowRight, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "../../components/LanguageProvider";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,10 +32,10 @@ export default function LoginPage() {
         document.cookie = `bmv_auth_token=${token}; path=/; max-age=86400; SameSite=Strict`;
         router.push("/");
       } else {
-        setError("Invalid access password. System locked.");
+        setError(t("invalidPassword"));
       }
     } catch (err) {
-      setError("Connectivity failure. Cannot reach terminal.");
+      setError(t("connectivityFailure"));
     } finally {
       setLoading(false);
     }
@@ -60,14 +62,14 @@ export default function LoginPage() {
               <Flame className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-3xl font-black tracking-tighter mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              TERMINAL ACCESS
+              {t("terminalAccess")}
             </h1>
             <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-cyan-400 opacity-80">BMV ECO SYSTEM COMMAND</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Authentication Credentials</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">{t("authCredentials")}</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock size={18} className="text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
@@ -76,7 +78,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter system password..."
+                  placeholder={t("enterPassword")}
                   required
                   className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/30 transition-all placeholder:text-slate-600"
                 />
@@ -103,10 +105,10 @@ export default function LoginPage() {
               className="w-full py-4 bg-white text-[#020617] font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-cyan-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 group"
             >
               {loading ? (
-                <span className="animate-pulse">Authorizing...</span>
+                <span className="animate-pulse">{t("authorizing")}</span>
               ) : (
                 <>
-                  Establish Connection
+                  {t("establishConnection")}
                   <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
@@ -114,7 +116,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-2">
-            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Encrypted Session v0.4.8</p>
+            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">{t("encryptedSession")} v0.4.8</p>
             <div className="flex gap-1">
               <div className="w-1 h-1 rounded-full bg-cyan-500/40" />
               <div className="w-1 h-1 rounded-full bg-cyan-500/20" />
