@@ -35,6 +35,9 @@ services:
     build: .
     container_name: solana-dex-bmv
     restart: unless-stopped
+    profiles:
+      - prod
+      - full
     depends_on:
       - db
     env_file:
@@ -64,10 +67,45 @@ services:
           cpus: '0.2'
           memory: 128M
 
+  # Lightweight bot for local testing (no Docker build, run locally)
+  bot-local:
+    build: .
+    container_name: solana-dex-bmv-local
+    profiles:
+      - local
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://botuser:${DB_PASSWORD:-botpass}@db:5432/solana_dex
+      - RUST_LOG=info,solana_dex_bmv=debug
+      - APP_ENV=local
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    expose:
+      - "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - bot-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
   dashboard:
     build:
       context: ./dashboard
     container_name: bmv-dashboard
+    profiles:
+      - prod
+      - full
     depends_on:
       - bot
     expose:
@@ -86,10 +124,37 @@ services:
           cpus: '0.2'
           memory: 256M
 
+  # Lightweight dashboard for local dev
+  dashboard-local:
+    build:
+      context: ./dashboard
+    container_name: bmv-dashboard-local
+    profiles:
+      - local
+    depends_on:
+      - bot-local
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - bot-network
+    environment:
+      - NODE_ENV=development
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
   nginx:
     image: nginx:alpine
     container_name: bmv-nginx
     restart: unless-stopped
+    profiles:
+      - prod
+      - full
     ports:
       - "80:80"
     volumes:

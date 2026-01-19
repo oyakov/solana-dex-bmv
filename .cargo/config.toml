@@ -1,5 +1,23 @@
+# Faster linker on Windows
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
 
 [target.aarch64-pc-windows-msvc]
 linker = "rust-lld.exe"
+
+# Build optimizations for reduced CPU/disk usage
+[build]
+# Limit parallel jobs to reduce CPU spikes (adjust based on your CPU cores)
+jobs = 4
+
+[net]
+# Use sparse protocol for faster crate index updates
+git-fetch-with-cli = true
+
+[registries.crates-io]
+protocol = "sparse"
+
+# Environment variables for optimization
+[env]
+# Reduce LLVM parallelism to save RAM
+CARGO_BUILD_JOBS = "4"

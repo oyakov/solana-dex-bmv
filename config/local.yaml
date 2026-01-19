@@ -1,18 +1,37 @@
+# Local development configuration - optimized for low resource usage
 dry_run:
   enabled: true
-  use_live_rpc: true
+  use_live_rpc: false  # Disable live RPC to reduce network calls
   simulate_fills: true
 
+# Reduced polling intervals for local dev
+health_check_interval_seconds: 600  # 10 minutes instead of 5
+trading_tick_interval_seconds: 30   # 30 seconds instead of 10
+
+# Use public endpoints sparingly
 rpc_endpoints:
   primary_http: "https://api.mainnet-beta.solana.com"
   secondary_http: []
   primary_ws: "wss://api.mainnet-beta.solana.com"
 
+# Disable Jito for local
 jito_bundle:
   enabled: false
-  tip_lamports: 1000
+  tip_lamports: 0
   max_bundle_txs: 5
   bundler_url: "https://mainnet.block-engine.jito.wtf/api/v1/bundles"
+
+# Disable flash volume for local testing
+flash_volume:
+  enabled: false
+  size_sol: 0.1
+  interval_min: 60
+  tip_sol: 0.001
+
+# Disable rugcheck for local (saves API calls)
+rugcheck:
+  enabled: false
+  check_interval_secs: 3600
 
 wallets:
   multi_wallet:
